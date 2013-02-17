@@ -340,14 +340,15 @@ bool fw3_has_state(void)
 
 void fw3_write_state(void *state)
 {
-	int fd;
+	FILE *sf;
+	int n, val;
 	struct fw3_state *s = state;
 	struct fw3_zone *z;
 	struct fw3_ipset *i;
 
-	fd = open(FW3_STATEFILE, O_CREAT|O_EXCL|O_WRONLY, S_IRUSR|S_IWUSR);
+	sf = fopen(FW3_STATEFILE, "w");
 
-	if (fd < 0)
+	if (!sf)
 	{
 		warn("Cannot create state %s: %s", FW3_STATEFILE, strerror(errno));
 		return;
@@ -355,9 +356,17 @@ void fw3_write_state(void *state)
 
 	list_for_each_entry(z, &s->zones, list)
 	{
-		write(fd, "zone ", 5);
-		write(fd, z->name, strlen(z->name));
-		write(fd, "\n", 1);
+		for (n = FW3_TARGET_ACCEPT, val = 0; n <= FW3_TARGET_SNAT; n++)
+			if (z->has_src_target[n])
+				val |= (1 << n);
+
+		fprintf(sf, "zone %s %u", z->name, val);
+
+		for (n = FW3_TARGET_ACCEPT, val = 0; n <= FW3_TARGET_SNAT; n++)
+			if (z->has_dest_target[n])
+				val |= (1 << n);
+
+		fprintf(sf, " %u\n", val);
 	}
 
 	list_for_each_entry(i, &s->ipsets, list)
@@ -365,12 +374,10 @@ void fw3_write_state(void *state)
 		if (i->external && *i->external)
 			continue;
 
-		write(fd, "ipset ", 6);
-		write(fd, i->name, strlen(i->name));
-		write(fd, "\n", 1);
+		fprintf(sf, "ipset %s\n", i->name);
 	}
 
-	close(fd);
+	fclose(sf);
 }
 
 void fw3_remove_state(void)
