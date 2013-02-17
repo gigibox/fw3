@@ -160,13 +160,17 @@ stop(struct fw3_state *state, bool complete)
 		fw3_command_close();
 	}
 
-	if (complete && fw3_command_pipe(false, "ipset", "-exist", "-"))
-	{
-		fw3_destroy_ipsets(state);
-		fw3_command_close();
-	}
-
 	return 0;
+}
+
+static void
+destroy_ipsets(struct fw3_state *state)
+{
+	if (!fw3_command_pipe(false, "ipset", "-exist", "-"))
+		return;
+
+	fw3_destroy_ipsets(state);
+	fw3_command_close();
 }
 
 static int
@@ -352,11 +356,16 @@ int main(int argc, char **argv)
 		}
 
 		rv = stop(state, false);
+
+		destroy_ipsets(state);
+
 		fw3_remove_state();
 	}
 	else if (!strcmp(argv[optind], "flush"))
 	{
 		rv = stop(state, true);
+
+		destroy_ipsets(state);
 
 		if (fw3_has_state())
 			fw3_remove_state();
