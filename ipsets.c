@@ -382,6 +382,8 @@ fw3_destroy_ipsets(struct fw3_state *state)
 	}
 
 	fw3_pr("quit\n");
+
+	fclose(sf);
 }
 
 void
