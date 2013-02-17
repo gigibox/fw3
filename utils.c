@@ -295,70 +295,86 @@ fw3_has_table(bool ipv6, const char *table)
 	return seen;
 }
 
+
 bool
-fw3_check_statefile(bool test_exists)
+fw3_lock(void)
 {
-	struct stat s;
-
-	if (!stat(FW3_STATEFILE, &s))
-	{
-		if (test_exists)
-			return true;
-
-		warn("The firewall appears to be started already. "
-			 "If it is indeed empty, remove the %s file and retry.",
-			 FW3_STATEFILE);
-
-		return false;
-	}
-	else if (test_exists)
-	{
-		warn("The firewall appears to stopped already.");
-		return false;
-	}
-
-	lock_fd = open(FW3_STATEFILE, O_CREAT | O_RDWR);
+	lock_fd = open(FW3_LOCKFILE, O_CREAT|O_WRONLY, S_IRUSR|S_IWUSR);
 
 	if (lock_fd < 0)
 	{
-		warn("Unable to create %s file", FW3_STATEFILE);
-		goto fail;
+		warn("Cannot create lock file %s: %s", FW3_LOCKFILE, strerror(errno));
+		return false;
 	}
 
 	if (flock(lock_fd, LOCK_EX))
 	{
-		warn("Unable to acquire exclusive lock on %s file", FW3_STATEFILE);
-		goto fail;
-
+		warn("Cannot acquire exclusive lock: %s", strerror(errno));
+		return false;
 	}
 
 	return true;
-
-fail:
-	if (lock_fd > -1)
-	{
-		close(lock_fd);
-		lock_fd = -1;
-	}
-
-	return false;
 }
 
 void
-fw3_remove_statefile(void)
+fw3_unlock(void)
 {
-	if (lock_fd > -1)
-		fw3_close_statefile();
+	if (lock_fd < 0)
+		return;
 
-	if (unlink(FW3_STATEFILE))
-		warn("Unable to delete %s file", FW3_STATEFILE);
-}
+	if (flock(lock_fd, LOCK_UN))
+		warn("Cannot release exclusive lock: %s", strerror(errno));
 
-void
-fw3_close_statefile(void)
-{
-	flock(lock_fd, LOCK_UN);
 	close(lock_fd);
+	unlink(FW3_LOCKFILE);
 
 	lock_fd = -1;
+}
+
+
+bool fw3_has_state(void)
+{
+	struct stat s;
+	return !stat(FW3_STATEFILE, &s);
+}
+
+void fw3_write_state(void *state)
+{
+	int fd;
+	struct fw3_state *s = state;
+	struct fw3_zone *z;
+	struct fw3_ipset *i;
+
+	fd = open(FW3_STATEFILE, O_CREAT|O_EXCL|O_WRONLY, S_IRUSR|S_IWUSR);
+
+	if (fd < 0)
+	{
+		warn("Cannot create state %s: %s", FW3_STATEFILE, strerror(errno));
+		return;
+	}
+
+	list_for_each_entry(z, &s->zones, list)
+	{
+		write(fd, "zone ", 5);
+		write(fd, z->name, strlen(z->name));
+		write(fd, "\n", 1);
+	}
+
+	list_for_each_entry(i, &s->ipsets, list)
+	{
+		if (i->external && *i->external)
+			continue;
+
+		write(fd, "ipset ", 6);
+		write(fd, i->name, strlen(i->name));
+		write(fd, "\n", 1);
+	}
+
+	close(fd);
+}
+
+void fw3_remove_state(void)
+{
+	if (unlink(FW3_STATEFILE))
+		warn("Unable to remove state %s: %s", FW3_STATEFILE, strerror(errno));
 }

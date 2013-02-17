@@ -306,6 +306,9 @@ int main(int argc, char **argv)
 
 	state = build_state();
 
+	if (!fw3_lock())
+		goto out;
+
 	if (optind >= argc)
 	{
 		rv = usage();
@@ -314,6 +317,8 @@ int main(int argc, char **argv)
 
 	if (!strcmp(argv[optind], "print"))
 	{
+		freopen("/dev/null", "w", stderr);
+
 		state->disable_ipsets = true;
 		print_rules = true;
 
@@ -324,38 +329,48 @@ int main(int argc, char **argv)
 	}
 	else if (!strcmp(argv[optind], "start"))
 	{
-		if (!fw3_check_statefile(false))
+		if (fw3_has_state())
+		{
+			warn("The firewall appears to be started already. "
+				 "If it is indeed empty, remove the %s file and retry.",
+				 FW3_STATEFILE);
+
 			goto out;
+		}
 
 		rv = start(state);
-		fw3_close_statefile();
+		fw3_write_state(state);
 	}
 	else if (!strcmp(argv[optind], "stop"))
 	{
-		if (!fw3_check_statefile(true))
+		if (!fw3_has_state())
+		{
+			warn("The firewall appears to be stopped. "
+				 "Use the 'flush' command to forcefully purge all rules.");
+
 			goto out;
+		}
 
 		rv = stop(state, false);
-		fw3_remove_statefile();
+		fw3_remove_state();
 	}
 	else if (!strcmp(argv[optind], "flush"))
 	{
 		rv = stop(state, true);
-		fw3_remove_statefile();
+
+		if (fw3_has_state())
+			fw3_remove_state();
 	}
 	else if (!strcmp(argv[optind], "restart"))
 	{
-		if (fw3_check_statefile(true))
+		if (fw3_has_state())
 		{
 			stop(state, false);
-			fw3_remove_statefile();
+			fw3_remove_state();
 		}
 
-		if (!fw3_check_statefile(false))
-			goto out;
-
 		rv = start(state);
-		fw3_close_statefile();
+		fw3_write_state(state);
 	}
 	else if (!strcmp(argv[optind], "network") && (optind + 1) < argc)
 	{
@@ -373,6 +388,8 @@ int main(int argc, char **argv)
 out:
 	if (state)
 		free_state(state);
+
+	fw3_unlock();
 
 	return rv;
 }

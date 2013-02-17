@@ -353,22 +353,32 @@ fw3_create_ipsets(struct fw3_state *state)
 void
 fw3_destroy_ipsets(struct fw3_state *state)
 {
-	struct fw3_ipset *ipset;
+	FILE *sf;
 
-	if (state->disable_ipsets)
+	char *p;
+	char line[128];
+
+	sf = fopen(FW3_STATEFILE, "r");
+
+	if (!sf)
 		return;
 
 	info("Destroying ipsets ...");
 
-	list_for_each_entry(ipset, &state->ipsets, list)
+	while (fgets(line, sizeof(line), sf))
 	{
-		if (ipset->external && *ipset->external)
+		if (strncmp(line, "ipset ", 6))
 			continue;
 
-		info(" * %s", ipset->name);
+		p = strtok(line+6, " \t\n");
 
-		fw3_pr("flush %s\n", ipset->name);
-		fw3_pr("destroy %s\n", ipset->name);
+		if (!p || !strlen(p))
+			continue;
+
+		info(" * %s", p);
+
+		fw3_pr("flush %s\n", p);
+		fw3_pr("destroy %s\n", p);
 	}
 
 	fw3_pr("quit\n");

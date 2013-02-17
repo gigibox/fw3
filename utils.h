@@ -32,7 +32,8 @@
 #include <uci.h>
 
 
-#define FW3_STATEFILE	"/var/run/fw3.lock"
+#define FW3_STATEFILE	"/var/run/fw3.state"
+#define FW3_LOCKFILE	"/var/run/fw3.lock"
 
 void warn_elem(struct uci_element *e, const char *format, ...);
 void warn(const char *format, ...);
@@ -71,8 +72,11 @@ void fw3_pr(const char *fmt, ...);
 
 bool fw3_has_table(bool ipv6, const char *table);
 
-bool fw3_check_statefile(bool test_exists);
-void fw3_remove_statefile(void);
-void fw3_close_statefile(void);
+bool fw3_lock(void);
+void fw3_unlock(void);
+
+bool fw3_has_state(void);
+void fw3_write_state(void *state);
+void fw3_remove_state(void);
 
 #endif
