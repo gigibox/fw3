@@ -29,6 +29,9 @@ void fw3_print_zone_chains(enum fw3_table table, enum fw3_family family,
 void fw3_print_zone_rules(enum fw3_table table, enum fw3_family family,
                           struct fw3_state *state);
 
+void fw3_flush_zones(enum fw3_table table, enum fw3_family family,
+                     bool pass2, struct list_head *statefile);
+
 struct fw3_zone * fw3_lookup_zone(struct fw3_state *state, const char *name);
 
 void fw3_free_zone(struct fw3_zone *zone);

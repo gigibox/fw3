@@ -142,7 +142,7 @@ fw3_load_rules(struct fw3_state *state, struct uci_package *p)
 		}
 
 		if (rule->_dest)
-			rule->_dest->has_dest_target[rule->target] = true;
+			rule->_dest->has_dest_target |= (1 << rule->target);
 
 		list_add_tail(&rule->list, &state->rules);
 		continue;

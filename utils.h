@@ -79,4 +79,23 @@ bool fw3_has_state(void);
 void fw3_write_state(void *state);
 void fw3_remove_state(void);
 
+
+enum fw3_statefile_type
+{
+	FW3_TYPE_DEFAULTS = 0,
+	FW3_TYPE_ZONE     = 1,
+	FW3_TYPE_IPSET    = 2,
+};
+
+struct fw3_statefile_entry
+{
+	struct list_head list;
+	enum fw3_statefile_type type;
+	const char *name;
+	uint32_t flags[2];
+};
+
+struct list_head * fw3_read_state(void);
+void fw3_free_state(struct list_head *statefile);
+
 #endif

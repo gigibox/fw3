@@ -46,10 +46,10 @@
 
 enum fw3_table
 {
-	FW3_TABLE_FILTER,
-	FW3_TABLE_NAT,
-	FW3_TABLE_MANGLE,
-	FW3_TABLE_RAW,
+	FW3_TABLE_FILTER = 0,
+	FW3_TABLE_NAT    = 1,
+	FW3_TABLE_MANGLE = 2,
+	FW3_TABLE_RAW    = 3,
 };
 
 enum fw3_family
@@ -68,6 +68,15 @@ enum fw3_target
 	FW3_TARGET_NOTRACK = 4,
 	FW3_TARGET_DNAT    = 5,
 	FW3_TARGET_SNAT    = 6,
+};
+
+enum fw3_default
+{
+	FW3_DEFAULT_UNSPEC        = 0,
+	FW3_DEFAULT_CUSTOM_CHAINS = 1,
+	FW3_DEFAULT_SYN_FLOOD     = 2,
+	FW3_DEFAULT_MTU_FIX       = 3,
+	FW3_DEFAULT_DROP_INVALID  = 4,
 };
 
 enum fw3_limit_unit
@@ -200,6 +209,8 @@ struct fw3_defaults
 	bool custom_chains;
 
 	bool disable_ipv6;
+
+	uint8_t has_flag;
 };
 
 struct fw3_zone
@@ -233,8 +244,8 @@ struct fw3_zone
 
 	bool custom_chains;
 
-	bool has_src_target[FW3_TARGET_SNAT + 1];
-	bool has_dest_target[FW3_TARGET_SNAT + 1];
+	uint8_t has_src_target;
+	uint8_t has_dest_target;
 };
 
 struct fw3_rule

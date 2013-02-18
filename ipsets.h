@@ -40,7 +40,8 @@ struct fw3_ipset_settype {
 
 void fw3_load_ipsets(struct fw3_state *state, struct uci_package *p);
 void fw3_create_ipsets(struct fw3_state *state);
-void fw3_destroy_ipsets(struct fw3_state *state);
+
+void fw3_destroy_ipsets(struct list_head *statefile);
 
 void fw3_free_ipset(struct fw3_ipset *ipset);
 

@@ -133,16 +133,16 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 				warn_elem(e, "has no source specified");
 			else
 			{
-				redir->_src->has_dest_target[redir->target] = true;
+				redir->_src->has_dest_target |= (1 << redir->target);
 				redir->_src->conntrack = true;
 				valid = true;
 			}
 
 			if (redir->reflection && redir->_dest && redir->_src->masq)
 			{
-				redir->_dest->has_dest_target[FW3_TARGET_ACCEPT] = true;
-				redir->_dest->has_dest_target[FW3_TARGET_DNAT]   = true;
-				redir->_dest->has_dest_target[FW3_TARGET_SNAT]   = true;
+				redir->_dest->has_dest_target |= (1 << FW3_TARGET_ACCEPT);
+				redir->_dest->has_dest_target |= (1 << FW3_TARGET_DNAT);
+				redir->_dest->has_dest_target |= (1 << FW3_TARGET_SNAT);
 			}
 		}
 		else
@@ -155,7 +155,7 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 				warn_elem(e, "has no src_dip option specified");
 			else
 			{
-				redir->_dest->has_dest_target[redir->target] = true;
+				redir->_dest->has_dest_target |= (1 << redir->target);
 				redir->_dest->conntrack = true;
 				valid = true;
 			}

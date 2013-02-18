@@ -26,10 +26,15 @@ void fw3_load_defaults(struct fw3_state *state, struct uci_package *p);
 void fw3_print_default_chains(enum fw3_table table, enum fw3_family family,
                               struct fw3_state *state);
 
-void fw3_print_default_rules(enum fw3_table table, enum fw3_family family,
-                             struct fw3_state *state);
+void fw3_print_default_head_rules(enum fw3_table table, enum fw3_family family,
+                                  struct fw3_state *state);
 
-void fw3_print_flush_rules(enum fw3_table table, enum fw3_family family,
-                           struct fw3_state *state, bool complete);
+void fw3_print_default_tail_rules(enum fw3_table table, enum fw3_family family,
+                                  struct fw3_state *state);
+
+void fw3_flush_rules(enum fw3_table table, enum fw3_family family,
+                     bool pass2, struct list_head *statefile);
+
+void fw3_flush_all(enum fw3_table table);
 
 #endif

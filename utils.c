@@ -332,17 +332,93 @@ fw3_unlock(void)
 }
 
 
-bool fw3_has_state(void)
+bool
+fw3_has_state(void)
 {
 	struct stat s;
 	return !stat(FW3_STATEFILE, &s);
 }
 
-void fw3_write_state(void *state)
+struct list_head *
+fw3_read_state(void)
 {
 	FILE *sf;
-	int n, val;
+
+	int n;
+	char line[128];
+	const char *p;
+
+	struct list_head *state;
+	struct fw3_statefile_entry *entry;
+
+	state = malloc(sizeof(*state));
+
+	if (!state)
+		return NULL;
+
+	INIT_LIST_HEAD(state);
+
+	sf = fopen(FW3_STATEFILE, "r");
+
+	if (!sf)
+	{
+		warn("Cannot open state %s: %s", FW3_STATEFILE, strerror(errno));
+		free(state);
+
+		return NULL;
+	}
+
+	while (fgets(line, sizeof(line), sf))
+	{
+		entry = malloc(sizeof(*entry));
+
+		if (!entry)
+			continue;
+
+		memset(entry, 0, sizeof(*entry));
+
+		p = strtok(line, " \t\n");
+
+		if (!p)
+			continue;
+
+		entry->type = strtoul(p, NULL, 10);
+
+		p = strtok(NULL, " \t\n");
+
+		if (!p)
+			continue;
+
+		entry->name = strdup(p);
+
+		for (n = 0, p = strtok(NULL, " \t\n");
+		     n < ARRAY_SIZE(entry->flags) && p != NULL;
+		     n++, p = strtok(NULL, " \t\n"))
+		{
+			entry->flags[n] = strtoul(p, NULL, 10);
+		}
+
+		list_add_tail(&entry->list, state);
+	}
+
+	fclose(sf);
+
+	return state;
+}
+
+void
+fw3_free_state(struct list_head *statefile)
+{
+	fw3_free_list(statefile);
+	free(statefile);
+}
+
+void
+fw3_write_state(void *state)
+{
+	FILE *sf;
 	struct fw3_state *s = state;
+	struct fw3_defaults *d = &s->defaults;
 	struct fw3_zone *z;
 	struct fw3_ipset *i;
 
@@ -354,19 +430,12 @@ void fw3_write_state(void *state)
 		return;
 	}
 
+	fprintf(sf, "%u - %u\n", FW3_TYPE_DEFAULTS, d->has_flag);
+
 	list_for_each_entry(z, &s->zones, list)
 	{
-		for (n = FW3_TARGET_ACCEPT, val = 0; n <= FW3_TARGET_SNAT; n++)
-			if (z->has_src_target[n])
-				val |= (1 << n);
-
-		fprintf(sf, "zone %s %u", z->name, val);
-
-		for (n = FW3_TARGET_ACCEPT, val = 0; n <= FW3_TARGET_SNAT; n++)
-			if (z->has_dest_target[n])
-				val |= (1 << n);
-
-		fprintf(sf, " %u\n", val);
+		fprintf(sf, "%u %s %u %u\n", FW3_TYPE_ZONE,
+		        z->name, z->has_src_target, z->has_dest_target);
 	}
 
 	list_for_each_entry(i, &s->ipsets, list)
@@ -374,13 +443,14 @@ void fw3_write_state(void *state)
 		if (i->external && *i->external)
 			continue;
 
-		fprintf(sf, "ipset %s\n", i->name);
+		fprintf(sf, "%u %s\n", FW3_TYPE_IPSET, i->name);
 	}
 
 	fclose(sf);
 }
 
-void fw3_remove_state(void)
+void
+fw3_remove_state(void)
 {
 	if (unlink(FW3_STATEFILE))
 		warn("Unable to remove state %s: %s", FW3_STATEFILE, strerror(errno));

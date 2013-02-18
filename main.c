@@ -125,10 +125,12 @@ restore_pipe(enum fw3_family family, bool silent)
 }
 
 static int
-stop(struct fw3_state *state, bool complete)
+stop(struct fw3_state *state, bool complete, bool ipsets)
 {
 	enum fw3_family family;
 	enum fw3_table table;
+
+	struct list_head *statefile = fw3_read_state();
 
 	const char *tables[] = {
 		"filter",
@@ -153,24 +155,37 @@ stop(struct fw3_state *state, bool complete)
 			     complete ? "Flush" : "Clear", tables[table]);
 
 			fw3_pr("*%s\n", tables[table]);
-			fw3_print_flush_rules(table, family, state, complete);
+
+			if (complete)
+			{
+				fw3_flush_all(table);
+			}
+			else
+			{
+				/* pass 1 */
+				fw3_flush_rules(table, family, false, statefile);
+				fw3_flush_zones(table, family, false, statefile);
+
+				/* pass 2 */
+				fw3_flush_rules(table, family, true, statefile);
+				fw3_flush_zones(table, family, true, statefile);
+			}
+
 			fw3_pr("COMMIT\n");
 		}
 
 		fw3_command_close();
 	}
 
+	if (ipsets && fw3_command_pipe(false, "ipset", "-exist", "-"))
+	{
+		fw3_destroy_ipsets(statefile);
+		fw3_command_close();
+	}
+
+	fw3_free_state(statefile);
+
 	return 0;
-}
-
-static void
-destroy_ipsets(struct fw3_state *state)
-{
-	if (!fw3_command_pipe(false, "ipset", "-exist", "-"))
-		return;
-
-	fw3_destroy_ipsets(state);
-	fw3_command_close();
 }
 
 static int
@@ -209,11 +224,12 @@ start(struct fw3_state *state)
 			fw3_pr("*%s\n", tables[table]);
 			fw3_print_default_chains(table, family, state);
 			fw3_print_zone_chains(table, family, state);
-			fw3_print_default_rules(table, family, state);
+			fw3_print_default_head_rules(table, family, state);
 			fw3_print_rules(table, family, state);
 			fw3_print_redirects(table, family, state);
 			fw3_print_forwards(table, family, state);
 			fw3_print_zone_rules(table, family, state);
+			fw3_print_default_tail_rules(table, family, state);
 			fw3_pr("COMMIT\n");
 		}
 
@@ -355,17 +371,13 @@ int main(int argc, char **argv)
 			goto out;
 		}
 
-		rv = stop(state, false);
-
-		destroy_ipsets(state);
+		rv = stop(state, false, true);
 
 		fw3_remove_state();
 	}
 	else if (!strcmp(argv[optind], "flush"))
 	{
-		rv = stop(state, true);
-
-		destroy_ipsets(state);
+		rv = stop(state, true, true);
 
 		if (fw3_has_state())
 			fw3_remove_state();
@@ -374,7 +386,7 @@ int main(int argc, char **argv)
 	{
 		if (fw3_has_state())
 		{
-			stop(state, false);
+			stop(state, false, false);
 			fw3_remove_state();
 		}
 
