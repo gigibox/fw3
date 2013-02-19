@@ -220,12 +220,9 @@ stop(struct fw3_state *state, bool complete, bool restart)
 		rv = 0;
 	}
 
-	if (!restart &&
-	    !family_loaded(state, FW3_FAMILY_V4) &&
-	    !family_loaded(state, FW3_FAMILY_V6) &&
-	    fw3_command_pipe(false, "ipset", "-exist", "-"))
+	if (!restart && fw3_command_pipe(false, "ipset", "-exist", "-"))
 	{
-		fw3_destroy_ipsets(statefile);
+		fw3_destroy_ipsets(state, statefile);
 		fw3_command_close();
 	}
 
@@ -249,7 +246,7 @@ start(struct fw3_state *state, bool restart)
 	if (!print_rules && !restart &&
 	    fw3_command_pipe(false, "ipset", "-exist", "-"))
 	{
-		fw3_create_ipsets(state);
+		fw3_create_ipsets(state, statefile);
 		fw3_command_close();
 	}
 

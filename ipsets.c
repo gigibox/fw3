@@ -266,7 +266,7 @@ create_ipset(struct fw3_ipset *ipset)
 	if (ipset->external && *ipset->external)
 		return;
 
-	info(" * %s", ipset->name);
+	info("Creating ipset %s", ipset->name);
 
 	first = true;
 	fw3_pr("create %s %s", ipset->name, methods[ipset->method]);
@@ -328,37 +328,69 @@ create_ipset(struct fw3_ipset *ipset)
 	fw3_pr("\n");
 }
 
+static bool
+ipset_loaded(struct list_head *statefile, const char *name)
+{
+	struct fw3_statefile_entry *e;
+	int mask = (1 << FW3_FAMILY_V4) | (1 << FW3_FAMILY_V6);
+
+	if (!statefile)
+		return false;
+
+	list_for_each_entry(e, statefile, list)
+	{
+		if (e->type != FW3_TYPE_IPSET)
+			continue;
+
+		if (!strcmp(e->name, name) && (e->flags[0] & mask))
+			return true;
+	}
+
+	return false;
+}
+
 void
-fw3_create_ipsets(struct fw3_state *state)
+fw3_create_ipsets(struct fw3_state *state, struct list_head *statefile)
 {
 	struct fw3_ipset *ipset;
 
 	if (state->disable_ipsets)
 		return;
 
-	info("Initializing ipsets ...");
-
 	list_for_each_entry(ipset, &state->ipsets, list)
-		create_ipset(ipset);
+		if (!ipset_loaded(statefile, ipset->name))
+			create_ipset(ipset);
 
 	fw3_pr("quit\n");
 }
 
 void
-fw3_destroy_ipsets(struct list_head *statefile)
+fw3_destroy_ipsets(struct fw3_state *state, struct list_head *statefile)
 {
+	struct fw3_ipset *s;
 	struct fw3_statefile_entry *e;
+	int mask = (1 << FW3_FAMILY_V4) | (1 << FW3_FAMILY_V6);
 
-	if (statefile)
+	if (!statefile)
+		return;
+
+	list_for_each_entry(e, statefile, list)
 	{
-		info("Destroying ipsets ...");
+		if (e->type != FW3_TYPE_IPSET)
+			continue;
 
-		list_for_each_entry(e, statefile, list)
+		if (!hasbit(state->defaults.flags, FW3_FAMILY_V4))
+			delbit(e->flags[0], FW3_FAMILY_V4);
+
+		if (!hasbit(state->defaults.flags, FW3_FAMILY_V6))
+			delbit(e->flags[0], FW3_FAMILY_V6);
+
+		if ((s = fw3_lookup_ipset(state, e->name)) != NULL)
+			s->flags = e->flags[0];
+
+		if (!(e->flags[0] & mask))
 		{
-			if (e->type != FW3_TYPE_IPSET)
-				continue;
-
-			info(" * %s", e->name);
+			info("Deleting ipset %s", e->name);
 
 			fw3_pr("flush %s\n", e->name);
 			fw3_pr("destroy %s\n", e->name);

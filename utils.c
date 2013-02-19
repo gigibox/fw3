@@ -435,6 +435,9 @@ fw3_write_statefile(void *state)
 		if (i->external && *i->external)
 			continue;
 
+		if (!i->flags)
+			continue;
+
 		fprintf(sf, "%u %s %u\n", FW3_TYPE_IPSET, i->name, i->flags);
 	}
 
