@@ -261,7 +261,7 @@ start(struct fw3_state *state, bool restart)
 		if (!family_loaded(state, family) || !restore_pipe(family, false))
 			continue;
 
-		if (!restart && family_running(statefile, family))
+		if (!print_rules && !restart && family_running(statefile, family))
 		{
 			warn("The %s firewall appears to be started already. "
 			     "If it is indeed empty, remove the %s file and retry.",
@@ -299,7 +299,7 @@ start(struct fw3_state *state, bool restart)
 
 	fw3_free_statefile(statefile);
 
-	if (!rv)
+	if (!rv && !print_rules)
 		fw3_write_statefile(state);
 
 	return rv;
@@ -406,6 +406,9 @@ int main(int argc, char **argv)
 
 	if (!strcmp(argv[optind], "print"))
 	{
+		if (use_family == FW3_FAMILY_ANY)
+			use_family = FW3_FAMILY_V4;
+
 		freopen("/dev/null", "w", stderr);
 
 		state->disable_ipsets = true;
