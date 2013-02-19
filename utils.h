@@ -63,7 +63,7 @@ fw3_free_list(struct list_head *list)
 }
 
 #define fw3_is_family(p, f)                                                \
-	(!p || p->family == FW3_FAMILY_ANY || p->family == f)
+	(!p || (p)->family == FW3_FAMILY_ANY || (p)->family == f)
 
 const char * fw3_find_command(const char *cmd);
 

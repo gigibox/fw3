@@ -112,7 +112,7 @@ fw3_load_rules(struct fw3_state *state, struct uci_package *p)
 		else if (rule->ipset.set && !rule->ipset.any &&
 		         !(rule->_ipset = fw3_lookup_ipset(state, rule->ipset.name)))
 		{
-			warn_elem(e, "refers to not declared ipset '%s'", rule->ipset.name);
+			warn_elem(e, "refers to unknown ipset '%s'", rule->ipset.name);
 			fw3_free_rule(rule);
 			continue;
 		}
@@ -190,30 +190,24 @@ print_chain(struct fw3_rule *rule)
 
 static void print_target(struct fw3_rule *rule)
 {
-	char target[256];
+	const char *target;
 
 	switch(rule->target)
 	{
 	case FW3_TARGET_ACCEPT:
-		sprintf(target, "ACCEPT");
-		break;
-
 	case FW3_TARGET_DROP:
-		sprintf(target, "DROP");
-		break;
-
 	case FW3_TARGET_NOTRACK:
-		sprintf(target, "NOTRACK");
+		target = fw3_flag_names[rule->target];
 		break;
 
 	default:
-		sprintf(target, "REJECT");
+		target = fw3_flag_names[FW3_TARGET_REJECT];
 		break;
 	}
 
 	if (rule->dest.set && !rule->dest.any)
 		fw3_pr(" -j zone_%s_dest_%s\n", rule->dest.name, target);
-	else if (!strcmp(target, "REJECT"))
+	else if (rule->target == FW3_TARGET_REJECT)
 		fw3_pr(" -j reject\n");
 	else
 		fw3_pr(" -j %s\n", target);
@@ -227,10 +221,16 @@ print_rule(enum fw3_table table, enum fw3_family family,
            struct fw3_mac *mac, struct fw3_icmptype *icmptype)
 {
 	if (!fw3_is_family(sip, family) || !fw3_is_family(dip, family))
+	{
+		info("     ! Skipping due to different family of ip address");
 		return;
+	}
 
 	if (proto->protocol == 58 && family == FW3_FAMILY_V4)
+	{
+		info("     ! Skipping due to different family of protocol");
 		return;
+	}
 
 	print_chain(rule);
 	fw3_format_ipset(rule->_ipset, rule->ipset.invert);
@@ -275,6 +275,24 @@ expand_rule(enum fw3_table table, enum fw3_family family,
 		info("   * Rule '%s'", rule->name);
 	else
 		info("   * Rule #%u", num);
+
+	if (!fw3_is_family(rule->_src, family) ||
+	    !fw3_is_family(rule->_dest, family))
+	{
+		info("     ! Skipping due to different family of zone");
+		return;
+	}
+
+	if (rule->_ipset)
+	{
+		if (!fw3_is_family(rule->_ipset, family))
+		{
+			info("     ! Skipping due to different family in ipset");
+			return;
+		}
+
+		setbit(rule->_ipset->flags, family);
+	}
 
 	list_for_each_entry(proto, &rule->proto, list)
 	{

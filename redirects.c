@@ -48,6 +48,51 @@ static struct fw3_option redirect_opts[] = {
 };
 
 
+static bool
+check_families(struct uci_element *e, struct fw3_redirect *r)
+{
+	if (r->family == FW3_FAMILY_ANY)
+		return true;
+
+	if (r->_src && r->_src->family && r->_src->family != r->family)
+	{
+		warn_elem(e, "refers to source zone with different family");
+		return false;
+	}
+
+	if (r->_dest && r->_dest->family && r->_dest->family != r->family)
+	{
+		warn_elem(e, "refers to destination zone with different family");
+		return false;
+	}
+
+	if (r->_ipset && r->_ipset->family && r->_ipset->family != r->family)
+	{
+		warn_elem(e, "refers to ipset with different family");
+		return false;
+	}
+
+	if (r->ip_src.family && r->ip_src.family != r->family)
+	{
+		warn_elem(e, "uses source ip with different family");
+		return false;
+	}
+
+	if (r->ip_dest.family && r->ip_dest.family != r->family)
+	{
+		warn_elem(e, "uses destination ip with different family");
+		return false;
+	}
+
+	if (r->ip_redir.family && r->ip_redir.family != r->family)
+	{
+		warn_elem(e, "uses redirect ip with different family");
+		return false;
+	}
+
+	return true;
+}
+
 void
 fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 {
@@ -109,7 +154,13 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 		else if (redir->ipset.set && !redir->ipset.any &&
 		         !(redir->_ipset = fw3_lookup_ipset(state, redir->ipset.name)))
 		{
-			warn_elem(e, "refers to not declared ipset '%s'", redir->ipset.name);
+			warn_elem(e, "refers to unknown ipset '%s'", redir->ipset.name);
+			fw3_free_redirect(redir);
+			continue;
+		}
+
+		if (!check_families(e, redir))
+		{
 			fw3_free_redirect(redir);
 			continue;
 		}
@@ -259,16 +310,42 @@ print_redirect(enum fw3_table table, enum fw3_family family,
 	struct fw3_protocol *proto;
 	struct fw3_mac *mac;
 
+	if (redir->name)
+		info("   * Redirect '%s'", redir->name);
+	else
+		info("   * Redirect #%u", num);
+
+	if (!fw3_is_family(redir->_src, family) ||
+		!fw3_is_family(redir->_dest, family))
+	{
+		info("     ! Skipping due to different family of zone");
+		return;
+	}
+
+	if (!fw3_is_family(&redir->ip_src, family) ||
+	    !fw3_is_family(&redir->ip_dest, family) ||
+		!fw3_is_family(&redir->ip_redir, family))
+	{
+		info("     ! Skipping due to different family of ip address");
+		return;
+	}
+
+	if (redir->_ipset)
+	{
+		if (!fw3_is_family(redir->_ipset, family))
+		{
+			info("     ! Skipping due to different family in ipset");
+			return;
+		}
+
+		setbit(redir->_ipset->flags, family);
+	}
+
 	fw3_foreach(proto, &redir->proto)
 	fw3_foreach(mac, &redir->mac_src)
 	{
 		if (table == FW3_TABLE_NAT)
 		{
-			if (redir->name)
-				info("   * Redirect '%s'", redir->name);
-			else
-				info("   * Redirect #%u", num);
-
 			print_chain_nat(redir);
 			fw3_format_ipset(redir->_ipset, redir->ipset.invert);
 			fw3_format_protocol(proto, family);
@@ -291,11 +368,6 @@ print_redirect(enum fw3_table table, enum fw3_family family,
 		}
 		else if (table == FW3_TABLE_FILTER)
 		{
-			if (redir->name)
-				info("   * Redirect '%s'", redir->name);
-			else
-				info("   * Redirect #%u", num);
-
 			print_chain_filter(redir);
 			fw3_format_ipset(redir->_ipset, redir->ipset.invert);
 			fw3_format_protocol(proto, family);
@@ -385,6 +457,9 @@ fw3_print_redirects(enum fw3_table table, enum fw3_family family,
 	struct fw3_redirect *redir;
 
 	if (family == FW3_FAMILY_V6)
+		return;
+
+	if (table != FW3_TABLE_FILTER && table != FW3_TABLE_NAT)
 		return;
 
 	list_for_each_entry(redir, &state->redirects, list)
