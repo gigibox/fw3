@@ -53,6 +53,7 @@ static const struct chain dst_chains[] = {
 
 static struct fw3_option zone_opts[] = {
 	FW3_OPT("name",                string,   zone,     name),
+	FW3_OPT("family",              family,   zone,     family),
 
 	FW3_LIST("network",            device,   zone,     networks),
 	FW3_LIST("device",             device,   zone,     devices),

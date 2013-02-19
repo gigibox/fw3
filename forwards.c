@@ -117,9 +117,7 @@ print_forward(enum fw3_table table, enum fw3_family family,
 	if (table != FW3_TABLE_FILTER)
 		return;
 
-	if (!fw3_is_family(forward, family) ||
-	    (forward->_src && !fw3_is_family(forward->_src, family)) ||
-		(forward->_dest && !fw3_is_family(forward->_dest, family)))
+	if (!fw3_is_family(forward, family))
 		return;
 
 	s = forward->_src  ? forward->_src->name  : "*";
@@ -129,6 +127,13 @@ print_forward(enum fw3_table table, enum fw3_family family,
 		info("   * Forward '%s'", forward->name);
 	else
 		info("   * Forward %s->%s", s, d);
+
+	if (!fw3_is_family(forward->_src, family) ||
+	    !fw3_is_family(forward->_dest, family))
+	{
+		info("     ! Skipping due to different family of zone");
+		return;
+	}
 
 	print_chain(forward);
 	fw3_format_comment("forwarding ", s, "->", d);
