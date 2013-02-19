@@ -30,7 +30,20 @@
 
 
 static bool print_rules = false;
-static bool skip_family[FW3_FAMILY_V6 + 1] = { false };
+static enum fw3_family use_family = FW3_FAMILY_ANY;
+
+static const char *families[] = {
+	"(bug)",
+	"IPv4",
+	"IPv6",
+};
+
+static const char *tables[] = {
+	"filter",
+	"nat",
+	"mangle",
+	"raw",
+};
 
 
 static struct fw3_state *
@@ -68,12 +81,6 @@ build_state(void)
 	fw3_load_rules(state, p);
 	fw3_load_redirects(state, p);
 	fw3_load_forwards(state, p);
-
-	if (state->defaults.disable_ipv6 && !skip_family[FW3_FAMILY_V6])
-	{
-		warn("IPv6 rules globally disabled in configuration");
-		skip_family[FW3_FAMILY_V6] = true;
-	}
 
 	return state;
 }
@@ -124,27 +131,76 @@ restore_pipe(enum fw3_family family, bool silent)
 	return true;
 }
 
-static int
-stop(struct fw3_state *state, bool complete, bool ipsets)
+#define family_flag(f) \
+	(f == FW3_FAMILY_V4 ? FW3_DEFAULT_IPV4_LOADED : FW3_DEFAULT_IPV6_LOADED)
+
+static bool
+family_running(struct list_head *statefile, enum fw3_family family)
 {
+	struct fw3_statefile_entry *e;
+
+	if (statefile)
+	{
+		list_for_each_entry(e, statefile, list)
+		{
+			if (e->type != FW3_TYPE_DEFAULTS)
+				continue;
+
+			return hasbit(e->flags[0], family_flag(family));
+		}
+	}
+
+	return false;
+}
+
+static bool
+family_used(enum fw3_family family)
+{
+	return (use_family == FW3_FAMILY_ANY) || (use_family == family);
+}
+
+static bool
+family_loaded(struct fw3_state *state, enum fw3_family family)
+{
+	return hasbit(state->defaults.has_flag, family_flag(family));
+}
+
+static void
+family_set(struct fw3_state *state, enum fw3_family family, bool set)
+{
+	if (set)
+		setbit(state->defaults.has_flag, family_flag(family));
+	else
+		delbit(state->defaults.has_flag, family_flag(family));
+}
+
+static int
+stop(struct fw3_state *state, bool complete, bool restart)
+{
+	int rv = 1;
 	enum fw3_family family;
 	enum fw3_table table;
 
-	struct list_head *statefile = fw3_read_state();
+	struct list_head *statefile = fw3_read_statefile();
 
-	const char *tables[] = {
-		"filter",
-		"nat",
-		"mangle",
-		"raw",
-	};
+	if (!complete && !statefile)
+	{
+		if (!restart)
+			warn("The firewall appears to be stopped. "
+				 "Use the 'flush' command to forcefully purge all rules.");
+
+		return rv;
+	}
 
 	for (family = FW3_FAMILY_V4; family <= FW3_FAMILY_V6; family++)
 	{
-		if (skip_family[family] || !restore_pipe(family, true))
+		if (!complete && !family_running(statefile, family))
 			continue;
 
-		info("Removing IPv%d rules ...", family == FW3_FAMILY_V4 ? 4 : 6);
+		if (!family_used(family) || !restore_pipe(family, true))
+			continue;
+
+		info("Removing %s rules ...", families[family]);
 
 		for (table = FW3_TABLE_FILTER; table <= FW3_TABLE_RAW; table++)
 		{
@@ -175,33 +231,41 @@ stop(struct fw3_state *state, bool complete, bool ipsets)
 		}
 
 		fw3_command_close();
+
+		if (!restart)
+			family_set(state, family, false);
+
+		rv = 0;
 	}
 
-	if (ipsets && fw3_command_pipe(false, "ipset", "-exist", "-"))
+	if (!restart &&
+	    !family_loaded(state, FW3_FAMILY_V4) &&
+	    !family_loaded(state, FW3_FAMILY_V6) &&
+	    fw3_command_pipe(false, "ipset", "-exist", "-"))
 	{
 		fw3_destroy_ipsets(statefile);
 		fw3_command_close();
 	}
 
-	fw3_free_state(statefile);
+	fw3_free_statefile(statefile);
 
-	return 0;
+	if (!rv)
+		fw3_write_statefile(state);
+
+	return rv;
 }
 
 static int
-start(struct fw3_state *state)
+start(struct fw3_state *state, bool restart)
 {
+	int rv = 1;
 	enum fw3_family family;
 	enum fw3_table table;
 
-	const char *tables[] = {
-		"filter",
-		"nat",
-		"mangle",
-		"raw",
-	};
+	struct list_head *statefile = fw3_read_statefile();
 
-	if (!print_rules && fw3_command_pipe(false, "ipset", "-exist", "-"))
+	if (!print_rules && !restart &&
+	    fw3_command_pipe(false, "ipset", "-exist", "-"))
 	{
 		fw3_create_ipsets(state);
 		fw3_command_close();
@@ -209,10 +273,22 @@ start(struct fw3_state *state)
 
 	for (family = FW3_FAMILY_V4; family <= FW3_FAMILY_V6; family++)
 	{
-		if (skip_family[family] || !restore_pipe(family, false))
+		if (!family_used(family))
 			continue;
 
-		info("Constructing IPv%d rules ...", family == FW3_FAMILY_V4 ? 4 : 6);
+		if (!family_loaded(state, family) || !restore_pipe(family, false))
+			continue;
+
+		if (!restart && family_running(statefile, family))
+		{
+			warn("The %s firewall appears to be started already. "
+			     "If it is indeed empty, remove the %s file and retry.",
+			     families[family], FW3_STATEFILE);
+
+			continue;
+		}
+
+		info("Constructing %s rules ...", families[family]);
 
 		for (table = FW3_TABLE_FILTER; table <= FW3_TABLE_RAW; table++)
 		{
@@ -234,9 +310,17 @@ start(struct fw3_state *state)
 		}
 
 		fw3_command_close();
+		family_set(state, family, true);
+
+		rv = 0;
 	}
 
-	return 0;
+	fw3_free_statefile(statefile);
+
+	if (!rv)
+		fw3_write_statefile(state);
+
+	return rv;
 }
 
 static int
@@ -296,19 +380,18 @@ int main(int argc, char **argv)
 {
 	int ch, rv = 1;
 	struct fw3_state *state = NULL;
+	struct fw3_defaults *defs = NULL;
 
 	while ((ch = getopt(argc, argv, "46qh")) != -1)
 	{
 		switch (ch)
 		{
 		case '4':
-			skip_family[FW3_FAMILY_V4] = false;
-			skip_family[FW3_FAMILY_V6] = true;
+			use_family = FW3_FAMILY_V4;
 			break;
 
 		case '6':
-			skip_family[FW3_FAMILY_V4] = true;
-			skip_family[FW3_FAMILY_V6] = false;
+			use_family = FW3_FAMILY_V6;
 			break;
 
 		case 'q':
@@ -325,6 +408,7 @@ int main(int argc, char **argv)
 		error("Failed to connect to ubus");
 
 	state = build_state();
+	defs = &state->defaults;
 
 	if (!fw3_lock())
 		goto out;
@@ -335,6 +419,9 @@ int main(int argc, char **argv)
 		goto out;
 	}
 
+	if (use_family == FW3_FAMILY_V6 && defs->disable_ipv6)
+		warn("IPv6 rules globally disabled in configuration");
+
 	if (!strcmp(argv[optind], "print"))
 	{
 		freopen("/dev/null", "w", stderr);
@@ -342,56 +429,24 @@ int main(int argc, char **argv)
 		state->disable_ipsets = true;
 		print_rules = true;
 
-		if (!skip_family[FW3_FAMILY_V4] && !skip_family[FW3_FAMILY_V6])
-			skip_family[FW3_FAMILY_V6] = true;
-
-		rv = start(state);
+		rv = start(state, false);
 	}
 	else if (!strcmp(argv[optind], "start"))
 	{
-		if (fw3_has_state())
-		{
-			warn("The firewall appears to be started already. "
-				 "If it is indeed empty, remove the %s file and retry.",
-				 FW3_STATEFILE);
-
-			goto out;
-		}
-
-		rv = start(state);
-		fw3_write_state(state);
+		rv = start(state, false);
 	}
 	else if (!strcmp(argv[optind], "stop"))
 	{
-		if (!fw3_has_state())
-		{
-			warn("The firewall appears to be stopped. "
-				 "Use the 'flush' command to forcefully purge all rules.");
-
-			goto out;
-		}
-
-		rv = stop(state, false, true);
-
-		fw3_remove_state();
+		rv = stop(state, false, false);
 	}
 	else if (!strcmp(argv[optind], "flush"))
 	{
-		rv = stop(state, true, true);
-
-		if (fw3_has_state())
-			fw3_remove_state();
+		rv = stop(state, true, false);
 	}
 	else if (!strcmp(argv[optind], "restart"))
 	{
-		if (fw3_has_state())
-		{
-			stop(state, false, false);
-			fw3_remove_state();
-		}
-
-		rv = start(state);
-		fw3_write_state(state);
+		rv = stop(state, false, true);
+		rv = start(state, !rv);
 	}
 	else if (!strcmp(argv[optind], "network") && (optind + 1) < argc)
 	{

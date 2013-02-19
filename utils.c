@@ -332,15 +332,8 @@ fw3_unlock(void)
 }
 
 
-bool
-fw3_has_state(void)
-{
-	struct stat s;
-	return !stat(FW3_STATEFILE, &s);
-}
-
 struct list_head *
-fw3_read_state(void)
+fw3_read_statefile(void)
 {
 	FILE *sf;
 
@@ -351,22 +344,17 @@ fw3_read_state(void)
 	struct list_head *state;
 	struct fw3_statefile_entry *entry;
 
+	sf = fopen(FW3_STATEFILE, "r");
+
+	if (!sf)
+		return NULL;
+
 	state = malloc(sizeof(*state));
 
 	if (!state)
 		return NULL;
 
 	INIT_LIST_HEAD(state);
-
-	sf = fopen(FW3_STATEFILE, "r");
-
-	if (!sf)
-	{
-		warn("Cannot open state %s: %s", FW3_STATEFILE, strerror(errno));
-		free(state);
-
-		return NULL;
-	}
 
 	while (fgets(line, sizeof(line), sf))
 	{
@@ -407,20 +395,24 @@ fw3_read_state(void)
 }
 
 void
-fw3_free_state(struct list_head *statefile)
-{
-	fw3_free_list(statefile);
-	free(statefile);
-}
-
-void
-fw3_write_state(void *state)
+fw3_write_statefile(void *state)
 {
 	FILE *sf;
 	struct fw3_state *s = state;
 	struct fw3_defaults *d = &s->defaults;
 	struct fw3_zone *z;
 	struct fw3_ipset *i;
+
+	int mask = (1 << FW3_DEFAULT_IPV4_LOADED) | (1 << FW3_DEFAULT_IPV6_LOADED);
+
+	if (!(d->has_flag & mask))
+	{
+		if (unlink(FW3_STATEFILE))
+			warn("Unable to remove state %s: %s",
+			     FW3_STATEFILE, strerror(errno));
+
+		return;
+	}
 
 	sf = fopen(FW3_STATEFILE, "w");
 
@@ -450,8 +442,19 @@ fw3_write_state(void *state)
 }
 
 void
-fw3_remove_state(void)
+fw3_free_statefile(struct list_head *statefile)
 {
-	if (unlink(FW3_STATEFILE))
-		warn("Unable to remove state %s: %s", FW3_STATEFILE, strerror(errno));
+	struct fw3_statefile_entry *e, *tmp;
+
+	if (!statefile)
+		return;
+
+	list_for_each_entry_safe(e, tmp, statefile, list)
+	{
+		list_del(&e->list);
+		free(e->name);
+		free(e);
+	}
+
+	free(statefile);
 }

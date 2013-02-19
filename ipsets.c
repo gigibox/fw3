@@ -355,17 +355,20 @@ fw3_destroy_ipsets(struct list_head *statefile)
 {
 	struct fw3_statefile_entry *e;
 
-	info("Destroying ipsets ...");
-
-	list_for_each_entry(e, statefile, list)
+	if (statefile)
 	{
-		if (e->type != FW3_TYPE_IPSET)
-			continue;
+		info("Destroying ipsets ...");
 
-		info(" * %s", e->name);
+		list_for_each_entry(e, statefile, list)
+		{
+			if (e->type != FW3_TYPE_IPSET)
+				continue;
 
-		fw3_pr("flush %s\n", e->name);
-		fw3_pr("destroy %s\n", e->name);
+			info(" * %s", e->name);
+
+			fw3_pr("flush %s\n", e->name);
+			fw3_pr("destroy %s\n", e->name);
+		}
 	}
 }
 

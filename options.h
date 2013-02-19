@@ -77,6 +77,8 @@ enum fw3_default
 	FW3_DEFAULT_SYN_FLOOD     = 2,
 	FW3_DEFAULT_MTU_FIX       = 3,
 	FW3_DEFAULT_DROP_INVALID  = 4,
+	FW3_DEFAULT_IPV4_LOADED   = 5,
+	FW3_DEFAULT_IPV6_LOADED   = 6,
 };
 
 enum fw3_limit_unit

@@ -40,6 +40,10 @@ void warn(const char *format, ...);
 void error(const char *format, ...);
 void info(const char *format, ...);
 
+#define setbit(field, flag) field |= (1 << (flag))
+#define delbit(field, flag) field &= ~(1 << (flag))
+#define hasbit(field, flag) (field & (1 << (flag)))
+
 #define fw3_foreach(p, h)                                                  \
 	for (p = list_empty(h) ? NULL : list_first_entry(h, typeof(*p), list); \
          list_empty(h) ? (p == NULL) : (&p->list != (h));                  \
@@ -75,10 +79,6 @@ bool fw3_has_table(bool ipv6, const char *table);
 bool fw3_lock(void);
 void fw3_unlock(void);
 
-bool fw3_has_state(void);
-void fw3_write_state(void *state);
-void fw3_remove_state(void);
-
 
 enum fw3_statefile_type
 {
@@ -91,11 +91,12 @@ struct fw3_statefile_entry
 {
 	struct list_head list;
 	enum fw3_statefile_type type;
-	const char *name;
+	char *name;
 	uint32_t flags[2];
 };
 
-struct list_head * fw3_read_state(void);
-void fw3_free_state(struct list_head *statefile);
+struct list_head * fw3_read_statefile(void);
+void fw3_write_statefile(void *state);
+void fw3_free_statefile(struct list_head *statefile);
 
 #endif

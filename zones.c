@@ -201,13 +201,13 @@ fw3_load_zones(struct fw3_state *state, struct uci_package *p)
 
 		if (zone->masq)
 		{
-			zone->has_dest_target |= (1 << FW3_TARGET_SNAT);
+			setbit(zone->has_dest_target, FW3_TARGET_SNAT);
 			zone->conntrack = true;
 		}
 
-		zone->has_src_target  |= (1 << zone->policy_input);
-		zone->has_dest_target |= (1 << zone->policy_output);
-		zone->has_dest_target |= (1 << zone->policy_forward);
+		setbit(zone->has_src_target, zone->policy_input);
+		setbit(zone->has_dest_target, zone->policy_output);
+		setbit(zone->has_dest_target, zone->policy_forward);
 
 		list_add_tail(&zone->list, &state->zones);
 	}
@@ -224,7 +224,7 @@ print_zone_chain(enum fw3_table table, enum fw3_family family,
 		return;
 
 	if (!zone->conntrack && !disable_notrack)
-		zone->has_dest_target |= (1 << FW3_TARGET_NOTRACK);
+		setbit(zone->has_dest_target, FW3_TARGET_NOTRACK);
 
 	s = print_chains(table, family, ":%s - [0:0]\n", zone->name,
 	                 zone->has_src_target, src_chains, ARRAY_SIZE(src_chains));
