@@ -79,6 +79,9 @@ enum fw3_default
 	FW3_DEFAULT_DROP_INVALID  = 15,
 };
 
+extern const char *fw3_flag_names[FW3_DEFAULT_DROP_INVALID + 1];
+
+
 enum fw3_limit_unit
 {
 	FW3_LIMIT_UNIT_SECOND = 0,

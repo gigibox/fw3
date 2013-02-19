@@ -242,12 +242,9 @@ print_interface_rule(enum fw3_table table, enum fw3_family family,
                      struct fw3_address *sub, bool disable_notrack)
 {
 	enum fw3_target t;
-	const char *targets[] = {
-		"(bug)",  "(bug)",
-		"ACCEPT", "ACCEPT",
-		"REJECT", "reject",
-		"DROP",   "DROP",
-	};
+
+#define jump_target(t) \
+	((t == FW3_TARGET_REJECT) ? "reject" : fw3_flag_names[t])
 
 	if (table == FW3_TABLE_FILTER)
 	{
@@ -255,20 +252,20 @@ print_interface_rule(enum fw3_table table, enum fw3_family family,
 		{
 			if (hasbit(zone->src_flags, t))
 			{
-				fw3_pr("-A zone_%s_src_%s", zone->name, targets[t*2]);
+				fw3_pr("-A zone_%s_src_%s", zone->name, fw3_flag_names[t]);
 				fw3_format_in_out(dev, NULL);
 				fw3_format_src_dest(sub, NULL);
 				fw3_format_extra(zone->extra_src);
-				fw3_pr(" -j %s\n", targets[t*2+1]);
+				fw3_pr(" -j %s\n", jump_target(t));
 			}
 
 			if (hasbit(zone->dst_flags, t))
 			{
-				fw3_pr("-A zone_%s_dest_%s", zone->name, targets[t*2]);
+				fw3_pr("-A zone_%s_dest_%s", zone->name, fw3_flag_names[t]);
 				fw3_format_in_out(NULL, dev);
 				fw3_format_src_dest(NULL, sub);
 				fw3_format_extra(zone->extra_dest);
-				fw3_pr(" -j %s\n", targets[t*2+1]);
+				fw3_pr(" -j %s\n", jump_target(t));
 			}
 		}
 
@@ -375,15 +372,6 @@ print_zone_rule(enum fw3_table table, enum fw3_family family,
 	struct fw3_address *mdest;
 
 	enum fw3_target t;
-	const char *targets[] = {
-		"(bug)",
-		"ACCEPT",
-		"REJECT",
-		"DROP",
-		"(bug)",
-		"(bug)",
-		"(bug)",
-	};
 
 	if (!fw3_is_family(zone, family))
 		return;
@@ -392,13 +380,13 @@ print_zone_rule(enum fw3_table table, enum fw3_family family,
 	{
 	case FW3_TABLE_FILTER:
 		fw3_pr("-A zone_%s_input -j zone_%s_src_%s\n",
-			   zone->name, zone->name, targets[zone->policy_input]);
+			   zone->name, zone->name, fw3_flag_names[zone->policy_input]);
 
 		fw3_pr("-A zone_%s_forward -j zone_%s_dest_%s\n",
-			   zone->name, zone->name, targets[zone->policy_forward]);
+			   zone->name, zone->name, fw3_flag_names[zone->policy_forward]);
 
 		fw3_pr("-A zone_%s_output -j zone_%s_dest_%s\n",
-			   zone->name, zone->name, targets[zone->policy_output]);
+			   zone->name, zone->name, fw3_flag_names[zone->policy_output]);
 
 		if (zone->log)
 		{
@@ -406,18 +394,18 @@ print_zone_rule(enum fw3_table table, enum fw3_family family,
 			{
 				if (hasbit(zone->src_flags, t))
 				{
-					fw3_pr("-A zone_%s_src_%s", zone->name, targets[t]);
+					fw3_pr("-A zone_%s_src_%s", zone->name, fw3_flag_names[t]);
 					fw3_format_limit(&zone->log_limit);
 					fw3_pr(" -j LOG --log-prefix \"%s(src %s)\"\n",
-						   targets[t], zone->name);
+						   fw3_flag_names[t], zone->name);
 				}
 
 				if (hasbit(zone->dst_flags, t))
 				{
-					fw3_pr("-A zone_%s_dest_%s", zone->name, targets[t]);
+					fw3_pr("-A zone_%s_dest_%s", zone->name, fw3_flag_names[t]);
 					fw3_format_limit(&zone->log_limit);
 					fw3_pr(" -j LOG --log-prefix \"%s(dest %s)\"\n",
-						   targets[t], zone->name);
+						   fw3_flag_names[t], zone->name);
 				}
 			}
 		}

@@ -18,6 +18,23 @@
 
 #include "options.h"
 
+const char *fw3_flag_names[FW3_DEFAULT_DROP_INVALID + 1] = {
+	"filter",
+	"nat",
+	"mangle",
+	"raw",
+
+	"IPv4",
+	"IPv6",
+
+	"ACCEPT",
+	"REJECT",
+	"DROP",
+	"NOTRACK",
+	"DNAT",
+	"SNAT",
+};
+
 bool
 fw3_parse_bool(void *ptr, const char *val)
 {

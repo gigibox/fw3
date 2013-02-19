@@ -263,12 +263,6 @@ create_ipset(struct fw3_ipset *ipset)
 		"set",
 	};
 
-	const char *families[] = {
-		"(bug)",
-		"inet",
-		"inet6",
-	};
-
 	if (ipset->external && *ipset->external)
 		return;
 
@@ -317,7 +311,7 @@ create_ipset(struct fw3_ipset *ipset)
 	}
 
 	if (ipset->family != FW3_FAMILY_ANY)
-		fw3_pr(" family %s", families[ipset->family]);
+		fw3_pr(" family inet%s", (ipset->family == FW3_FAMILY_V4) ? "" : "6");
 
 	if (ipset->timeout > 0)
 		fw3_pr(" timeout %u", ipset->timeout);

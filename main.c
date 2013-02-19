@@ -32,19 +32,6 @@
 static bool print_rules = false;
 static enum fw3_family use_family = FW3_FAMILY_ANY;
 
-static const char *families[] = {
-	"(bug)",
-	"IPv4",
-	"IPv6",
-};
-
-static const char *tables[] = {
-	"filter",
-	"nat",
-	"mangle",
-	"raw",
-};
-
 
 static struct fw3_state *
 build_state(void)
@@ -113,18 +100,16 @@ free_state(struct fw3_state *state)
 static bool
 restore_pipe(enum fw3_family family, bool silent)
 {
-	const char *cmd[] = {
-		"(bug)",
-		"iptables-restore",
-		"ip6tables-restore",
-	};
+	const char *cmd;
+
+	cmd = (family == FW3_FAMILY_V4) ? "iptables-restore" : "ip6tables-restore";
 
 	if (print_rules)
 		return fw3_stdout_pipe();
 
-	if (!fw3_command_pipe(silent, cmd[family], "--lenient", "--noflush"))
+	if (!fw3_command_pipe(silent, cmd, "--lenient", "--noflush"))
 	{
-		warn("Unable to execute %s", cmd[family]);
+		warn("Unable to execute %s", cmd);
 		return false;
 	}
 
@@ -197,17 +182,17 @@ stop(struct fw3_state *state, bool complete, bool restart)
 		if (!family_used(family) || !restore_pipe(family, true))
 			continue;
 
-		info("Removing %s rules ...", families[family]);
+		info("Removing %s rules ...", fw3_flag_names[family]);
 
 		for (table = FW3_TABLE_FILTER; table <= FW3_TABLE_RAW; table++)
 		{
-			if (!fw3_has_table(family == FW3_FAMILY_V6, tables[table]))
+			if (!fw3_has_table(family == FW3_FAMILY_V6, fw3_flag_names[table]))
 				continue;
 
 			info(" * %sing %s table",
-			     complete ? "Flush" : "Clear", tables[table]);
+			     complete ? "Flush" : "Clear", fw3_flag_names[table]);
 
-			fw3_pr("*%s\n", tables[table]);
+			fw3_pr("*%s\n", fw3_flag_names[table]);
 
 			if (complete)
 			{
@@ -280,21 +265,21 @@ start(struct fw3_state *state, bool restart)
 		{
 			warn("The %s firewall appears to be started already. "
 			     "If it is indeed empty, remove the %s file and retry.",
-			     families[family], FW3_STATEFILE);
+			     fw3_flag_names[family], FW3_STATEFILE);
 
 			continue;
 		}
 
-		info("Constructing %s rules ...", families[family]);
+		info("Constructing %s rules ...", fw3_flag_names[family]);
 
 		for (table = FW3_TABLE_FILTER; table <= FW3_TABLE_RAW; table++)
 		{
-			if (!fw3_has_table(family == FW3_FAMILY_V6, tables[table]))
+			if (!fw3_has_table(family == FW3_FAMILY_V6, fw3_flag_names[table]))
 				continue;
 
-			info(" * Populating %s table", tables[table]);
+			info(" * Populating %s table", fw3_flag_names[table]);
 
-			fw3_pr("*%s\n", tables[table]);
+			fw3_pr("*%s\n", fw3_flag_names[table]);
 			fw3_print_default_chains(table, family, state);
 			fw3_print_zone_chains(table, family, state);
 			fw3_print_default_head_rules(table, family, state);

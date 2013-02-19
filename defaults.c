@@ -180,21 +180,15 @@ fw3_print_default_chains(enum fw3_table table, enum fw3_family family,
                          struct fw3_state *state)
 {
 	struct fw3_defaults *defs = &state->defaults;
-	const char *policy[] = {
-		"(bug)",
-		"ACCEPT",
-		"DROP",
-		"DROP",
-		"(bug)",
-		"(bug)",
-		"(bug)",
-	};
+
+#define policy(t) \
+	((t == FW3_TARGET_REJECT) ? "DROP" : fw3_flag_names[t])
 
 	if (table == FW3_TABLE_FILTER)
 	{
-		fw3_pr(":INPUT %s [0:0]\n", policy[defs->policy_input]);
-		fw3_pr(":FORWARD %s [0:0]\n", policy[defs->policy_forward]);
-		fw3_pr(":OUTPUT %s [0:0]\n", policy[defs->policy_output]);
+		fw3_pr(":INPUT %s [0:0]\n", policy(defs->policy_input));
+		fw3_pr(":FORWARD %s [0:0]\n", policy(defs->policy_forward));
+		fw3_pr(":OUTPUT %s [0:0]\n", policy(defs->policy_output));
 	}
 
 	print_chains(table, family, ":%s - [0:0]\n", defs->flags,
