@@ -142,7 +142,7 @@ fw3_load_rules(struct fw3_state *state, struct uci_package *p)
 		}
 
 		if (rule->_dest)
-			setbit(rule->_dest->has_dest_target, rule->target);
+			setbit(rule->_dest->dst_flags, rule->target);
 
 		list_add_tail(&rule->list, &state->rules);
 		continue;

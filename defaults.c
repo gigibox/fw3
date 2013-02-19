@@ -142,7 +142,7 @@ fw3_load_defaults(struct fw3_state *state, struct uci_package *p)
 	defs->tcp_window_scaling   = true;
 	defs->custom_chains        = true;
 
-	defs->has_flag = (1 << FW3_DEFAULT_IPV4_LOADED);
+	defs->flags = (1 << FW3_DEFAULT_IPV4_LOADED);
 
 	uci_foreach_element(&p->sections, e)
 	{
@@ -165,13 +165,13 @@ fw3_load_defaults(struct fw3_state *state, struct uci_package *p)
 		check_policy(e, &defs->policy_forward, "forward");
 
 		if (!defs->disable_ipv6)
-			setbit(defs->has_flag, FW3_DEFAULT_IPV6_LOADED);
+			setbit(defs->flags, FW3_DEFAULT_IPV6_LOADED);
 
 		if (defs->custom_chains)
-			setbit(defs->has_flag, FW3_DEFAULT_CUSTOM_CHAINS);
+			setbit(defs->flags, FW3_DEFAULT_CUSTOM_CHAINS);
 
 		if (defs->syn_flood)
-			setbit(defs->has_flag, FW3_DEFAULT_SYN_FLOOD);
+			setbit(defs->flags, FW3_DEFAULT_SYN_FLOOD);
 	}
 }
 
@@ -197,7 +197,7 @@ fw3_print_default_chains(enum fw3_table table, enum fw3_family family,
 		fw3_pr(":OUTPUT %s [0:0]\n", policy[defs->policy_output]);
 	}
 
-	print_chains(table, family, ":%s - [0:0]\n", defs->has_flag,
+	print_chains(table, family, ":%s - [0:0]\n", defs->flags,
 	             default_chains, ARRAY_SIZE(default_chains));
 }
 

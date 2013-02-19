@@ -212,7 +212,7 @@ struct fw3_defaults
 
 	bool disable_ipv6;
 
-	uint8_t has_flag;
+	uint8_t flags;
 };
 
 struct fw3_zone
@@ -246,8 +246,8 @@ struct fw3_zone
 
 	bool custom_chains;
 
-	uint8_t has_src_target;
-	uint8_t has_dest_target;
+	uint8_t src_flags;
+	uint8_t dst_flags;
 };
 
 struct fw3_rule

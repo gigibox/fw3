@@ -162,16 +162,16 @@ family_used(enum fw3_family family)
 static bool
 family_loaded(struct fw3_state *state, enum fw3_family family)
 {
-	return hasbit(state->defaults.has_flag, family_flag(family));
+	return hasbit(state->defaults.flags, family_flag(family));
 }
 
 static void
 family_set(struct fw3_state *state, enum fw3_family family, bool set)
 {
 	if (set)
-		setbit(state->defaults.has_flag, family_flag(family));
+		setbit(state->defaults.flags, family_flag(family));
 	else
-		delbit(state->defaults.has_flag, family_flag(family));
+		delbit(state->defaults.flags, family_flag(family));
 }
 
 static int

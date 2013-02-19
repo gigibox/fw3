@@ -405,7 +405,7 @@ fw3_write_statefile(void *state)
 
 	int mask = (1 << FW3_DEFAULT_IPV4_LOADED) | (1 << FW3_DEFAULT_IPV6_LOADED);
 
-	if (!(d->has_flag & mask))
+	if (!(d->flags & mask))
 	{
 		if (unlink(FW3_STATEFILE))
 			warn("Unable to remove state %s: %s",
@@ -422,12 +422,12 @@ fw3_write_statefile(void *state)
 		return;
 	}
 
-	fprintf(sf, "%u - %u\n", FW3_TYPE_DEFAULTS, d->has_flag);
+	fprintf(sf, "%u - %u\n", FW3_TYPE_DEFAULTS, d->flags);
 
 	list_for_each_entry(z, &s->zones, list)
 	{
 		fprintf(sf, "%u %s %u %u\n", FW3_TYPE_ZONE,
-		        z->name, z->has_src_target, z->has_dest_target);
+		        z->name, z->src_flags, z->dst_flags);
 	}
 
 	list_for_each_entry(i, &s->ipsets, list)
