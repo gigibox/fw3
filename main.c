@@ -131,9 +131,6 @@ restore_pipe(enum fw3_family family, bool silent)
 	return true;
 }
 
-#define family_flag(f) \
-	(f == FW3_FAMILY_V4 ? FW3_DEFAULT_IPV4_LOADED : FW3_DEFAULT_IPV6_LOADED)
-
 static bool
 family_running(struct list_head *statefile, enum fw3_family family)
 {
@@ -146,7 +143,7 @@ family_running(struct list_head *statefile, enum fw3_family family)
 			if (e->type != FW3_TYPE_DEFAULTS)
 				continue;
 
-			return hasbit(e->flags[0], family_flag(family));
+			return hasbit(e->flags[0], family);
 		}
 	}
 
@@ -162,16 +159,16 @@ family_used(enum fw3_family family)
 static bool
 family_loaded(struct fw3_state *state, enum fw3_family family)
 {
-	return hasbit(state->defaults.flags, family_flag(family));
+	return hasbit(state->defaults.flags, family);
 }
 
 static void
 family_set(struct fw3_state *state, enum fw3_family family, bool set)
 {
 	if (set)
-		setbit(state->defaults.flags, family_flag(family));
+		setbit(state->defaults.flags, family);
 	else
-		delbit(state->defaults.flags, family_flag(family));
+		delbit(state->defaults.flags, family);
 }
 
 static int

@@ -403,7 +403,7 @@ fw3_write_statefile(void *state)
 	struct fw3_zone *z;
 	struct fw3_ipset *i;
 
-	int mask = (1 << FW3_DEFAULT_IPV4_LOADED) | (1 << FW3_DEFAULT_IPV6_LOADED);
+	int mask = (1 << FW3_FAMILY_V4) | (1 << FW3_FAMILY_V6);
 
 	if (!(d->flags & mask))
 	{
@@ -435,7 +435,7 @@ fw3_write_statefile(void *state)
 		if (i->external && *i->external)
 			continue;
 
-		fprintf(sf, "%u %s\n", FW3_TYPE_IPSET, i->name);
+		fprintf(sf, "%u %s %u\n", FW3_TYPE_IPSET, i->name, i->flags);
 	}
 
 	fclose(sf);

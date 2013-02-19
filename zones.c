@@ -81,7 +81,7 @@ static struct fw3_option zone_opts[] = {
 
 static bool
 print_chains(enum fw3_table table, enum fw3_family family,
-             const char *fmt, const char *name, uint8_t targets,
+             const char *fmt, const char *name, uint16_t targets,
              const struct chain *chains, int n)
 {
 	bool rv = false;

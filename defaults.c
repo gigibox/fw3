@@ -87,7 +87,7 @@ static struct fw3_option default_opts[] = {
 
 static bool
 print_chains(enum fw3_table table, enum fw3_family family,
-             const char *fmt, uint8_t flags,
+             const char *fmt, uint16_t flags,
              const struct chain *chains, int n)
 {
 	bool rv = false;
@@ -142,7 +142,7 @@ fw3_load_defaults(struct fw3_state *state, struct uci_package *p)
 	defs->tcp_window_scaling   = true;
 	defs->custom_chains        = true;
 
-	setbit(defs->flags, FW3_DEFAULT_IPV4_LOADED);
+	setbit(defs->flags, FW3_FAMILY_V4);
 
 	uci_foreach_element(&p->sections, e)
 	{
@@ -165,7 +165,7 @@ fw3_load_defaults(struct fw3_state *state, struct uci_package *p)
 		check_policy(e, &defs->policy_forward, "forward");
 
 		if (!defs->disable_ipv6)
-			setbit(defs->flags, FW3_DEFAULT_IPV6_LOADED);
+			setbit(defs->flags, FW3_FAMILY_V6);
 
 		if (defs->custom_chains)
 			setbit(defs->flags, FW3_DEFAULT_CUSTOM_CHAINS);

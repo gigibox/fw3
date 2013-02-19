@@ -55,30 +55,28 @@ enum fw3_table
 enum fw3_family
 {
 	FW3_FAMILY_ANY = 0,
-	FW3_FAMILY_V4  = 1,
-	FW3_FAMILY_V6  = 2,
+	FW3_FAMILY_V4  = 4,
+	FW3_FAMILY_V6  = 5,
 };
 
 enum fw3_target
 {
 	FW3_TARGET_UNSPEC  = 0,
-	FW3_TARGET_ACCEPT  = 1,
-	FW3_TARGET_REJECT  = 2,
-	FW3_TARGET_DROP    = 3,
-	FW3_TARGET_NOTRACK = 4,
-	FW3_TARGET_DNAT    = 5,
-	FW3_TARGET_SNAT    = 6,
+	FW3_TARGET_ACCEPT  = 6,
+	FW3_TARGET_REJECT  = 7,
+	FW3_TARGET_DROP    = 8,
+	FW3_TARGET_NOTRACK = 9,
+	FW3_TARGET_DNAT    = 10,
+	FW3_TARGET_SNAT    = 11,
 };
 
 enum fw3_default
 {
 	FW3_DEFAULT_UNSPEC        = 0,
-	FW3_DEFAULT_CUSTOM_CHAINS = 1,
-	FW3_DEFAULT_SYN_FLOOD     = 2,
-	FW3_DEFAULT_MTU_FIX       = 3,
-	FW3_DEFAULT_DROP_INVALID  = 4,
-	FW3_DEFAULT_IPV4_LOADED   = 5,
-	FW3_DEFAULT_IPV6_LOADED   = 6,
+	FW3_DEFAULT_CUSTOM_CHAINS = 12,
+	FW3_DEFAULT_SYN_FLOOD     = 13,
+	FW3_DEFAULT_MTU_FIX       = 14,
+	FW3_DEFAULT_DROP_INVALID  = 15,
 };
 
 enum fw3_limit_unit
@@ -212,7 +210,7 @@ struct fw3_defaults
 
 	bool disable_ipv6;
 
-	uint8_t flags;
+	uint16_t flags;
 };
 
 struct fw3_zone
@@ -246,8 +244,8 @@ struct fw3_zone
 
 	bool custom_chains;
 
-	uint8_t src_flags;
-	uint8_t dst_flags;
+	uint16_t src_flags;
+	uint16_t dst_flags;
 };
 
 struct fw3_rule
@@ -356,6 +354,8 @@ struct fw3_ipset
 	int timeout;
 
 	const char *external;
+
+	uint16_t flags;
 };
 
 struct fw3_state
