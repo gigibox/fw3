@@ -96,7 +96,7 @@ print_chains(enum fw3_table table, enum fw3_family family,
 		if (c->table != table)
 			continue;
 
-		if ((c->target != FW3_TARGET_UNSPEC) && !(targets & (1 << c->target)))
+		if ((c->target != FW3_TARGET_UNSPEC) && !hasbit(targets, c->target))
 			continue;
 
 		snprintf(cn, sizeof(cn), c->name, name);
@@ -253,7 +253,7 @@ print_interface_rule(enum fw3_table table, enum fw3_family family,
 	{
 		for (t = FW3_TARGET_ACCEPT; t <= FW3_TARGET_DROP; t++)
 		{
-			if (zone->src_flags & (1 << t))
+			if (hasbit(zone->src_flags, t))
 			{
 				fw3_pr("-A zone_%s_src_%s", zone->name, targets[t*2]);
 				fw3_format_in_out(dev, NULL);
@@ -262,7 +262,7 @@ print_interface_rule(enum fw3_table table, enum fw3_family family,
 				fw3_pr(" -j %s\n", targets[t*2+1]);
 			}
 
-			if (zone->dst_flags & (1 << t))
+			if (hasbit(zone->dst_flags, t))
 			{
 				fw3_pr("-A zone_%s_dest_%s", zone->name, targets[t*2]);
 				fw3_format_in_out(NULL, dev);
@@ -292,7 +292,7 @@ print_interface_rule(enum fw3_table table, enum fw3_family family,
 	}
 	else if (table == FW3_TABLE_NAT)
 	{
-		if (zone->dst_flags & (1 << FW3_TARGET_DNAT))
+		if (hasbit(zone->dst_flags, FW3_TARGET_DNAT))
 		{
 			fw3_pr("-A delegate_prerouting");
 			fw3_format_in_out(dev, NULL);
@@ -301,7 +301,7 @@ print_interface_rule(enum fw3_table table, enum fw3_family family,
 			fw3_pr(" -j zone_%s_prerouting\n", zone->name);
 		}
 
-		if (zone->dst_flags & (1 << FW3_TARGET_SNAT))
+		if (hasbit(zone->dst_flags, FW3_TARGET_SNAT))
 		{
 			fw3_pr("-A delegate_postrouting");
 			fw3_format_in_out(NULL, dev);
@@ -404,7 +404,7 @@ print_zone_rule(enum fw3_table table, enum fw3_family family,
 		{
 			for (t = FW3_TARGET_REJECT; t <= FW3_TARGET_DROP; t++)
 			{
-				if (zone->src_flags & (1 << t))
+				if (hasbit(zone->src_flags, t))
 				{
 					fw3_pr("-A zone_%s_src_%s", zone->name, targets[t]);
 					fw3_format_limit(&zone->log_limit);
@@ -412,7 +412,7 @@ print_zone_rule(enum fw3_table table, enum fw3_family family,
 						   targets[t], zone->name);
 				}
 
-				if (zone->dst_flags & (1 << t))
+				if (hasbit(zone->dst_flags, t))
 				{
 					fw3_pr("-A zone_%s_dest_%s", zone->name, targets[t]);
 					fw3_format_limit(&zone->log_limit);

@@ -101,7 +101,7 @@ print_chains(enum fw3_table table, enum fw3_family family,
 		if (c->table != table)
 			continue;
 
-		if ((c->flag != FW3_DEFAULT_UNSPEC) && !(flags & (1 << c->flag)))
+		if ((c->flag != FW3_DEFAULT_UNSPEC) && !hasbit(flags, c->flag))
 			continue;
 
 		fw3_pr(fmt, c->name);
@@ -142,7 +142,7 @@ fw3_load_defaults(struct fw3_state *state, struct uci_package *p)
 	defs->tcp_window_scaling   = true;
 	defs->custom_chains        = true;
 
-	defs->flags = (1 << FW3_DEFAULT_IPV4_LOADED);
+	setbit(defs->flags, FW3_DEFAULT_IPV4_LOADED);
 
 	uci_foreach_element(&p->sections, e)
 	{
