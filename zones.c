@@ -224,6 +224,8 @@ print_zone_chain(enum fw3_table table, enum fw3_family family,
 	if (!fw3_is_family(zone, family))
 		return;
 
+	setbit(zone->dst_flags, family);
+
 	if (!zone->conntrack && !disable_notrack)
 		setbit(zone->dst_flags, FW3_TARGET_NOTRACK);
 
@@ -462,6 +464,9 @@ fw3_flush_zones(enum fw3_table table, enum fw3_family family,
 	list_for_each_entry(e, statefile, list)
 	{
 		if (e->type != FW3_TYPE_ZONE)
+			continue;
+
+		if (!hasbit(e->flags[1], family))
 			continue;
 
 		print_chains(table, family, pass2 ? "-X %s\n" : "-F %s\n",
