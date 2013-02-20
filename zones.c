@@ -144,6 +144,29 @@ resolve_networks(struct uci_element *e, struct fw3_zone *zone)
 	}
 }
 
+struct fw3_zone *
+fw3_alloc_zone(void)
+{
+	struct fw3_zone *zone;
+
+	zone = malloc(sizeof(*zone));
+
+	if (!zone)
+		return NULL;
+
+	memset(zone, 0, sizeof(*zone));
+
+	INIT_LIST_HEAD(&zone->networks);
+	INIT_LIST_HEAD(&zone->devices);
+	INIT_LIST_HEAD(&zone->subnets);
+	INIT_LIST_HEAD(&zone->masq_src);
+	INIT_LIST_HEAD(&zone->masq_dest);
+
+	zone->log_limit.rate = 10;
+
+	return zone;
+}
+
 void
 fw3_load_zones(struct fw3_state *state, struct uci_package *p)
 {
@@ -161,20 +184,10 @@ fw3_load_zones(struct fw3_state *state, struct uci_package *p)
 		if (strcmp(s->type, "zone"))
 			continue;
 
-		zone = malloc(sizeof(*zone));
+		zone = fw3_alloc_zone();
 
 		if (!zone)
 			continue;
-
-		memset(zone, 0, sizeof(*zone));
-
-		INIT_LIST_HEAD(&zone->networks);
-		INIT_LIST_HEAD(&zone->devices);
-		INIT_LIST_HEAD(&zone->subnets);
-		INIT_LIST_HEAD(&zone->masq_src);
-		INIT_LIST_HEAD(&zone->masq_dest);
-
-		zone->log_limit.rate = 10;
 
 		fw3_parse_options(zone, zone_opts, ARRAY_SIZE(zone_opts), s);
 
@@ -217,7 +230,7 @@ fw3_load_zones(struct fw3_state *state, struct uci_package *p)
 
 static void
 print_zone_chain(enum fw3_table table, enum fw3_family family,
-                 struct fw3_zone *zone, bool disable_notrack)
+                 struct fw3_zone *zone, struct fw3_state *state)
 {
 	bool s, d;
 
@@ -226,7 +239,7 @@ print_zone_chain(enum fw3_table table, enum fw3_family family,
 
 	setbit(zone->dst_flags, family);
 
-	if (!zone->conntrack && !disable_notrack)
+	if (!zone->conntrack && !state->defaults.drop_invalid)
 		setbit(zone->dst_flags, FW3_TARGET_NOTRACK);
 
 	s = print_chains(table, family, ":%s - [0:0]\n", zone->name,
@@ -236,7 +249,10 @@ print_zone_chain(enum fw3_table table, enum fw3_family family,
 	                 zone->dst_flags, dst_chains, ARRAY_SIZE(dst_chains));
 
 	if (s || d)
+	{
 		info("   * Zone '%s'", zone->name);
+		fw3_set_running(zone, &state->running_zones);
+	}
 }
 
 static void
@@ -442,7 +458,7 @@ fw3_print_zone_chains(enum fw3_table table, enum fw3_family family,
 	struct fw3_zone *zone;
 
 	list_for_each_entry(zone, &state->zones, list)
-		print_zone_chain(table, family, zone, state->defaults.drop_invalid);
+		print_zone_chain(table, family, zone, state);
 }
 
 void
@@ -457,28 +473,34 @@ fw3_print_zone_rules(enum fw3_table table, enum fw3_family family,
 
 void
 fw3_flush_zones(enum fw3_table table, enum fw3_family family,
-			    bool pass2, struct list_head *statefile)
+			    bool pass2, struct fw3_state *state)
 {
-	struct fw3_statefile_entry *e;
+	struct fw3_zone *z, *tmp;
+	int mask = (1 << FW3_FAMILY_V4) | (1 << FW3_FAMILY_V6);
 
-	list_for_each_entry(e, statefile, list)
+	list_for_each_entry_safe(z, tmp, &state->running_zones, running_list)
 	{
-		if (e->type != FW3_TYPE_ZONE)
-			continue;
-
-		if (!hasbit(e->flags[1], family))
+		if (!hasbit(z->dst_flags, family))
 			continue;
 
 		print_chains(table, family, pass2 ? "-X %s\n" : "-F %s\n",
-		             e->name, e->flags[0], src_chains, ARRAY_SIZE(src_chains));
+		             z->name, z->src_flags, src_chains, ARRAY_SIZE(src_chains));
 
 		print_chains(table, family, pass2 ? "-X %s\n" : "-F %s\n",
-		             e->name, e->flags[1], dst_chains, ARRAY_SIZE(dst_chains));
+		             z->name, z->dst_flags, dst_chains, ARRAY_SIZE(dst_chains));
+
+		if (pass2)
+		{
+			delbit(z->dst_flags, family);
+
+			if (!(z->dst_flags & mask))
+				fw3_set_running(z, NULL);
+		}
 	}
 }
 
 struct fw3_zone *
-fw3_lookup_zone(struct fw3_state *state, const char *name)
+fw3_lookup_zone(struct fw3_state *state, const char *name, bool running)
 {
 	struct fw3_zone *z;
 
@@ -486,8 +508,15 @@ fw3_lookup_zone(struct fw3_state *state, const char *name)
 		return NULL;
 
 	list_for_each_entry(z, &state->zones, list)
-		if (!strcmp(z->name, name))
+	{
+		if (strcmp(z->name, name))
+			continue;
+
+		if (!running || z->running_list.next)
 			return z;
+
+		break;
+	}
 
 	return NULL;
 }

@@ -38,12 +38,14 @@ struct fw3_ipset_settype {
 	uint8_t optional;
 };
 
+struct fw3_ipset * fw3_alloc_ipset(void);
 void fw3_load_ipsets(struct fw3_state *state, struct uci_package *p);
-void fw3_create_ipsets(struct fw3_state *state, struct list_head *statefile);
-void fw3_destroy_ipsets(struct fw3_state *state, struct list_head *statefile);
+void fw3_create_ipsets(struct fw3_state *state);
+void fw3_destroy_ipsets(struct fw3_state *state);
 
 void fw3_free_ipset(struct fw3_ipset *ipset);
 
-struct fw3_ipset * fw3_lookup_ipset(struct fw3_state *state, const char *name);
+struct fw3_ipset * fw3_lookup_ipset(struct fw3_state *state, const char *name,
+                                    bool running);
 
 #endif

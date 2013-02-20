@@ -132,14 +132,14 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 			continue;
 		}
 		else if (redir->src.set && !redir->src.any &&
-		         !(redir->_src = fw3_lookup_zone(state, redir->src.name)))
+		         !(redir->_src = fw3_lookup_zone(state, redir->src.name, false)))
 		{
 			warn_elem(e, "refers to not existing zone '%s'", redir->src.name);
 			fw3_free_redirect(redir);
 			continue;
 		}
 		else if (redir->dest.set && !redir->dest.any &&
-		         !(redir->_dest = fw3_lookup_zone(state, redir->dest.name)))
+		         !(redir->_dest = fw3_lookup_zone(state, redir->dest.name, false)))
 		{
 			warn_elem(e, "refers to not existing zone '%s'", redir->dest.name);
 			fw3_free_redirect(redir);
@@ -152,7 +152,7 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 			continue;
 		}
 		else if (redir->ipset.set && !redir->ipset.any &&
-		         !(redir->_ipset = fw3_lookup_ipset(state, redir->ipset.name)))
+		         !(redir->_ipset = fw3_lookup_ipset(state, redir->ipset.name, false)))
 		{
 			warn_elem(e, "refers to unknown ipset '%s'", redir->ipset.name);
 			fw3_free_redirect(redir);

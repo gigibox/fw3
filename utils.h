@@ -87,16 +87,9 @@ enum fw3_statefile_type
 	FW3_TYPE_IPSET    = 2,
 };
 
-struct fw3_statefile_entry
-{
-	struct list_head list;
-	enum fw3_statefile_type type;
-	char *name;
-	uint32_t flags[2];
-};
-
-struct list_head * fw3_read_statefile(void);
+bool fw3_read_statefile(void *state);
 void fw3_write_statefile(void *state);
-void fw3_free_statefile(struct list_head *statefile);
+
+void fw3_set_running(void *object, struct list_head *dest);
 
 #endif

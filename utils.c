@@ -19,6 +19,10 @@
 #include "utils.h"
 #include "options.h"
 
+#include "zones.h"
+#include "ipsets.h"
+
+
 static int lock_fd = -1;
 static pid_t pipe_pid = -1;
 static FILE *pipe_fd = NULL;
@@ -332,66 +336,90 @@ fw3_unlock(void)
 }
 
 
-struct list_head *
-fw3_read_statefile(void)
+bool
+fw3_read_statefile(void *state)
 {
 	FILE *sf;
 
-	int n;
+	int n, type;
 	char line[128];
-	const char *p;
+	const char *p, *name;
 
-	struct list_head *state;
-	struct fw3_statefile_entry *entry;
+	uint16_t flags[2];
+
+	struct fw3_state *s = state;
+	struct fw3_zone *zone;
+	struct fw3_ipset *ipset;
 
 	sf = fopen(FW3_STATEFILE, "r");
 
 	if (!sf)
-		return NULL;
-
-	state = malloc(sizeof(*state));
-
-	if (!state)
-		return NULL;
-
-	INIT_LIST_HEAD(state);
+		return false;
 
 	while (fgets(line, sizeof(line), sf))
 	{
-		entry = malloc(sizeof(*entry));
-
-		if (!entry)
-			continue;
-
-		memset(entry, 0, sizeof(*entry));
-
 		p = strtok(line, " \t\n");
 
 		if (!p)
 			continue;
 
-		entry->type = strtoul(p, NULL, 10);
+		type = strtoul(p, NULL, 10);
+		name = strtok(NULL, " \t\n");
 
-		p = strtok(NULL, " \t\n");
-
-		if (!p)
+		if (!name)
 			continue;
 
-		entry->name = strdup(p);
-
 		for (n = 0, p = strtok(NULL, " \t\n");
-		     n < ARRAY_SIZE(entry->flags) && p != NULL;
+		     n < ARRAY_SIZE(flags) && p != NULL;
 		     n++, p = strtok(NULL, " \t\n"))
 		{
-			entry->flags[n] = strtoul(p, NULL, 10);
+			flags[n] = strtoul(p, NULL, 10);
 		}
 
-		list_add_tail(&entry->list, state);
+		switch (type)
+		{
+		case FW3_TYPE_DEFAULTS:
+			s->running_defaults.flags = flags[0];
+			break;
+
+		case FW3_TYPE_ZONE:
+			if (!(zone = fw3_lookup_zone(state, name, false)))
+			{
+				zone = fw3_alloc_zone();
+
+				if (!zone)
+					continue;
+
+				zone->name = strdup(name);
+				list_add_tail(&zone->list, &s->zones);
+			}
+
+			zone->src_flags = flags[0];
+			zone->dst_flags = flags[1];
+			list_add_tail(&zone->running_list, &s->running_zones);
+			break;
+
+		case FW3_TYPE_IPSET:
+			if (!(ipset = fw3_lookup_ipset(state, name, false)))
+			{
+				ipset = fw3_alloc_ipset();
+
+				if (!ipset)
+					continue;
+
+				ipset->name = strdup(name);
+				list_add_tail(&ipset->list, &s->ipsets);
+			}
+
+			ipset->flags = flags[0];
+			list_add_tail(&ipset->running_list, &s->running_ipsets);
+			break;
+		}
 	}
 
 	fclose(sf);
 
-	return state;
+	return true;
 }
 
 void
@@ -424,40 +452,34 @@ fw3_write_statefile(void *state)
 
 	fprintf(sf, "%u - %u\n", FW3_TYPE_DEFAULTS, d->flags);
 
-	list_for_each_entry(z, &s->zones, list)
+	list_for_each_entry(z, &s->running_zones, running_list)
 	{
 		fprintf(sf, "%u %s %u %u\n", FW3_TYPE_ZONE,
 		        z->name, z->src_flags, z->dst_flags);
 	}
 
-	list_for_each_entry(i, &s->ipsets, list)
+	list_for_each_entry(i, &s->running_ipsets, running_list)
 	{
-		if (i->external && *i->external)
-			continue;
-
-		if (!i->flags)
-			continue;
-
 		fprintf(sf, "%u %s %u\n", FW3_TYPE_IPSET, i->name, i->flags);
 	}
 
 	fclose(sf);
 }
 
-void
-fw3_free_statefile(struct list_head *statefile)
+
+struct object_list_heads
 {
-	struct fw3_statefile_entry *e, *tmp;
+	struct list_head list;
+	struct list_head running_list;
+};
 
-	if (!statefile)
-		return;
+void
+fw3_set_running(void *object, struct list_head *dest)
+{
+	struct object_list_heads *o = object;
 
-	list_for_each_entry_safe(e, tmp, statefile, list)
-	{
-		list_del(&e->list);
-		free(e->name);
-		free(e);
-	}
-
-	free(statefile);
+	if (dest && !o->running_list.next)
+		list_add_tail(&o->running_list, dest);
+	else if (!dest && o->running_list.next)
+		list_del(&o->running_list);
 }

@@ -184,6 +184,24 @@ check_types(struct uci_element *e, struct fw3_ipset *ipset)
 	return false;
 }
 
+struct fw3_ipset *
+fw3_alloc_ipset(void)
+{
+	struct fw3_ipset *ipset;
+
+	ipset = malloc(sizeof(*ipset));
+
+	if (!ipset)
+		return NULL;
+
+	memset(ipset, 0, sizeof(*ipset));
+
+	INIT_LIST_HEAD(&ipset->datatypes);
+	INIT_LIST_HEAD(&ipset->iprange);
+
+	return ipset;
+}
+
 void
 fw3_load_ipsets(struct fw3_state *state, struct uci_package *p)
 {
@@ -203,15 +221,10 @@ fw3_load_ipsets(struct fw3_state *state, struct uci_package *p)
 		if (strcmp(s->type, "ipset"))
 			continue;
 
-		ipset = malloc(sizeof(*ipset));
+		ipset = fw3_alloc_ipset();
 
 		if (!ipset)
 			continue;
-
-		memset(ipset, 0, sizeof(*ipset));
-
-		INIT_LIST_HEAD(&ipset->datatypes);
-		INIT_LIST_HEAD(&ipset->iprange);
 
 		fw3_parse_options(ipset, ipset_opts, ARRAY_SIZE(ipset_opts), s);
 
@@ -239,7 +252,7 @@ fw3_load_ipsets(struct fw3_state *state, struct uci_package *p)
 
 
 static void
-create_ipset(struct fw3_ipset *ipset)
+create_ipset(struct fw3_ipset *ipset, struct fw3_state *state)
 {
 	bool first = true;
 	char s[INET6_ADDRSTRLEN];
@@ -326,31 +339,12 @@ create_ipset(struct fw3_ipset *ipset)
 		fw3_pr(" hashsize %u", ipset->hashsize);
 
 	fw3_pr("\n");
-}
 
-static bool
-ipset_loaded(struct list_head *statefile, const char *name)
-{
-	struct fw3_statefile_entry *e;
-	int mask = (1 << FW3_FAMILY_V4) | (1 << FW3_FAMILY_V6);
-
-	if (!statefile)
-		return false;
-
-	list_for_each_entry(e, statefile, list)
-	{
-		if (e->type != FW3_TYPE_IPSET)
-			continue;
-
-		if (!strcmp(e->name, name) && (e->flags[0] & mask))
-			return true;
-	}
-
-	return false;
+	fw3_set_running(ipset, &state->running_ipsets);
 }
 
 void
-fw3_create_ipsets(struct fw3_state *state, struct list_head *statefile)
+fw3_create_ipsets(struct fw3_state *state)
 {
 	struct fw3_ipset *ipset;
 
@@ -358,42 +352,34 @@ fw3_create_ipsets(struct fw3_state *state, struct list_head *statefile)
 		return;
 
 	list_for_each_entry(ipset, &state->ipsets, list)
-		if (!ipset_loaded(statefile, ipset->name))
-			create_ipset(ipset);
+		if (!fw3_lookup_ipset(state, ipset->name, true))
+			create_ipset(ipset, state);
 
 	fw3_pr("quit\n");
 }
 
 void
-fw3_destroy_ipsets(struct fw3_state *state, struct list_head *statefile)
+fw3_destroy_ipsets(struct fw3_state *state)
 {
-	struct fw3_ipset *s;
-	struct fw3_statefile_entry *e;
+	struct fw3_ipset *s, *tmp;
 	int mask = (1 << FW3_FAMILY_V4) | (1 << FW3_FAMILY_V6);
 
-	if (!statefile)
-		return;
-
-	list_for_each_entry(e, statefile, list)
+	list_for_each_entry_safe(s, tmp, &state->running_ipsets, running_list)
 	{
-		if (e->type != FW3_TYPE_IPSET)
-			continue;
-
 		if (!hasbit(state->defaults.flags, FW3_FAMILY_V4))
-			delbit(e->flags[0], FW3_FAMILY_V4);
+			delbit(s->flags, FW3_FAMILY_V4);
 
 		if (!hasbit(state->defaults.flags, FW3_FAMILY_V6))
-			delbit(e->flags[0], FW3_FAMILY_V6);
+			delbit(s->flags, FW3_FAMILY_V6);
 
-		if ((s = fw3_lookup_ipset(state, e->name)) != NULL)
-			s->flags = e->flags[0];
-
-		if (!(e->flags[0] & mask))
+		if (!(s->flags & mask))
 		{
-			info("Deleting ipset %s", e->name);
+			info("Deleting ipset %s", s->name);
 
-			fw3_pr("flush %s\n", e->name);
-			fw3_pr("destroy %s\n", e->name);
+			fw3_pr("flush %s\n", s->name);
+			fw3_pr("destroy %s\n", s->name);
+
+			fw3_set_running(s, NULL);
 		}
 	}
 }
@@ -408,16 +394,23 @@ fw3_free_ipset(struct fw3_ipset *ipset)
 }
 
 struct fw3_ipset *
-fw3_lookup_ipset(struct fw3_state *state, const char *name)
+fw3_lookup_ipset(struct fw3_state *state, const char *name, bool running)
 {
-	struct fw3_ipset *ipset;
+	struct fw3_ipset *s;
 
 	if (list_empty(&state->ipsets))
 		return NULL;
 
-	list_for_each_entry(ipset, &state->ipsets, list)
-		if (!strcmp(ipset->name, name))
-			return ipset;
+	list_for_each_entry(s, &state->ipsets, list)
+	{
+		if (strcmp(s->name, name))
+			continue;
+
+		if (!running || s->running_list.next)
+			return s;
+
+		break;
+	}
 
 	return NULL;
 }

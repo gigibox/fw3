@@ -62,12 +62,17 @@ build_state(void)
 		state->disable_ipsets = true;
 	}
 
+	INIT_LIST_HEAD(&state->running_zones);
+	INIT_LIST_HEAD(&state->running_ipsets);
+
 	fw3_load_defaults(state, p);
 	fw3_load_ipsets(state, p);
 	fw3_load_zones(state, p);
 	fw3_load_rules(state, p);
 	fw3_load_redirects(state, p);
 	fw3_load_forwards(state, p);
+
+	state->statefile = fw3_read_statefile(state);
 
 	return state;
 }
@@ -88,6 +93,9 @@ free_state(struct fw3_state *state)
 
 	list_for_each_safe(cur, tmp, &state->forwards)
 		fw3_free_forward((struct fw3_forward *)cur);
+
+	list_for_each_safe(cur, tmp, &state->ipsets)
+		fw3_free_ipset((struct fw3_ipset *)cur);
 
 	uci_free_context(state->uci);
 
@@ -117,22 +125,9 @@ restore_pipe(enum fw3_family family, bool silent)
 }
 
 static bool
-family_running(struct list_head *statefile, enum fw3_family family)
+family_running(struct fw3_state *state, enum fw3_family family)
 {
-	struct fw3_statefile_entry *e;
-
-	if (statefile)
-	{
-		list_for_each_entry(e, statefile, list)
-		{
-			if (e->type != FW3_TYPE_DEFAULTS)
-				continue;
-
-			return hasbit(e->flags[0], family);
-		}
-	}
-
-	return false;
+	return hasbit(state->running_defaults.flags, family);
 }
 
 static bool
@@ -163,9 +158,7 @@ stop(struct fw3_state *state, bool complete, bool restart)
 	enum fw3_family family;
 	enum fw3_table table;
 
-	struct list_head *statefile = fw3_read_statefile();
-
-	if (!complete && !statefile)
+	if (!complete && !state->statefile)
 	{
 		if (!restart)
 			warn("The firewall appears to be stopped. "
@@ -176,7 +169,7 @@ stop(struct fw3_state *state, bool complete, bool restart)
 
 	for (family = FW3_FAMILY_V4; family <= FW3_FAMILY_V6; family++)
 	{
-		if (!complete && !family_running(statefile, family))
+		if (!complete && !family_running(state, family))
 			continue;
 
 		if (!family_used(family) || !restore_pipe(family, true))
@@ -201,12 +194,12 @@ stop(struct fw3_state *state, bool complete, bool restart)
 			else
 			{
 				/* pass 1 */
-				fw3_flush_rules(table, family, false, statefile);
-				fw3_flush_zones(table, family, false, statefile);
+				fw3_flush_rules(table, family, false, state);
+				fw3_flush_zones(table, family, false, state);
 
 				/* pass 2 */
-				fw3_flush_rules(table, family, true, statefile);
-				fw3_flush_zones(table, family, true, statefile);
+				fw3_flush_rules(table, family, true, state);
+				fw3_flush_zones(table, family, true, state);
 			}
 
 			fw3_pr("COMMIT\n");
@@ -222,11 +215,9 @@ stop(struct fw3_state *state, bool complete, bool restart)
 
 	if (!restart && fw3_command_pipe(false, "ipset", "-exist", "-"))
 	{
-		fw3_destroy_ipsets(state, statefile);
+		fw3_destroy_ipsets(state);
 		fw3_command_close();
 	}
-
-	fw3_free_statefile(statefile);
 
 	if (!rv)
 		fw3_write_statefile(state);
@@ -241,12 +232,10 @@ start(struct fw3_state *state, bool restart)
 	enum fw3_family family;
 	enum fw3_table table;
 
-	struct list_head *statefile = fw3_read_statefile();
-
 	if (!print_rules && !restart &&
 	    fw3_command_pipe(false, "ipset", "-exist", "-"))
 	{
-		fw3_create_ipsets(state, statefile);
+		fw3_create_ipsets(state);
 		fw3_command_close();
 	}
 
@@ -255,10 +244,7 @@ start(struct fw3_state *state, bool restart)
 		if (!family_used(family))
 			continue;
 
-		if (!family_loaded(state, family) || !restore_pipe(family, false))
-			continue;
-
-		if (!print_rules && !restart && family_running(statefile, family))
+		if (!print_rules && !restart && family_running(state, family))
 		{
 			warn("The %s firewall appears to be started already. "
 			     "If it is indeed empty, remove the %s file and retry.",
@@ -266,6 +252,9 @@ start(struct fw3_state *state, bool restart)
 
 			continue;
 		}
+
+		if (!family_loaded(state, family) || !restore_pipe(family, false))
+			continue;
 
 		info("Constructing %s rules ...", fw3_flag_names[family]);
 
@@ -293,8 +282,6 @@ start(struct fw3_state *state, bool restart)
 
 		rv = 0;
 	}
-
-	fw3_free_statefile(statefile);
 
 	if (!rv && !print_rules)
 		fw3_write_statefile(state);

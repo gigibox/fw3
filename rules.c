@@ -90,14 +90,14 @@ fw3_load_rules(struct fw3_state *state, struct uci_package *p)
 			continue;
 		}
 		else if (rule->src.set && !rule->src.any &&
-		         !(rule->_src = fw3_lookup_zone(state, rule->src.name)))
+		         !(rule->_src = fw3_lookup_zone(state, rule->src.name, false)))
 		{
 			warn_elem(e, "refers to not existing zone '%s'", rule->src.name);
 			fw3_free_rule(rule);
 			continue;
 		}
 		else if (rule->dest.set && !rule->dest.any &&
-		         !(rule->_dest = fw3_lookup_zone(state, rule->dest.name)))
+		         !(rule->_dest = fw3_lookup_zone(state, rule->dest.name, false)))
 		{
 			warn_elem(e, "refers to not existing zone '%s'", rule->dest.name);
 			fw3_free_rule(rule);
@@ -110,7 +110,7 @@ fw3_load_rules(struct fw3_state *state, struct uci_package *p)
 			continue;
 		}
 		else if (rule->ipset.set && !rule->ipset.any &&
-		         !(rule->_ipset = fw3_lookup_ipset(state, rule->ipset.name)))
+		         !(rule->_ipset = fw3_lookup_ipset(state, rule->ipset.name, false)))
 		{
 			warn_elem(e, "refers to unknown ipset '%s'", rule->ipset.name);
 			fw3_free_rule(rule);

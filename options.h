@@ -219,6 +219,7 @@ struct fw3_defaults
 struct fw3_zone
 {
 	struct list_head list;
+	struct list_head running_list;
 
 	const char *name;
 
@@ -340,6 +341,7 @@ struct fw3_forward
 struct fw3_ipset
 {
 	struct list_head list;
+	struct list_head running_list;
 
 	const char *name;
 	enum fw3_family family;
@@ -371,7 +373,12 @@ struct fw3_state
 	struct list_head forwards;
 	struct list_head ipsets;
 
+	struct fw3_defaults running_defaults;
+	struct list_head running_zones;
+	struct list_head running_ipsets;
+
 	bool disable_ipsets;
+	bool statefile;
 };
 
 

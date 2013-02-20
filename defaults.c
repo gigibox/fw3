@@ -295,30 +295,29 @@ reset_policy(enum fw3_table table)
 
 void
 fw3_flush_rules(enum fw3_table table, enum fw3_family family,
-                bool pass2, struct list_head *statefile)
+                bool pass2, struct fw3_state *state)
 {
-	struct fw3_statefile_entry *e;
+	struct fw3_defaults *d = &state->running_defaults;
 
-	list_for_each_entry(e, statefile, list)
+	if (!hasbit(d->flags, family))
+		return;
+
+	if (!pass2)
 	{
-		if (e->type != FW3_TYPE_DEFAULTS)
-			continue;
+		reset_policy(table);
 
-		if (!pass2)
-		{
-			reset_policy(table);
+		print_chains(table, family, "-D %s\n", state->running_defaults.flags,
+					 toplevel_rules, ARRAY_SIZE(toplevel_rules));
 
-			print_chains(table, family, "-D %s\n", e->flags[0],
-			             toplevel_rules, ARRAY_SIZE(toplevel_rules));
+		print_chains(table, family, "-F %s\n", state->running_defaults.flags,
+					 default_chains, ARRAY_SIZE(default_chains));
+	}
+	else
+	{
+		print_chains(table, family, "-X %s\n", state->running_defaults.flags,
+					 default_chains, ARRAY_SIZE(default_chains));
 
-			print_chains(table, family, "-F %s\n", e->flags[0],
-			             default_chains, ARRAY_SIZE(default_chains));
-		}
-		else
-		{
-			print_chains(table, family, "-X %s\n", e->flags[0],
-			             default_chains, ARRAY_SIZE(default_chains));
-		}
+		delbit(d->flags, family);
 	}
 }
 

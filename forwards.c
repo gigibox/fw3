@@ -60,14 +60,14 @@ fw3_load_forwards(struct fw3_state *state, struct uci_package *p)
 			continue;
 		}
 		else if (forward->src.set && !forward->src.any &&
-		         !(forward->_src = fw3_lookup_zone(state, forward->src.name)))
+		         !(forward->_src = fw3_lookup_zone(state, forward->src.name, false)))
 		{
 			warn_elem(e, "refers to not existing zone '%s'", forward->src.name);
 			fw3_free_forward(forward);
 			continue;
 		}
 		else if (forward->dest.set && !forward->dest.any &&
-		         !(forward->_dest = fw3_lookup_zone(state, forward->dest.name)))
+		         !(forward->_dest = fw3_lookup_zone(state, forward->dest.name, false)))
 		{
 			warn_elem(e, "refers to not existing zone '%s'", forward->dest.name);
 			fw3_free_forward(forward);

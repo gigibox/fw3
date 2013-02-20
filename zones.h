@@ -21,6 +21,8 @@
 
 #include "options.h"
 
+struct fw3_zone * fw3_alloc_zone(void);
+
 void fw3_load_zones(struct fw3_state *state, struct uci_package *p);
 
 void fw3_print_zone_chains(enum fw3_table table, enum fw3_family family,
@@ -30,9 +32,10 @@ void fw3_print_zone_rules(enum fw3_table table, enum fw3_family family,
                           struct fw3_state *state);
 
 void fw3_flush_zones(enum fw3_table table, enum fw3_family family,
-                     bool pass2, struct list_head *statefile);
+                     bool pass2, struct fw3_state *state);
 
-struct fw3_zone * fw3_lookup_zone(struct fw3_state *state, const char *name);
+struct fw3_zone * fw3_lookup_zone(struct fw3_state *state, const char *name,
+                                  bool running);
 
 void fw3_free_zone(struct fw3_zone *zone);
 

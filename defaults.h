@@ -33,7 +33,7 @@ void fw3_print_default_tail_rules(enum fw3_table table, enum fw3_family family,
                                   struct fw3_state *state);
 
 void fw3_flush_rules(enum fw3_table table, enum fw3_family family,
-                     bool pass2, struct list_head *statefile);
+                     bool pass2, struct fw3_state *state);
 
 void fw3_flush_all(enum fw3_table table);
 
