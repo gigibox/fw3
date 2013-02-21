@@ -19,7 +19,7 @@
 #include "ipsets.h"
 
 
-static struct fw3_option ipset_opts[] = {
+const struct fw3_option fw3_ipset_opts[] = {
 	FW3_OPT("name",          string,         ipset,     name),
 	FW3_OPT("family",        family,         ipset,     family),
 
@@ -35,6 +35,8 @@ static struct fw3_option ipset_opts[] = {
 	FW3_OPT("timeout",       int,            ipset,     timeout),
 
 	FW3_OPT("external",      string,         ipset,     external),
+
+	{ }
 };
 
 #define T(m, t1, t2, t3, r, o) \
@@ -42,27 +44,41 @@ static struct fw3_option ipset_opts[] = {
 	  FW3_IPSET_TYPE_##t1 | (FW3_IPSET_TYPE_##t2 << 8) | (FW3_IPSET_TYPE_##t3 << 16), \
 	  r, o }
 
-static struct fw3_ipset_settype ipset_types[] = {
-	T(BITMAP, IP,   UNSPEC, UNSPEC, FW3_IPSET_OPT_IPRANGE,
-	  FW3_IPSET_OPT_NETMASK),
-	T(BITMAP, IP,   MAC,    UNSPEC, FW3_IPSET_OPT_IPRANGE, 0),
-	T(BITMAP, PORT, UNSPEC, UNSPEC, FW3_IPSET_OPT_PORTRANGE, 0),
+enum ipset_optflag {
+	OPT_IPRANGE   = (1 << 0),
+	OPT_PORTRANGE = (1 << 1),
+	OPT_NETMASK   = (1 << 2),
+	OPT_HASHSIZE  = (1 << 3),
+	OPT_MAXELEM   = (1 << 4),
+	OPT_FAMILY    = (1 << 5),
+};
+
+struct ipset_type {
+	enum fw3_ipset_method method;
+	uint32_t types;
+	uint8_t required;
+	uint8_t optional;
+};
+
+static struct ipset_type ipset_types[] = {
+	T(BITMAP, IP,   UNSPEC, UNSPEC, OPT_IPRANGE, OPT_NETMASK),
+	T(BITMAP, IP,   MAC,    UNSPEC, OPT_IPRANGE, 0),
+	T(BITMAP, PORT, UNSPEC, UNSPEC, OPT_PORTRANGE, 0),
 
 	T(HASH,   IP,   UNSPEC, UNSPEC, 0,
-	  FW3_IPSET_OPT_FAMILY | FW3_IPSET_OPT_HASHSIZE | FW3_IPSET_OPT_MAXELEM |
-	  FW3_IPSET_OPT_NETMASK),
+	  OPT_FAMILY | OPT_HASHSIZE | OPT_MAXELEM | OPT_NETMASK),
 	T(HASH,   NET,  UNSPEC, UNSPEC, 0,
-	  FW3_IPSET_OPT_FAMILY | FW3_IPSET_OPT_HASHSIZE | FW3_IPSET_OPT_MAXELEM),
+	  OPT_FAMILY | OPT_HASHSIZE | OPT_MAXELEM),
 	T(HASH,   IP,   PORT,   UNSPEC, 0,
-	  FW3_IPSET_OPT_FAMILY | FW3_IPSET_OPT_HASHSIZE | FW3_IPSET_OPT_MAXELEM),
+	  OPT_FAMILY | OPT_HASHSIZE | OPT_MAXELEM),
 	T(HASH,   NET,  PORT,   UNSPEC, 0,
-	  FW3_IPSET_OPT_FAMILY | FW3_IPSET_OPT_HASHSIZE | FW3_IPSET_OPT_MAXELEM),
+	  OPT_FAMILY | OPT_HASHSIZE | OPT_MAXELEM),
 	T(HASH,   IP,   PORT,   IP,     0,
-	  FW3_IPSET_OPT_FAMILY | FW3_IPSET_OPT_HASHSIZE | FW3_IPSET_OPT_MAXELEM),
+	  OPT_FAMILY | OPT_HASHSIZE | OPT_MAXELEM),
 	T(HASH,   IP,   PORT,   NET,    0,
-	  FW3_IPSET_OPT_FAMILY | FW3_IPSET_OPT_HASHSIZE | FW3_IPSET_OPT_MAXELEM),
+	  OPT_FAMILY | OPT_HASHSIZE | OPT_MAXELEM),
 
-	T(LIST,   SET,  UNSPEC, UNSPEC, 0, FW3_IPSET_OPT_MAXELEM),
+	T(LIST,   SET,  UNSPEC, UNSPEC, 0, OPT_MAXELEM),
 };
 
 
@@ -119,56 +135,56 @@ check_types(struct uci_element *e, struct fw3_ipset *ipset)
 		{
 			if (!ipset->external || !*ipset->external)
 			{
-				if ((ipset_types[i].required & FW3_IPSET_OPT_IPRANGE) &&
+				if ((ipset_types[i].required & OPT_IPRANGE) &&
 					list_empty(&ipset->iprange))
 				{
 					warn_elem(e, "requires an ip range");
 					return false;
 				}
 
-				if ((ipset_types[i].required & FW3_IPSET_OPT_PORTRANGE) &&
+				if ((ipset_types[i].required & OPT_PORTRANGE) &&
 				    !ipset->portrange.set)
 				{
 					warn_elem(e, "requires a port range");
 					return false;
 				}
 
-				if (!(ipset_types[i].required & FW3_IPSET_OPT_IPRANGE) &&
+				if (!(ipset_types[i].required & OPT_IPRANGE) &&
 				    !list_empty(&ipset->iprange))
 				{
 					warn_elem(e, "iprange ignored");
 					fw3_free_list(&ipset->iprange);
 				}
 
-				if (!(ipset_types[i].required & FW3_IPSET_OPT_PORTRANGE) &&
+				if (!(ipset_types[i].required & OPT_PORTRANGE) &&
 				    ipset->portrange.set)
 				{
 					warn_elem(e, "portrange ignored");
 					memset(&ipset->portrange, 0, sizeof(ipset->portrange));
 				}
 
-				if (!(ipset_types[i].optional & FW3_IPSET_OPT_NETMASK) &&
+				if (!(ipset_types[i].optional & OPT_NETMASK) &&
 				    ipset->netmask > 0)
 				{
 					warn_elem(e, "netmask ignored");
 					ipset->netmask = 0;
 				}
 
-				if (!(ipset_types[i].optional & FW3_IPSET_OPT_HASHSIZE) &&
+				if (!(ipset_types[i].optional & OPT_HASHSIZE) &&
 				    ipset->hashsize > 0)
 				{
 					warn_elem(e, "hashsize ignored");
 					ipset->hashsize = 0;
 				}
 
-				if (!(ipset_types[i].optional & FW3_IPSET_OPT_MAXELEM) &&
+				if (!(ipset_types[i].optional & OPT_MAXELEM) &&
 				    ipset->maxelem > 0)
 				{
 					warn_elem(e, "maxelem ignored");
 					ipset->maxelem = 0;
 				}
 
-				if (!(ipset_types[i].optional & FW3_IPSET_OPT_FAMILY) &&
+				if (!(ipset_types[i].optional & OPT_FAMILY) &&
 				    ipset->family != FW3_FAMILY_ANY)
 				{
 					warn_elem(e, "family ignored");
@@ -226,7 +242,7 @@ fw3_load_ipsets(struct fw3_state *state, struct uci_package *p)
 		if (!ipset)
 			continue;
 
-		fw3_parse_options(ipset, ipset_opts, ARRAY_SIZE(ipset_opts), s);
+		fw3_parse_options(ipset, fw3_ipset_opts, s);
 
 		if (!ipset->name || !*ipset->name)
 		{
@@ -382,15 +398,6 @@ fw3_destroy_ipsets(struct fw3_state *state)
 			fw3_set_running(s, NULL);
 		}
 	}
-}
-
-void
-fw3_free_ipset(struct fw3_ipset *ipset)
-{
-	fw3_free_list(&ipset->datatypes);
-	fw3_free_list(&ipset->iprange);
-
-	free(ipset);
 }
 
 struct fw3_ipset *

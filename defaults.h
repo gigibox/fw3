@@ -21,6 +21,8 @@
 
 #include "options.h"
 
+extern const struct fw3_option fw3_default_opts[];
+
 void fw3_load_defaults(struct fw3_state *state, struct uci_package *p);
 
 void fw3_print_default_chains(enum fw3_table table, enum fw3_family family,

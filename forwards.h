@@ -23,10 +23,13 @@
 #include "zones.h"
 #include "utils.h"
 
+extern const struct fw3_option fw3_forward_opts[];
+
 void fw3_load_forwards(struct fw3_state *state, struct uci_package *p);
 void fw3_print_forwards(enum fw3_table table, enum fw3_family family,
                         struct fw3_state *state);
 
-#define fw3_free_forward(forward) free(forward)
+#define fw3_free_forward(forward) \
+	fw3_free_object(forward, fw3_forward_opts)
 
 #endif

@@ -19,7 +19,7 @@
 #include "redirects.h"
 
 
-static struct fw3_option redirect_opts[] = {
+const struct fw3_option fw3_redirect_opts[] = {
 	FW3_OPT("name",                string,   redirect,     name),
 	FW3_OPT("family",              family,   redirect,     family),
 
@@ -45,6 +45,8 @@ static struct fw3_option redirect_opts[] = {
 	FW3_OPT("reflection",          bool,     redirect,     reflection),
 
 	FW3_OPT("target",              target,   redirect,     target),
+
+	{ }
 };
 
 
@@ -123,7 +125,7 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 
 		redir->reflection = true;
 
-		fw3_parse_options(redir, redirect_opts, ARRAY_SIZE(redirect_opts), s);
+		fw3_parse_options(redir, fw3_redirect_opts, s);
 
 		if (redir->src.invert)
 		{
@@ -464,12 +466,4 @@ fw3_print_redirects(enum fw3_table table, enum fw3_family family,
 
 	list_for_each_entry(redir, &state->redirects, list)
 		print_redirect(table, family, redir, num++);
-}
-
-void
-fw3_free_redirect(struct fw3_redirect *redir)
-{
-	fw3_free_list(&redir->proto);
-	fw3_free_list(&redir->mac_src);
-	free(redir);
 }

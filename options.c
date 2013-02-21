@@ -498,16 +498,14 @@ fw3_parse_ipset_datatype(void *ptr, const char *val)
 
 
 void
-fw3_parse_options(void *s,
-                  struct fw3_option *opts, int n,
+fw3_parse_options(void *s, const struct fw3_option *opts,
                   struct uci_section *section)
 {
-	int i;
 	char *p;
 	bool known;
 	struct uci_element *e, *l;
 	struct uci_option *o;
-	struct fw3_option *opt;
+	const struct fw3_option *opt;
 	struct list_head *item;
 	struct list_head *dest;
 
@@ -516,11 +514,9 @@ fw3_parse_options(void *s,
 		o = uci_to_option(e);
 		known = false;
 
-		for (i = 0; i < n; i++)
+		for (opt = opts; opt->name; opt++)
 		{
-			opt = &opts[i];
-
-			if (!opt->parse || !opt->name)
+			if (!opt->parse)
 				continue;
 
 			if (strcmp(opt->name, e->name))

@@ -413,7 +413,7 @@ bool fw3_parse_protocol(void *ptr, const char *val);
 bool fw3_parse_ipset_method(void *ptr, const char *val);
 bool fw3_parse_ipset_datatype(void *ptr, const char *val);
 
-void fw3_parse_options(void *s, struct fw3_option *opts, int n,
+void fw3_parse_options(void *s, const struct fw3_option *opts,
                        struct uci_section *section);
 
 void fw3_format_in_out(struct fw3_device *in, struct fw3_device *out);

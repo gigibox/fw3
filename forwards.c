@@ -19,12 +19,14 @@
 #include "forwards.h"
 
 
-static struct fw3_option forward_opts[] = {
+const struct fw3_option fw3_forward_opts[] = {
 	FW3_OPT("name",                string,   forward,     name),
 	FW3_OPT("family",              family,   forward,     family),
 
 	FW3_OPT("src",                 device,   forward,     src),
 	FW3_OPT("dest",                device,   forward,     dest),
+
+	{ }
 };
 
 
@@ -51,7 +53,7 @@ fw3_load_forwards(struct fw3_state *state, struct uci_package *p)
 
 		memset(forward, 0, sizeof(*forward));
 
-		fw3_parse_options(forward, forward_opts, ARRAY_SIZE(forward_opts), s);
+		fw3_parse_options(forward, fw3_forward_opts, s);
 
 		if (forward->src.invert || forward->dest.invert)
 		{

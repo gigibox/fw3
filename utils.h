@@ -92,4 +92,6 @@ void fw3_write_statefile(void *state);
 
 void fw3_set_running(void *object, struct list_head *dest);
 
+void fw3_free_object(void *obj, const void *opts);
+
 #endif

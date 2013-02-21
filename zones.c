@@ -51,7 +51,7 @@ static const struct chain dst_chains[] = {
 	C(ANY, RAW,    NOTRACK, "zone_%s_notrack"),
 };
 
-static struct fw3_option zone_opts[] = {
+const struct fw3_option fw3_zone_opts[] = {
 	FW3_OPT("name",                string,   zone,     name),
 	FW3_OPT("family",              family,   zone,     family),
 
@@ -77,6 +77,8 @@ static struct fw3_option zone_opts[] = {
 
 	FW3_OPT("log",                 bool,     zone,     log),
 	FW3_OPT("log_limit",           limit,    zone,     log_limit),
+
+	{ }
 };
 
 
@@ -189,7 +191,7 @@ fw3_load_zones(struct fw3_state *state, struct uci_package *p)
 		if (!zone)
 			continue;
 
-		fw3_parse_options(zone, zone_opts, ARRAY_SIZE(zone_opts), s);
+		fw3_parse_options(zone, fw3_zone_opts, s);
 
 		if (!zone->extra_dest)
 			zone->extra_dest = zone->extra_src;
@@ -519,17 +521,4 @@ fw3_lookup_zone(struct fw3_state *state, const char *name, bool running)
 	}
 
 	return NULL;
-}
-
-void
-fw3_free_zone(struct fw3_zone *zone)
-{
-	fw3_free_list(&zone->networks);
-	fw3_free_list(&zone->devices);
-	fw3_free_list(&zone->subnets);
-
-	fw3_free_list(&zone->masq_src);
-	fw3_free_list(&zone->masq_dest);
-
-	free(zone);
 }

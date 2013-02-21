@@ -60,7 +60,7 @@ static const struct chain toplevel_rules[] = {
 	C(ANY, RAW,    UNSPEC,        "PREROUTING -j notrack"),
 };
 
-static struct fw3_option default_opts[] = {
+const struct fw3_option fw3_default_opts[] = {
 	FW3_OPT("input",               target,   defaults, policy_input),
 	FW3_OPT("forward",             target,   defaults, policy_forward),
 	FW3_OPT("output",              target,   defaults, policy_output),
@@ -82,6 +82,8 @@ static struct fw3_option default_opts[] = {
 
 	FW3_OPT("custom_chains",       bool,     defaults, custom_chains),
 	FW3_OPT("disable_ipv6",        bool,     defaults, disable_ipv6),
+
+	{ }
 };
 
 
@@ -157,8 +159,7 @@ fw3_load_defaults(struct fw3_state *state, struct uci_package *p)
 			continue;
 		}
 
-		fw3_parse_options(&state->defaults,
-		                  default_opts, ARRAY_SIZE(default_opts), s);
+		fw3_parse_options(&state->defaults, fw3_default_opts, s);
 
 		check_policy(e, &defs->policy_input, "input");
 		check_policy(e, &defs->policy_output, "output");

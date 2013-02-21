@@ -24,10 +24,13 @@
 #include "ipsets.h"
 #include "ubus.h"
 
+extern const struct fw3_option fw3_redirect_opts[];
+
 void fw3_load_redirects(struct fw3_state *state, struct uci_package *p);
 void fw3_print_redirects(enum fw3_table table, enum fw3_family family,
                          struct fw3_state *state);
 
-void fw3_free_redirect(struct fw3_redirect *redir);
+#define fw3_free_redirect(redir) \
+	fw3_free_object(redir, fw3_redirect_opts)
 
 #endif

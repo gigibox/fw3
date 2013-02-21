@@ -19,7 +19,7 @@
 #include "rules.h"
 
 
-static struct fw3_option rule_opts[] = {
+const struct fw3_option fw3_rule_opts[] = {
 	FW3_OPT("name",                string,   rule,     name),
 	FW3_OPT("family",              family,   rule,     family),
 
@@ -44,6 +44,8 @@ static struct fw3_option rule_opts[] = {
 	FW3_OPT("limit_burst",         int,      rule,     limit.burst),
 
 	FW3_OPT("target",              target,   rule,     target),
+
+	{ }
 };
 
 
@@ -81,7 +83,7 @@ fw3_load_rules(struct fw3_state *state, struct uci_package *p)
 
 		INIT_LIST_HEAD(&rule->icmp_type);
 
-		fw3_parse_options(rule, rule_opts, ARRAY_SIZE(rule_opts), s);
+		fw3_parse_options(rule, fw3_rule_opts, s);
 
 		if (rule->src.invert || rule->dest.invert)
 		{
@@ -330,21 +332,4 @@ fw3_print_rules(enum fw3_table table, enum fw3_family family,
 
 	list_for_each_entry(rule, &state->rules, list)
 		expand_rule(table, family, rule, num++);
-}
-
-void
-fw3_free_rule(struct fw3_rule *rule)
-{
-	fw3_free_list(&rule->proto);
-
-	fw3_free_list(&rule->ip_src);
-	fw3_free_list(&rule->mac_src);
-	fw3_free_list(&rule->port_dest);
-
-	fw3_free_list(&rule->ip_dest);
-	fw3_free_list(&rule->port_dest);
-
-	fw3_free_list(&rule->icmp_type);
-
-	free(rule);
 }

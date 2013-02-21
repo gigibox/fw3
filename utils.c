@@ -483,3 +483,15 @@ fw3_set_running(void *object, struct list_head *dest)
 	else if (!dest && o->running_list.next)
 		list_del(&o->running_list);
 }
+
+void
+fw3_free_object(void *obj, const void *opts)
+{
+	const struct fw3_option *ol;
+
+	for (ol = opts; ol->name; ol++)
+		if (ol->elem_size)
+			fw3_free_list((struct list_head *)((char *)obj + ol->offset));
+
+	free(obj);
+}
