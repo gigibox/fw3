@@ -35,6 +35,8 @@
 #include <netinet/in.h>
 #include <netinet/ether.h>
 
+#include <time.h>
+
 #include <uci.h>
 
 #include <libubox/list.h>
@@ -196,6 +198,17 @@ struct fw3_limit
 	enum fw3_limit_unit unit;
 };
 
+struct fw3_time
+{
+	bool utc;
+	struct tm datestart;
+	struct tm datestop;
+	uint32_t timestart;
+	uint32_t timestop;
+	uint32_t monthdays; /* bit 0 is invert + 1 .. 31 */
+	uint8_t weekdays;   /* bit 0 is invert + 1 .. 7 */
+};
+
 struct fw3_defaults
 {
 	enum fw3_target policy_input;
@@ -286,9 +299,10 @@ struct fw3_rule
 
 	struct list_head icmp_type;
 
-	enum fw3_target target;
-
 	struct fw3_limit limit;
+	struct fw3_time time;
+
+	enum fw3_target target;
 
 	const char *extra;
 };
@@ -321,6 +335,8 @@ struct fw3_redirect
 
 	struct fw3_address ip_redir;
 	struct fw3_port port_redir;
+
+	struct fw3_time time;
 
 	enum fw3_target target;
 
@@ -416,8 +432,14 @@ bool fw3_parse_port(void *ptr, const char *val);
 bool fw3_parse_family(void *ptr, const char *val);
 bool fw3_parse_icmptype(void *ptr, const char *val);
 bool fw3_parse_protocol(void *ptr, const char *val);
+
 bool fw3_parse_ipset_method(void *ptr, const char *val);
 bool fw3_parse_ipset_datatype(void *ptr, const char *val);
+
+bool fw3_parse_date(void *ptr, const char *val);
+bool fw3_parse_time(void *ptr, const char *val);
+bool fw3_parse_weekdays(void *ptr, const char *val);
+bool fw3_parse_monthdays(void *ptr, const char *val);
 
 void fw3_parse_options(void *s, const struct fw3_option *opts,
                        struct uci_section *section);
@@ -430,6 +452,7 @@ void fw3_format_protocol(struct fw3_protocol *proto, enum fw3_family family);
 void fw3_format_icmptype(struct fw3_icmptype *icmp, enum fw3_family family);
 void fw3_format_limit(struct fw3_limit *limit);
 void fw3_format_ipset(struct fw3_ipset *ipset, bool invert);
+void fw3_format_time(struct fw3_time *time);
 
 void __fw3_format_comment(const char *comment, ...);
 #define fw3_format_comment(...) __fw3_format_comment(__VA_ARGS__, NULL)

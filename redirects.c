@@ -20,31 +20,39 @@
 
 
 const struct fw3_option fw3_redirect_opts[] = {
-	FW3_OPT("name",                string,   redirect,     name),
-	FW3_OPT("family",              family,   redirect,     family),
+	FW3_OPT("name",                string,    redirect,     name),
+	FW3_OPT("family",              family,    redirect,     family),
 
-	FW3_OPT("src",                 device,   redirect,     src),
-	FW3_OPT("dest",                device,   redirect,     dest),
+	FW3_OPT("src",                 device,    redirect,     src),
+	FW3_OPT("dest",                device,    redirect,     dest),
 
-	FW3_OPT("ipset",               device,   redirect,     ipset),
+	FW3_OPT("ipset",               device,    redirect,     ipset),
 
-	FW3_LIST("proto",              protocol, redirect,     proto),
+	FW3_LIST("proto",              protocol,  redirect,     proto),
 
-	FW3_OPT("src_ip",              address,  redirect,     ip_src),
-	FW3_LIST("src_mac",            mac,      redirect,     mac_src),
-	FW3_OPT("src_port",            port,     redirect,     port_src),
+	FW3_OPT("src_ip",              address,   redirect,     ip_src),
+	FW3_LIST("src_mac",            mac,       redirect,     mac_src),
+	FW3_OPT("src_port",            port,      redirect,     port_src),
 
-	FW3_OPT("src_dip",             address,  redirect,     ip_dest),
-	FW3_OPT("src_dport",           port,     redirect,     port_dest),
+	FW3_OPT("src_dip",             address,   redirect,     ip_dest),
+	FW3_OPT("src_dport",           port,      redirect,     port_dest),
 
-	FW3_OPT("dest_ip",             address,  redirect,     ip_redir),
-	FW3_OPT("dest_port",           port,     redirect,     port_redir),
+	FW3_OPT("dest_ip",             address,   redirect,     ip_redir),
+	FW3_OPT("dest_port",           port,      redirect,     port_redir),
 
-	FW3_OPT("extra",               string,   redirect,     extra),
+	FW3_OPT("extra",               string,    redirect,     extra),
 
-	FW3_OPT("reflection",          bool,     redirect,     reflection),
+	FW3_OPT("utc_time",            bool,      redirect,     time.utc),
+	FW3_OPT("start_date",          date,      redirect,     time.datestart),
+	FW3_OPT("stop_date",           date,      redirect,     time.datestop),
+	FW3_OPT("start_time",          time,      redirect,     time.timestart),
+	FW3_OPT("stop_time",           time,      redirect,     time.timestop),
+	FW3_OPT("weekdays",            weekdays,  redirect,     time.weekdays),
+	FW3_OPT("monthdays",           monthdays, redirect,     time.monthdays),
 
-	FW3_OPT("target",              target,   redirect,     target),
+	FW3_OPT("reflection",          bool,      redirect,     reflection),
+
+	FW3_OPT("target",              target,    redirect,     target),
 
 	{ }
 };
@@ -364,6 +372,7 @@ print_redirect(enum fw3_table table, enum fw3_family family,
 			}
 
 			fw3_format_mac(mac);
+			fw3_format_time(&redir->time);
 			fw3_format_extra(redir->extra);
 			fw3_format_comment(redir->name);
 			print_target_nat(redir);
@@ -376,6 +385,7 @@ print_redirect(enum fw3_table table, enum fw3_family family,
 			fw3_format_src_dest(&redir->ip_src, &redir->ip_redir);
 			fw3_format_sport_dport(&redir->port_src, &redir->port_redir);
 			fw3_format_mac(mac);
+			fw3_format_time(&redir->time);
 			fw3_format_extra(redir->extra);
 			fw3_format_comment(redir->name);
 			print_target_filter(redir);
@@ -422,6 +432,7 @@ print_redirect(enum fw3_table table, enum fw3_family family,
 					fw3_format_protocol(proto, family);
 					fw3_format_src_dest(int_addr, ext_addr);
 					fw3_format_sport_dport(NULL, &redir->port_dest);
+					fw3_format_time(&redir->time);
 					fw3_format_comment(redir->name, " (reflection)");
 					print_snat_dnat(FW3_TARGET_DNAT,
 					                &redir->ip_redir, &redir->port_redir);
@@ -430,6 +441,7 @@ print_redirect(enum fw3_table table, enum fw3_family family,
 					fw3_format_protocol(proto, family);
 					fw3_format_src_dest(int_addr, &redir->ip_redir);
 					fw3_format_sport_dport(NULL, &redir->port_redir);
+					fw3_format_time(&redir->time);
 					fw3_format_comment(redir->name, " (reflection)");
 					print_snat_dnat(FW3_TARGET_SNAT, ext_addr, NULL);
 				}
@@ -439,6 +451,7 @@ print_redirect(enum fw3_table table, enum fw3_family family,
 					fw3_format_protocol(proto, family);
 					fw3_format_src_dest(int_addr, &redir->ip_redir);
 					fw3_format_sport_dport(NULL, &redir->port_redir);
+					fw3_format_time(&redir->time);
 					fw3_format_comment(redir->name, " (reflection)");
 					fw3_pr(" -j zone_%s_dest_ACCEPT\n", redir->dest.name);
 				}

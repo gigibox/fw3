@@ -518,6 +518,160 @@ fw3_parse_ipset_datatype(void *ptr, const char *val)
 	return false;
 }
 
+bool
+fw3_parse_date(void *ptr, const char *val)
+{
+	unsigned int year = 1970, mon = 1, day = 1, hour = 0, min = 0, sec = 0;
+	struct tm tm = { 0 };
+	char *p;
+
+	year = strtoul(val, &p, 10);
+	if ((*p != '-' && *p) || year < 1970 || year > 2038)
+		goto fail;
+	else if (!*p)
+		goto ret;
+
+	mon = strtoul(++p, &p, 10);
+	if ((*p != '-' && *p) || mon > 12)
+		goto fail;
+	else if (!*p)
+		goto ret;
+
+	day = strtoul(++p, &p, 10);
+	if ((*p != 'T' && *p) || day > 31)
+		goto fail;
+	else if (!*p)
+		goto ret;
+
+	hour = strtoul(++p, &p, 10);
+	if ((*p != ':' && *p) || hour > 23)
+		goto fail;
+	else if (!*p)
+		goto ret;
+
+	min = strtoul(++p, &p, 10);
+	if ((*p != ':' && *p) || min > 59)
+		goto fail;
+	else if (!*p)
+		goto ret;
+
+	sec = strtoul(++p, &p, 10);
+	if (*p || sec > 59)
+		goto fail;
+
+ret:
+	tm.tm_year = year - 1900;
+	tm.tm_mon  = mon - 1;
+	tm.tm_mday = day;
+	tm.tm_hour = hour;
+	tm.tm_min  = min;
+	tm.tm_sec  = sec;
+
+	if (mktime(&tm) >= 0)
+	{
+		*((struct tm *)ptr) = tm;
+		return true;
+	}
+
+fail:
+	return false;
+}
+
+bool
+fw3_parse_time(void *ptr, const char *val)
+{
+	unsigned int hour = 0, min = 0, sec = 0;
+	char *p;
+
+	hour = strtoul(val, &p, 10);
+	if (*p != ':' || hour > 23)
+		goto fail;
+
+	min = strtoul(++p, &p, 10);
+	if ((*p != ':' && *p) || min > 59)
+		goto fail;
+	else if (!*p)
+		goto ret;
+
+	sec = strtoul(++p, &p, 10);
+	if (*p || sec > 59)
+		goto fail;
+
+ret:
+	*((int *)ptr) = 60 * 60 * hour + 60 * min + sec;
+	return true;
+
+fail:
+	return false;
+}
+
+bool
+fw3_parse_weekdays(void *ptr, const char *val)
+{
+	unsigned int w;
+	char *p;
+
+	if (*val == '!')
+	{
+		setbit(*(uint8_t *)ptr, 0);
+		while (isspace(*++val));
+	}
+
+	for (p = strtok((char *)val, " \t"); p; p = strtok(NULL, " \t"))
+	{
+		if (!strncasecmp(p, "monday", strlen(p)))
+			w = 1;
+		else if (!strncasecmp(p, "tuesday", strlen(p)))
+			w = 2;
+		else if (!strncasecmp(p, "wednesday", strlen(p)))
+			w = 3;
+		else if (!strncasecmp(p, "thursday", strlen(p)))
+			w = 4;
+		else if (!strncasecmp(p, "friday", strlen(p)))
+			w = 5;
+		else if (!strncasecmp(p, "saturday", strlen(p)))
+			w = 6;
+		else if (!strncasecmp(p, "sunday", strlen(p)))
+			w = 7;
+		else
+		{
+			w = strtoul(p, &p, 10);
+
+			if (*p || w < 1 || w > 7)
+				return false;
+		}
+
+		setbit(*(uint8_t *)ptr, w);
+	}
+
+	return true;
+}
+
+bool
+fw3_parse_monthdays(void *ptr, const char *val)
+{
+	unsigned int d;
+	char *p;
+
+	if (*val == '!')
+	{
+		setbit(*(uint32_t *)ptr, 0);
+		while (isspace(*++val));
+	}
+
+	for (p = strtok((char *)val, " \t"); p; p = strtok(NULL, " \t"))
+	{
+		d = strtoul(p, &p, 10);
+
+		if (*p || d < 1 || d > 31)
+			return false;
+
+		setbit(*(uint32_t *)ptr, d);
+	}
+
+	return true;
+}
+
 
 void
 fw3_parse_options(void *s, const struct fw3_option *opts,
@@ -806,6 +960,84 @@ fw3_format_ipset(struct fw3_ipset *ipset, bool invert)
 	{
 		fw3_pr("%c%s", first ? ' ' : ',', type->dest ? "dst" : "src");
 		first = false;
+	}
+}
+
+void
+fw3_format_time(struct fw3_time *time)
+{
+	int i;
+	struct tm empty = { 0 };
+	char buf[sizeof("9999-99-99T23:59:59\0")];
+	bool d1 = memcmp(&time->datestart, &empty, sizeof(empty));
+	bool d2 = memcmp(&time->datestop, &empty, sizeof(empty));
+	bool first;
+
+	if (!d1 && !d2 && !time->timestart && !time->timestop &&
+	    !(time->monthdays & 0xFFFFFFFE) && !(time->weekdays & 0xFE))
+	{
+		return;
+	}
+
+	fw3_pr(" -m time");
+
+	if (time->utc)
+		fw3_pr(" --utc");
+
+	if (d1)
+	{
+		strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S", &time->datestart);
+		fw3_pr(" --datestart %s", buf);
+	}
+
+	if (d2)
+	{
+		strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S", &time->datestop);
+		fw3_pr(" --datestop %s", buf);
+	}
+
+	if (time->timestart)
+	{
+		fw3_pr(" --timestart %02d:%02d:%02d",
+		       time->timestart / 3600,
+		       time->timestart % 3600 / 60,
+		       time->timestart % 60);
+	}
+
+	if (time->timestop)
+	{
+		fw3_pr(" --timestop %02d:%02d:%02d",
+		       time->timestop / 3600,
+		       time->timestop % 3600 / 60,
+		       time->timestop % 60);
+	}
+
+	if (time->monthdays & 0xFFFFFFFE)
+	{
+		fw3_pr(" %s--monthdays", (time->monthdays & 1) ? "! " : "");
+
+		for (i = 1, first = true; i < 32; i++)
+		{
+			if (hasbit(time->monthdays, i))
+			{
+				fw3_pr("%c%u", first ? ' ' : ',', i);
+				first = false;
+			}
+		}
+	}
+
+	if (time->weekdays & 0xFE)
+	{
+		fw3_pr(" %s--weekdays", (time->weekdays & 1) ? "! " : "");
+
+		for (i = 1, first = true; i < 8; i++)
+		{
+			if (hasbit(time->weekdays, i))
+			{
+				fw3_pr("%c%u", first ? ' ' : ',', i);
+				first = false;
+			}
+		}
 	}
 }
 

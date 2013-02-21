@@ -20,30 +20,38 @@
 
 
 const struct fw3_option fw3_rule_opts[] = {
-	FW3_OPT("name",                string,   rule,     name),
-	FW3_OPT("family",              family,   rule,     family),
+	FW3_OPT("name",                string,    rule,     name),
+	FW3_OPT("family",              family,    rule,     family),
 
-	FW3_OPT("src",                 device,   rule,     src),
-	FW3_OPT("dest",                device,   rule,     dest),
+	FW3_OPT("src",                 device,    rule,     src),
+	FW3_OPT("dest",                device,    rule,     dest),
 
-	FW3_OPT("ipset",               device,   rule,     ipset),
+	FW3_OPT("ipset",               device,    rule,     ipset),
 
-	FW3_LIST("proto",              protocol, rule,     proto),
+	FW3_LIST("proto",              protocol,  rule,     proto),
 
-	FW3_LIST("src_ip",             address,  rule,     ip_src),
-	FW3_LIST("src_mac",            mac,      rule,     mac_src),
-	FW3_LIST("src_port",           port,     rule,     port_src),
+	FW3_LIST("src_ip",             address,   rule,     ip_src),
+	FW3_LIST("src_mac",            mac,       rule,     mac_src),
+	FW3_LIST("src_port",           port,      rule,     port_src),
 
-	FW3_LIST("dest_ip",            address,  rule,     ip_dest),
-	FW3_LIST("dest_port",          port,     rule,     port_dest),
+	FW3_LIST("dest_ip",            address,   rule,     ip_dest),
+	FW3_LIST("dest_port",          port,      rule,     port_dest),
 
-	FW3_LIST("icmp_type",          icmptype, rule,     icmp_type),
-	FW3_OPT("extra",               string,   rule,     extra),
+	FW3_LIST("icmp_type",          icmptype,  rule,     icmp_type),
+	FW3_OPT("extra",               string,    rule,     extra),
 
-	FW3_OPT("limit",               limit,    rule,     limit),
-	FW3_OPT("limit_burst",         int,      rule,     limit.burst),
+	FW3_OPT("limit",               limit,     rule,     limit),
+	FW3_OPT("limit_burst",         int,       rule,     limit.burst),
 
-	FW3_OPT("target",              target,   rule,     target),
+	FW3_OPT("utc_time",            bool,      rule,     time.utc),
+	FW3_OPT("start_date",          date,      rule,     time.datestart),
+	FW3_OPT("stop_date",           date,      rule,     time.datestop),
+	FW3_OPT("start_time",          time,      rule,     time.timestart),
+	FW3_OPT("stop_time",           time,      rule,     time.timestop),
+	FW3_OPT("weekdays",            weekdays,  rule,     time.weekdays),
+	FW3_OPT("monthdays",           monthdays, rule,     time.monthdays),
+
+	FW3_OPT("target",              target,    rule,     target),
 
 	{ }
 };
@@ -242,6 +250,7 @@ print_rule(enum fw3_table table, enum fw3_family family,
 	fw3_format_icmptype(icmptype, family);
 	fw3_format_mac(mac);
 	fw3_format_limit(&rule->limit);
+	fw3_format_time(&rule->time);
 	fw3_format_extra(rule->extra);
 	fw3_format_comment(rule->name);
 	print_target(rule);
