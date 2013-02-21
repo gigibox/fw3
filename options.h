@@ -355,7 +355,7 @@ struct fw3_ipset
 	enum fw3_ipset_method method;
 	struct list_head datatypes;
 
-	struct list_head iprange;
+	struct fw3_address iprange;
 	struct fw3_port portrange;
 
 	int netmask;

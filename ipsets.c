@@ -26,7 +26,7 @@ const struct fw3_option fw3_ipset_opts[] = {
 	FW3_OPT("storage",       ipset_method,   ipset,     method),
 	FW3_LIST("match",        ipset_datatype, ipset,     datatypes),
 
-	FW3_LIST("iprange",      address,        ipset,     iprange),
+	FW3_OPT("iprange",       address,        ipset,     iprange),
 	FW3_OPT("portrange",     port,           ipset,     portrange),
 
 	FW3_OPT("netmask",       int,            ipset,     netmask),
@@ -136,7 +136,7 @@ check_types(struct uci_element *e, struct fw3_ipset *ipset)
 			if (!ipset->external || !*ipset->external)
 			{
 				if ((ipset_types[i].required & OPT_IPRANGE) &&
-					list_empty(&ipset->iprange))
+					!ipset->iprange.set)
 				{
 					warn_elem(e, "requires an ip range");
 					return false;
@@ -150,17 +150,17 @@ check_types(struct uci_element *e, struct fw3_ipset *ipset)
 				}
 
 				if (!(ipset_types[i].required & OPT_IPRANGE) &&
-				    !list_empty(&ipset->iprange))
+				    ipset->iprange.set)
 				{
 					warn_elem(e, "iprange ignored");
-					fw3_free_list(&ipset->iprange);
+					ipset->iprange.set = false;
 				}
 
 				if (!(ipset_types[i].required & OPT_PORTRANGE) &&
 				    ipset->portrange.set)
 				{
 					warn_elem(e, "portrange ignored");
-					memset(&ipset->portrange, 0, sizeof(ipset->portrange));
+					ipset->portrange.set = false;
 				}
 
 				if (!(ipset_types[i].optional & OPT_NETMASK) &&
@@ -213,7 +213,6 @@ fw3_alloc_ipset(void)
 	memset(ipset, 0, sizeof(*ipset));
 
 	INIT_LIST_HEAD(&ipset->datatypes);
-	INIT_LIST_HEAD(&ipset->iprange);
 
 	return ipset;
 }
@@ -274,7 +273,7 @@ create_ipset(struct fw3_ipset *ipset, struct fw3_state *state)
 	char s[INET6_ADDRSTRLEN];
 
 	struct fw3_ipset_datatype *type;
-	struct fw3_address *a1, *a2;
+	struct fw3_address *a;
 
 	const char *methods[] = {
 		"(bug)",
@@ -306,29 +305,26 @@ create_ipset(struct fw3_ipset *ipset, struct fw3_state *state)
 		first = false;
 	}
 
-	if (!list_empty(&ipset->iprange))
+	if (ipset->iprange.set)
 	{
-		a1 = list_first_entry(&ipset->iprange, struct fw3_address, list);
-		a2 = list_last_entry(&ipset->iprange, struct fw3_address, list);
+		a = &ipset->iprange;
 
-		if (a1 == a2)
+		if (!a->range)
 		{
-			inet_ntop(a1->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
-			          &a1->address.v6, s, sizeof(s));
+			inet_ntop(a->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
+			          &a->address.v6, s, sizeof(s));
 
-			fw3_pr(" range %s/%u", s, a1->mask);
+			fw3_pr(" range %s/%u", s, a->mask);
 		}
-		else if (a1->family == a2->family &&
-		         fw3_is_family(ipset, a1->family) &&
-		         fw3_is_family(ipset, a2->family))
+		else
 		{
-			inet_ntop(a1->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
-			          &a1->address.v6, s, sizeof(s));
+			inet_ntop(a->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
+			          &a->address.v6, s, sizeof(s));
 
 			fw3_pr(" range %s", s);
 
-			inet_ntop(a2->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
-			          &a2->address.v6, s, sizeof(s));
+			inet_ntop(a->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
+			          &a->address2.v6, s, sizeof(s));
 
 			fw3_pr("-%s", s);
 		}
