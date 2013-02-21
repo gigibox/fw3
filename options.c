@@ -1014,7 +1014,7 @@ fw3_format_time(struct fw3_time *time)
 
 	if (time->monthdays & 0xFFFFFFFE)
 	{
-		fw3_pr(" %s--monthdays", (time->monthdays & 1) ? "! " : "");
+		fw3_pr(" %s--monthdays", hasbit(time->monthdays, 0) ? "! " : "");
 
 		for (i = 1, first = true; i < 32; i++)
 		{
@@ -1028,7 +1028,7 @@ fw3_format_time(struct fw3_time *time)
 
 	if (time->weekdays & 0xFE)
 	{
-		fw3_pr(" %s--weekdays", (time->weekdays & 1) ? "! " : "");
+		fw3_pr(" %s--weekdays", hasbit(time->weekdays, 0) ? "! " : "");
 
 		for (i = 1, first = true; i < 8; i++)
 		{
