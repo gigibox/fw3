@@ -130,6 +130,7 @@ struct fw3_address
 	struct list_head list;
 
 	bool set;
+	bool range;
 	bool invert;
 	enum fw3_family family;
 	int mask;
@@ -138,6 +139,11 @@ struct fw3_address
 		struct in6_addr v6;
 		struct ether_addr mac;
 	} address;
+	union {
+		struct in_addr v4;
+		struct in6_addr v6;
+		struct ether_addr mac;
+	} address2;
 };
 
 struct fw3_mac

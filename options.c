@@ -212,6 +212,28 @@ fw3_parse_address(void *ptr, const char *val)
 			}
 		}
 	}
+	else if ((p = strchr(s, '-')) != NULL)
+	{
+		*p++ = 0;
+
+		if (inet_pton(AF_INET6, p, &v6))
+		{
+			addr->family = FW3_FAMILY_V6;
+			addr->address2.v6 = v6;
+			addr->range = true;
+		}
+		else if (inet_pton(AF_INET, p, &v4))
+		{
+			addr->family = FW3_FAMILY_V4;
+			addr->address2.v4 = v4;
+			addr->range = true;
+		}
+		else
+		{
+			free(s);
+			return false;
+		}
+	}
 
 	if (inet_pton(AF_INET6, s, &v6))
 	{
@@ -615,20 +637,53 @@ fw3_format_src_dest(struct fw3_address *src, struct fw3_address *dest)
 {
 	char s[INET6_ADDRSTRLEN];
 
+	if ((src && src->range) || (dest && dest->range))
+		fw3_pr(" -m iprange");
+
 	if (src && src->set)
 	{
-		inet_ntop(src->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
-		          &src->address.v4, s, sizeof(s));
+		if (src->range)
+		{
+			inet_ntop(src->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
+					  &src->address.v4, s, sizeof(s));
 
-		fw3_pr(" %s-s %s/%u", src->invert ? "! " : "", s, src->mask);
+			fw3_pr(" %s--src-range %s", src->invert ? "! " : "", s);
+
+			inet_ntop(src->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
+					  &src->address2.v4, s, sizeof(s));
+
+			fw3_pr("-%s", s);
+		}
+		else
+		{
+			inet_ntop(src->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
+					  &src->address.v4, s, sizeof(s));
+
+			fw3_pr(" %s-s %s/%u", src->invert ? "! " : "", s, src->mask);
+		}
 	}
 
 	if (dest && dest->set)
 	{
-		inet_ntop(dest->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
-		          &dest->address.v4, s, sizeof(s));
+		if (dest->range)
+		{
+			inet_ntop(dest->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
+					  &dest->address.v4, s, sizeof(s));
 
-		fw3_pr(" %s-d %s/%u", dest->invert ? "! " : "", s, dest->mask);
+			fw3_pr(" %s--dst-range %s", dest->invert ? "! " : "", s);
+
+			inet_ntop(dest->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
+					  &dest->address2.v4, s, sizeof(s));
+
+			fw3_pr("-%s", s);
+		}
+		else
+		{
+			inet_ntop(dest->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
+					  &dest->address.v4, s, sizeof(s));
+
+			fw3_pr(" %s-d %s/%u", dest->invert ? "! " : "", s, dest->mask);
+		}
 	}
 }
 
