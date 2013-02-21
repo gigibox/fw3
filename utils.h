@@ -50,18 +50,6 @@ void info(const char *format, ...);
 	     p = list_empty(h) ? list_first_entry(h, typeof(*p), list)         \
                            : list_entry(p->list.next, typeof(*p), list))
 
-static inline void
-fw3_free_list(struct list_head *list)
-{
-	struct list_head *cur, *tmp;
-
-	list_for_each_safe(cur, tmp, list)
-	{
-		list_del(cur);
-		free(cur);
-	}
-}
-
 #define fw3_is_family(p, f)                                                \
 	(!p || (p)->family == FW3_FAMILY_ANY || (p)->family == f)
 

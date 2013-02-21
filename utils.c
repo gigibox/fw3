@@ -488,10 +488,20 @@ void
 fw3_free_object(void *obj, const void *opts)
 {
 	const struct fw3_option *ol;
+	struct list_head *list, *cur, *tmp;
 
 	for (ol = opts; ol->name; ol++)
-		if (ol->elem_size)
-			fw3_free_list((struct list_head *)((char *)obj + ol->offset));
+	{
+		if (!ol->elem_size)
+			continue;
+
+		list = (struct list_head *)((char *)obj + ol->offset);
+		list_for_each_safe(cur, tmp, list)
+		{
+			list_del(cur);
+			free(cur);
+		}
+	}
 
 	free(obj);
 }
