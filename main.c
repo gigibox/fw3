@@ -240,11 +240,15 @@ start(struct fw3_state *state, bool reload)
 	enum fw3_family family;
 	enum fw3_table table;
 
-	if (!print_rules && !reload &&
-	    fw3_command_pipe(false, "ipset", "-exist", "-"))
+	if (!print_rules && !reload)
 	{
-		fw3_create_ipsets(state);
-		fw3_command_close();
+		fw3_set_defaults(state);
+
+		if (fw3_command_pipe(false, "ipset", "-exist", "-"))
+		{
+			fw3_create_ipsets(state);
+			fw3_command_close();
+		}
 	}
 
 	for (family = FW3_FAMILY_V4; family <= FW3_FAMILY_V6; family++)

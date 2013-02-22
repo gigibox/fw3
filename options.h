@@ -228,7 +228,6 @@ struct fw3_defaults
 
 	bool tcp_syncookies;
 	bool tcp_ecn;
-	bool tcp_westwood;
 	bool tcp_window_scaling;
 
 	bool accept_redirects;

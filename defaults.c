@@ -74,7 +74,6 @@ const struct fw3_option fw3_default_opts[] = {
 
 	FW3_OPT("tcp_syncookies",      bool,     defaults, tcp_syncookies),
 	FW3_OPT("tcp_ecn",             bool,     defaults, tcp_ecn),
-	FW3_OPT("tcp_westwood",        bool,     defaults, tcp_westwood),
 	FW3_OPT("tcp_window_scaling",  bool,     defaults, tcp_window_scaling),
 
 	FW3_OPT("accept_redirects",    bool,     defaults, accept_redirects),
@@ -286,6 +285,36 @@ fw3_print_default_tail_rules(enum fw3_table table, enum fw3_family family,
 
 	if (defs->policy_forward == FW3_TARGET_REJECT)
 		fw3_pr("-A delegate_forward -j reject\n");
+}
+
+static void
+set_default(const char *name, bool set)
+{
+	FILE *f;
+	char path[sizeof("/proc/sys/net/ipv4/tcp_window_scaling\0")];
+
+	snprintf(path, sizeof(path), "/proc/sys/net/ipv4/tcp_%s", name);
+
+	info(" * Set tcp_%s to %s", name, set ? "on" : "off", name);
+
+	if (!(f = fopen(path, "w")))
+	{
+		info("   ! Unable to write value: %s", strerror(errno));
+		return;
+	}
+
+	fprintf(f, "%u\n", set);
+	fclose(f);
+}
+
+void
+fw3_set_defaults(struct fw3_state *state)
+{
+	info("Setting sysctl values");
+
+	set_default("ecn",            state->defaults.tcp_ecn);
+	set_default("syncookies",     state->defaults.tcp_syncookies);
+	set_default("window_scaling", state->defaults.tcp_window_scaling);
 }
 
 static void
