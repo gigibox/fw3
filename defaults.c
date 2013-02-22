@@ -181,6 +181,7 @@ fw3_print_default_chains(enum fw3_table table, enum fw3_family family,
                          struct fw3_state *state)
 {
 	struct fw3_defaults *defs = &state->defaults;
+	uint16_t mask = ~0;
 
 #define policy(t) \
 	((t == FW3_TARGET_REJECT) ? "DROP" : fw3_flag_names[t])
@@ -192,7 +193,11 @@ fw3_print_default_chains(enum fw3_table table, enum fw3_family family,
 		fw3_pr(":OUTPUT %s [0:0]\n", policy(defs->policy_output));
 	}
 
-	print_chains(table, family, ":%s - [0:0]\n", defs->flags,
+	/* user chains already loaded, don't create again */
+	if (hasbit(state->running_defaults.flags, FW3_DEFAULT_CUSTOM_CHAINS))
+		delbit(mask, FW3_DEFAULT_CUSTOM_CHAINS);
+
+	print_chains(table, family, ":%s - [0:0]\n", defs->flags & mask,
 	             default_chains, ARRAY_SIZE(default_chains));
 }
 
@@ -299,23 +304,27 @@ fw3_flush_rules(enum fw3_table table, enum fw3_family family,
                 bool pass2, struct fw3_state *state)
 {
 	struct fw3_defaults *d = &state->running_defaults;
+	uint16_t mask = ~0;
 
 	if (!hasbit(d->flags, family))
 		return;
+
+	/* don't touch user chains on selective stop */
+	delbit(mask, FW3_DEFAULT_CUSTOM_CHAINS);
 
 	if (!pass2)
 	{
 		reset_policy(table);
 
-		print_chains(table, family, "-D %s\n", state->running_defaults.flags,
+		print_chains(table, family, "-D %s\n", d->flags & mask,
 					 toplevel_rules, ARRAY_SIZE(toplevel_rules));
 
-		print_chains(table, family, "-F %s\n", state->running_defaults.flags,
+		print_chains(table, family, "-F %s\n", d->flags & mask,
 					 default_chains, ARRAY_SIZE(default_chains));
 	}
 	else
 	{
-		print_chains(table, family, "-X %s\n", state->running_defaults.flags,
+		print_chains(table, family, "-X %s\n", d->flags & mask,
 					 default_chains, ARRAY_SIZE(default_chains));
 
 		delbit(d->flags, family);

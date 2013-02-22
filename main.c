@@ -40,6 +40,9 @@ build_state(void)
 	struct fw3_state *state = NULL;
 	struct uci_package *p = NULL;
 
+	if (!fw3_ubus_connect())
+		error("Failed to connect to ubus");
+
 	state = malloc(sizeof(*state));
 
 	if (!state)
@@ -339,7 +342,7 @@ lookup_device(struct fw3_state *state, const char *dev)
 static int
 usage(void)
 {
-	fprintf(stderr, "fw3 [-4] [-6] [-q] {start|stop|flush|restart|print}\n");
+	fprintf(stderr, "fw3 [-4] [-6] [-q] {start|stop|flush|reload|restart|print}\n");
 	fprintf(stderr, "fw3 [-q] network {net}\n");
 	fprintf(stderr, "fw3 [-q] device {dev}\n");
 
@@ -374,9 +377,6 @@ int main(int argc, char **argv)
 			goto out;
 		}
 	}
-
-	if (!fw3_ubus_connect())
-		error("Failed to connect to ubus");
 
 	state = build_state();
 	defs = &state->defaults;
@@ -418,6 +418,14 @@ int main(int argc, char **argv)
 		rv = stop(state, true, false);
 	}
 	else if (!strcmp(argv[optind], "restart"))
+	{
+		stop(state, true, false);
+		free_state(state);
+
+		state = build_state();
+		rv = start(state, false);
+	}
+	else if (!strcmp(argv[optind], "reload"))
 	{
 		rv = stop(state, false, true);
 		rv = start(state, !rv);
