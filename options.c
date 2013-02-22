@@ -672,6 +672,19 @@ fw3_parse_monthdays(void *ptr, const char *val)
 	return true;
 }
 
+bool
+fw3_parse_include_type(void *ptr, const char *val)
+{
+	if (!strcmp(val, "script"))
+		*((enum fw3_include_type *)ptr) = FW3_INC_TYPE_SCRIPT;
+	else if (!strcmp(val, "restore"))
+		*((enum fw3_include_type *)ptr) = FW3_INC_TYPE_RESTORE;
+	else
+		return false;
+
+	return true;
+}
+
 
 void
 fw3_parse_options(void *s, const struct fw3_option *opts,

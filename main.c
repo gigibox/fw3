@@ -26,6 +26,7 @@
 #include "redirects.h"
 #include "forwards.h"
 #include "ipsets.h"
+#include "includes.h"
 #include "ubus.h"
 
 
@@ -71,6 +72,7 @@ build_state(void)
 	fw3_load_rules(state, p);
 	fw3_load_redirects(state, p);
 	fw3_load_forwards(state, p);
+	fw3_load_includes(state, p);
 
 	state->statefile = fw3_read_statefile(state);
 
@@ -96,6 +98,9 @@ free_state(struct fw3_state *state)
 
 	list_for_each_safe(cur, tmp, &state->ipsets)
 		fw3_free_ipset((struct fw3_ipset *)cur);
+
+	list_for_each_safe(cur, tmp, &state->includes)
+		fw3_free_include((struct fw3_include *)cur);
 
 	uci_free_context(state->uci);
 

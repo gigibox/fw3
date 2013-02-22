@@ -110,6 +110,12 @@ enum fw3_ipset_type
 	FW3_IPSET_TYPE_SET    = 5,
 };
 
+enum fw3_include_type
+{
+	FW3_INC_TYPE_SCRIPT   = 0,
+	FW3_INC_TYPE_RESTORE  = 1,
+};
+
 struct fw3_ipset_datatype
 {
 	struct list_head list;
@@ -385,6 +391,18 @@ struct fw3_ipset
 	uint16_t flags;
 };
 
+struct fw3_include
+{
+	struct list_head list;
+	struct list_head running_list;
+
+	const char *name;
+	enum fw3_family family;
+
+	const char *path;
+	enum fw3_include_type type;
+};
+
 struct fw3_state
 {
 	struct uci_context *uci;
@@ -394,6 +412,7 @@ struct fw3_state
 	struct list_head redirects;
 	struct list_head forwards;
 	struct list_head ipsets;
+	struct list_head includes;
 
 	struct fw3_defaults running_defaults;
 	struct list_head running_zones;
@@ -435,6 +454,8 @@ bool fw3_parse_protocol(void *ptr, const char *val);
 
 bool fw3_parse_ipset_method(void *ptr, const char *val);
 bool fw3_parse_ipset_datatype(void *ptr, const char *val);
+
+bool fw3_parse_include_type(void *ptr, const char *val);
 
 bool fw3_parse_date(void *ptr, const char *val);
 bool fw3_parse_time(void *ptr, const char *val);
