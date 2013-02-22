@@ -234,13 +234,13 @@ stop(struct fw3_state *state, bool complete, bool restart)
 }
 
 static int
-start(struct fw3_state *state, bool restart)
+start(struct fw3_state *state, bool reload)
 {
 	int rv = 1;
 	enum fw3_family family;
 	enum fw3_table table;
 
-	if (!print_rules && !restart &&
+	if (!print_rules && !reload &&
 	    fw3_command_pipe(false, "ipset", "-exist", "-"))
 	{
 		fw3_create_ipsets(state);
@@ -252,7 +252,7 @@ start(struct fw3_state *state, bool restart)
 		if (!family_used(family))
 			continue;
 
-		if (!print_rules && !restart && family_running(state, family))
+		if (!print_rules && !reload && family_running(state, family))
 		{
 			warn("The %s firewall appears to be started already. "
 			     "If it is indeed empty, remove the %s file and retry.",
@@ -285,11 +285,17 @@ start(struct fw3_state *state, bool restart)
 			fw3_pr("COMMIT\n");
 		}
 
+		if (!reload)
+			fw3_print_includes(family, state);
+
 		fw3_command_close();
 		family_set(state, family, true);
 
 		rv = 0;
 	}
+
+	if (!reload && !print_rules)
+		fw3_run_includes(state);
 
 	if (!rv && !print_rules)
 		fw3_write_statefile(state);
