@@ -27,6 +27,9 @@ static int lock_fd = -1;
 static pid_t pipe_pid = -1;
 static FILE *pipe_fd = NULL;
 
+bool fw3_pr_debug = false;
+
+
 static void
 warn_elem_section_name(struct uci_section *s, bool find_name)
 {
@@ -250,10 +253,18 @@ __fw3_command_pipe(bool silent, const char *command, ...)
 void
 fw3_pr(const char *fmt, ...)
 {
-    va_list args;
-    va_start(args, fmt);
-    vfprintf(pipe_fd, fmt, args);
-    va_end(args);
+	va_list args;
+
+	if (fw3_pr_debug && pipe_fd != stdout)
+	{
+		va_start(args, fmt);
+		vfprintf(stderr, fmt, args);
+		va_end(args);
+	}
+
+	va_start(args, fmt);
+	vfprintf(pipe_fd, fmt, args);
+	va_end(args);
 }
 
 void

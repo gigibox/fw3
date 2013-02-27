@@ -160,15 +160,16 @@ family_set(struct fw3_state *state, enum fw3_family family, bool set)
 }
 
 static int
-stop(struct fw3_state *state, bool complete, bool restart)
+stop(struct fw3_state *state, bool complete, bool reload)
 {
 	int rv = 1;
 	enum fw3_family family;
 	enum fw3_table table;
+	enum fw3_target policy = reload ? FW3_TARGET_DROP : FW3_TARGET_ACCEPT;
 
 	if (!complete && !state->statefile)
 	{
-		if (!restart)
+		if (!reload)
 			warn("The firewall appears to be stopped. "
 				 "Use the 'flush' command to forcefully purge all rules.");
 
@@ -202,11 +203,11 @@ stop(struct fw3_state *state, bool complete, bool restart)
 			else
 			{
 				/* pass 1 */
-				fw3_flush_rules(table, family, false, state);
+				fw3_flush_rules(table, family, false, state, policy);
 				fw3_flush_zones(table, family, false, state);
 
 				/* pass 2 */
-				fw3_flush_rules(table, family, true, state);
+				fw3_flush_rules(table, family, true, state, policy);
 				fw3_flush_zones(table, family, true, state);
 			}
 
@@ -215,13 +216,13 @@ stop(struct fw3_state *state, bool complete, bool restart)
 
 		fw3_command_close();
 
-		if (!restart)
+		if (!reload)
 			family_set(state, family, false);
 
 		rv = 0;
 	}
 
-	if (!restart && fw3_command_pipe(false, "ipset", "-exist", "-"))
+	if (!reload && fw3_command_pipe(false, "ipset", "-exist", "-"))
 	{
 		fw3_destroy_ipsets(state);
 		fw3_command_close();
@@ -366,7 +367,7 @@ int main(int argc, char **argv)
 	struct fw3_state *state = NULL;
 	struct fw3_defaults *defs = NULL;
 
-	while ((ch = getopt(argc, argv, "46qh")) != -1)
+	while ((ch = getopt(argc, argv, "46dqh")) != -1)
 	{
 		switch (ch)
 		{
@@ -376,6 +377,10 @@ int main(int argc, char **argv)
 
 		case '6':
 			use_family = FW3_FAMILY_V6;
+			break;
+
+		case 'd':
+			fw3_pr_debug = true;
 			break;
 
 		case 'q':

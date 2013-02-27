@@ -318,19 +318,19 @@ fw3_set_defaults(struct fw3_state *state)
 }
 
 static void
-reset_policy(enum fw3_table table)
+reset_policy(enum fw3_table table, enum fw3_target policy)
 {
 	if (table != FW3_TABLE_FILTER)
 		return;
 
-	fw3_pr(":INPUT ACCEPT [0:0]\n");
-	fw3_pr(":OUTPUT ACCEPT [0:0]\n");
-	fw3_pr(":FORWARD ACCEPT [0:0]\n");
+	fw3_pr(":INPUT %s [0:0]\n", fw3_flag_names[policy]);
+	fw3_pr(":OUTPUT %s [0:0]\n", fw3_flag_names[policy]);
+	fw3_pr(":FORWARD %s [0:0]\n", fw3_flag_names[policy]);
 }
 
 void
 fw3_flush_rules(enum fw3_table table, enum fw3_family family,
-                bool pass2, struct fw3_state *state)
+                bool pass2, struct fw3_state *state, enum fw3_target policy)
 {
 	struct fw3_defaults *d = &state->running_defaults;
 	uint16_t mask = ~0;
@@ -343,7 +343,7 @@ fw3_flush_rules(enum fw3_table table, enum fw3_family family,
 
 	if (!pass2)
 	{
-		reset_policy(table);
+		reset_policy(table, policy);
 
 		print_chains(table, family, "-D %s\n", d->flags & mask,
 					 toplevel_rules, ARRAY_SIZE(toplevel_rules));
@@ -363,7 +363,7 @@ fw3_flush_rules(enum fw3_table table, enum fw3_family family,
 void
 fw3_flush_all(enum fw3_table table)
 {
-	reset_policy(table);
+	reset_policy(table, FW3_TARGET_ACCEPT);
 
 	fw3_pr("-F\n");
 	fw3_pr("-X\n");

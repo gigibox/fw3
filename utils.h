@@ -35,6 +35,8 @@
 #define FW3_STATEFILE	"/var/run/fw3.state"
 #define FW3_LOCKFILE	"/var/run/fw3.lock"
 
+extern bool fw3_pr_debug;
+
 void warn_elem(struct uci_element *e, const char *format, ...);
 void warn(const char *format, ...);
 void error(const char *format, ...);
