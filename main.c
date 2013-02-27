@@ -162,6 +162,8 @@ family_set(struct fw3_state *state, enum fw3_family family, bool set)
 static int
 stop(struct fw3_state *state, bool complete, bool reload)
 {
+	FILE *ct;
+
 	int rv = 1;
 	enum fw3_family family;
 	enum fw3_table table;
@@ -226,6 +228,14 @@ stop(struct fw3_state *state, bool complete, bool reload)
 	{
 		fw3_destroy_ipsets(state);
 		fw3_command_close();
+	}
+
+	if (complete && (ct = fopen("/proc/net/nf_conntrack", "w")) != NULL)
+	{
+		info("Flushing conntrack table ...");
+
+		fwrite("f\n", 2, 1, ct);
+		fclose(ct);
 	}
 
 	if (!rv)
