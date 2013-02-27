@@ -47,8 +47,6 @@ static const struct chain dst_chains[] = {
 
 	C(V4,  NAT,    SNAT,    "zone_%s_postrouting"),
 	C(V4,  NAT,    DNAT,    "zone_%s_prerouting"),
-
-	C(ANY, RAW,    NOTRACK, "zone_%s_notrack"),
 };
 
 const struct fw3_option fw3_zone_opts[] = {
