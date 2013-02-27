@@ -125,10 +125,7 @@ print_forward(enum fw3_table table, enum fw3_family family,
 	s = forward->_src  ? forward->_src->name  : "*";
 	d = forward->_dest ? forward->_dest->name : "*";
 
-	if (forward->name)
-		info("   * Forward '%s'", forward->name);
-	else
-		info("   * Forward %s->%s", s, d);
+	info("   * Forward '%s' -> '%s'", s, d);
 
 	if (!fw3_is_family(forward->_src, family) ||
 	    !fw3_is_family(forward->_dest, family))
