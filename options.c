@@ -636,7 +636,7 @@ fw3_parse_monthdays(void *ptr, const char *val)
 	if (!(s = strdup(val)))
 		return false;
 
-	for (p = strtok((char *)val, " \t"); p; p = strtok(NULL, " \t"))
+	for (p = strtok(s, " \t"); p; p = strtok(NULL, " \t"))
 	{
 		d = strtoul(p, &p, 10);
 
