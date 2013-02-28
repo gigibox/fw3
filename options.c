@@ -18,6 +18,28 @@
 
 #include "options.h"
 
+
+static bool
+parse_enum(void *ptr, const char *val, const char **values, int min, int max)
+{
+	int i, l = strlen(val);
+
+	if (l > 0)
+	{
+		for (i = 0; i <= (max - min); i++)
+		{
+			if (!strncasecmp(val, values[i], l))
+			{
+				*((int *)ptr) = min + i;
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+
 const char *fw3_flag_names[FW3_DEFAULT_DROP_INVALID + 1] = {
 	"filter",
 	"nat",
@@ -34,6 +56,43 @@ const char *fw3_flag_names[FW3_DEFAULT_DROP_INVALID + 1] = {
 	"DNAT",
 	"SNAT",
 };
+
+static const char *limit_units[] = {
+	"second",
+	"minute",
+	"hour",
+	"day",
+};
+
+static const char *ipset_methods[] = {
+	"bitmap",
+	"hash",
+	"list",
+};
+
+static const char *ipset_types[] = {
+	"ip",
+	"port",
+	"mac",
+	"net",
+	"set",
+};
+
+static const char *weekdays[] = {
+	"monday",
+	"tuesday",
+	"wednesday",
+	"thursday",
+	"friday",
+	"saturday",
+	"sunday",
+};
+
+static const char *include_types[] = {
+	"script",
+	"restore",
+};
+
 
 bool
 fw3_parse_bool(void *ptr, const char *val)
@@ -69,38 +128,8 @@ fw3_parse_string(void *ptr, const char *val)
 bool
 fw3_parse_target(void *ptr, const char *val)
 {
-	if (!strcmp(val, "ACCEPT"))
-	{
-		*((enum fw3_target *)ptr) = FW3_TARGET_ACCEPT;
-		return true;
-	}
-	else if (!strcmp(val, "REJECT"))
-	{
-		*((enum fw3_target *)ptr) = FW3_TARGET_REJECT;
-		return true;
-	}
-	else if (!strcmp(val, "DROP"))
-	{
-		*((enum fw3_target *)ptr) = FW3_TARGET_DROP;
-		return true;
-	}
-	else if (!strcmp(val, "NOTRACK"))
-	{
-		*((enum fw3_target *)ptr) = FW3_TARGET_NOTRACK;
-		return true;
-	}
-	else if (!strcmp(val, "DNAT"))
-	{
-		*((enum fw3_target *)ptr) = FW3_TARGET_DNAT;
-		return true;
-	}
-	else if (!strcmp(val, "SNAT"))
-	{
-		*((enum fw3_target *)ptr) = FW3_TARGET_SNAT;
-		return true;
-	}
-
-	return false;
+	return parse_enum(ptr, val, &fw3_flag_names[FW3_TARGET_ACCEPT],
+	                  FW3_TARGET_ACCEPT, FW3_TARGET_SNAT);
 }
 
 bool
@@ -128,15 +157,7 @@ fw3_parse_limit(void *ptr, const char *val)
 	if (!strlen(e))
 		return false;
 
-	if (!strncmp(e, "second", strlen(e)))
-		u = FW3_LIMIT_UNIT_SECOND;
-	else if (!strncmp(e, "minute", strlen(e)))
-		u = FW3_LIMIT_UNIT_MINUTE;
-	else if (!strncmp(e, "hour", strlen(e)))
-		u = FW3_LIMIT_UNIT_HOUR;
-	else if (!strncmp(e, "day", strlen(e)))
-		u = FW3_LIMIT_UNIT_DAY;
-	else
+	if (!parse_enum(&u, e, limit_units, 0, FW3_LIMIT_UNIT_DAY))
 		return false;
 
 	limit->rate = n;
@@ -449,23 +470,8 @@ fw3_parse_protocol(void *ptr, const char *val)
 bool
 fw3_parse_ipset_method(void *ptr, const char *val)
 {
-	if (!strncmp(val, "bitmap", strlen(val)))
-	{
-		*((enum fw3_ipset_method *)ptr) = FW3_IPSET_METHOD_BITMAP;
-		return true;
-	}
-	else if (!strncmp(val, "hash", strlen(val)))
-	{
-		*((enum fw3_ipset_method *)ptr) = FW3_IPSET_METHOD_HASH;
-		return true;
-	}
-	else if (!strncmp(val, "list", strlen(val)))
-	{
-		*((enum fw3_ipset_method *)ptr) = FW3_IPSET_METHOD_LIST;
-		return true;
-	}
-
-	return false;
+	return parse_enum(ptr, val, ipset_methods,
+	                  FW3_IPSET_METHOD_BITMAP, FW3_IPSET_METHOD_LIST);
 }
 
 bool
@@ -489,33 +495,8 @@ fw3_parse_ipset_datatype(void *ptr, const char *val)
 		type->dest = false;
 	}
 
-	if (!strncmp(val, "ip", strlen(val)))
-	{
-		type->type = FW3_IPSET_TYPE_IP;
-		return true;
-	}
-	else if (!strncmp(val, "port", strlen(val)))
-	{
-		type->type = FW3_IPSET_TYPE_PORT;
-		return true;
-	}
-	else if (!strncmp(val, "mac", strlen(val)))
-	{
-		type->type = FW3_IPSET_TYPE_MAC;
-		return true;
-	}
-	else if (!strncmp(val, "net", strlen(val)))
-	{
-		type->type = FW3_IPSET_TYPE_NET;
-		return true;
-	}
-	else if (!strncmp(val, "set", strlen(val)))
-	{
-		type->type = FW3_IPSET_TYPE_SET;
-		return true;
-	}
-
-	return false;
+	return parse_enum(&type->type, val, ipset_types,
+	                  FW3_IPSET_TYPE_IP, FW3_IPSET_TYPE_SET);
 }
 
 bool
@@ -608,8 +589,8 @@ fail:
 bool
 fw3_parse_weekdays(void *ptr, const char *val)
 {
-	unsigned int w;
-	char *p;
+	unsigned int w = 0;
+	char *p, *s;
 
 	if (*val == '!')
 	{
@@ -617,33 +598,26 @@ fw3_parse_weekdays(void *ptr, const char *val)
 		while (isspace(*++val));
 	}
 
-	for (p = strtok((char *)val, " \t"); p; p = strtok(NULL, " \t"))
+	if (!(s = strdup(val)))
+		return false;
+
+	for (p = strtok(s, " \t"); p; p = strtok(NULL, " \t"))
 	{
-		if (!strncasecmp(p, "monday", strlen(p)))
-			w = 1;
-		else if (!strncasecmp(p, "tuesday", strlen(p)))
-			w = 2;
-		else if (!strncasecmp(p, "wednesday", strlen(p)))
-			w = 3;
-		else if (!strncasecmp(p, "thursday", strlen(p)))
-			w = 4;
-		else if (!strncasecmp(p, "friday", strlen(p)))
-			w = 5;
-		else if (!strncasecmp(p, "saturday", strlen(p)))
-			w = 6;
-		else if (!strncasecmp(p, "sunday", strlen(p)))
-			w = 7;
-		else
+		if (!parse_enum(&w, p, weekdays, 1, 7))
 		{
 			w = strtoul(p, &p, 10);
 
 			if (*p || w < 1 || w > 7)
+			{
+				free(s);
 				return false;
+			}
 		}
 
 		setbit(*(uint8_t *)ptr, w);
 	}
 
+	free(s);
 	return true;
 }
 
@@ -651,7 +625,7 @@ bool
 fw3_parse_monthdays(void *ptr, const char *val)
 {
 	unsigned int d;
-	char *p;
+	char *p, *s;
 
 	if (*val == '!')
 	{
@@ -659,30 +633,31 @@ fw3_parse_monthdays(void *ptr, const char *val)
 		while (isspace(*++val));
 	}
 
+	if (!(s = strdup(val)))
+		return false;
+
 	for (p = strtok((char *)val, " \t"); p; p = strtok(NULL, " \t"))
 	{
 		d = strtoul(p, &p, 10);
 
 		if (*p || d < 1 || d > 31)
+		{
+			free(s);
 			return false;
+		}
 
 		setbit(*(uint32_t *)ptr, d);
 	}
 
+	free(s);
 	return true;
 }
 
 bool
 fw3_parse_include_type(void *ptr, const char *val)
 {
-	if (!strcmp(val, "script"))
-		*((enum fw3_include_type *)ptr) = FW3_INC_TYPE_SCRIPT;
-	else if (!strcmp(val, "restore"))
-		*((enum fw3_include_type *)ptr) = FW3_INC_TYPE_RESTORE;
-	else
-		return false;
-
-	return true;
+	return parse_enum(ptr, val, include_types,
+	                  FW3_INC_TYPE_SCRIPT, FW3_INC_TYPE_RESTORE);
 }
 
 
@@ -935,17 +910,11 @@ fw3_format_limit(struct fw3_limit *limit)
 	if (!limit)
 		return;
 
-	const char *units[] = {
-		[FW3_LIMIT_UNIT_SECOND] = "second",
-		[FW3_LIMIT_UNIT_MINUTE] = "minute",
-		[FW3_LIMIT_UNIT_HOUR]   = "hour",
-		[FW3_LIMIT_UNIT_DAY]    = "day",
-	};
-
 	if (limit->rate > 0)
 	{
 		fw3_pr(" -m limit %s--limit %u/%s",
-		       limit->invert ? "! " : "", limit->rate, units[limit->unit]);
+		       limit->invert ? "! " : "",
+		       limit->rate, limit_units[limit->unit]);
 
 		if (limit->burst > 0)
 			fw3_pr(" --limit-burst %u", limit->burst);
