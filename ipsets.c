@@ -20,6 +20,8 @@
 
 
 const struct fw3_option fw3_ipset_opts[] = {
+	FW3_OPT("enabled",       bool,           ipset,     enabled),
+
 	FW3_OPT("name",          string,         ipset,     name),
 	FW3_OPT("family",        family,         ipset,     family),
 

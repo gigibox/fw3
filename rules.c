@@ -20,6 +20,8 @@
 
 
 const struct fw3_option fw3_rule_opts[] = {
+	FW3_OPT("enabled",             bool,      rule,     enabled),
+
 	FW3_OPT("name",                string,    rule,     name),
 	FW3_OPT("family",              family,    rule,     family),
 
@@ -91,7 +93,15 @@ fw3_load_rules(struct fw3_state *state, struct uci_package *p)
 
 		INIT_LIST_HEAD(&rule->icmp_type);
 
+		rule->enabled = true;
+
 		fw3_parse_options(rule, fw3_rule_opts, s);
+
+		if (!rule->enabled)
+		{
+			fw3_free_rule(rule);
+			continue;
+		}
 
 		if (rule->src.invert || rule->dest.invert)
 		{

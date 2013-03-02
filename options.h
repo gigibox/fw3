@@ -245,6 +245,7 @@ struct fw3_zone
 	struct list_head list;
 	struct list_head running_list;
 
+	bool enabled;
 	const char *name;
 
 	enum fw3_family family;
@@ -280,6 +281,7 @@ struct fw3_rule
 {
 	struct list_head list;
 
+	bool enabled;
 	const char *name;
 
 	enum fw3_family family;
@@ -316,6 +318,7 @@ struct fw3_redirect
 {
 	struct list_head list;
 
+	bool enabled;
 	const char *name;
 
 	enum fw3_family family;
@@ -354,6 +357,7 @@ struct fw3_forward
 {
 	struct list_head list;
 
+	bool enabled;
 	const char *name;
 
 	enum fw3_family family;
@@ -370,6 +374,7 @@ struct fw3_ipset
 	struct list_head list;
 	struct list_head running_list;
 
+	bool enabled;
 	const char *name;
 	enum fw3_family family;
 
@@ -395,6 +400,7 @@ struct fw3_include
 	struct list_head list;
 	struct list_head running_list;
 
+	bool enabled;
 	const char *name;
 	enum fw3_family family;
 

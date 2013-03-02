@@ -20,6 +20,8 @@
 
 
 const struct fw3_option fw3_redirect_opts[] = {
+	FW3_OPT("enabled",             bool,      redirect,     enabled),
+
 	FW3_OPT("name",                string,    redirect,     name),
 	FW3_OPT("family",              family,    redirect,     family),
 
@@ -131,9 +133,16 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 		INIT_LIST_HEAD(&redir->proto);
 		INIT_LIST_HEAD(&redir->mac_src);
 
+		redir->enabled = true;
 		redir->reflection = true;
 
 		fw3_parse_options(redir, fw3_redirect_opts, s);
+
+		if (!redir->enabled)
+		{
+			fw3_free_redirect(redir);
+			continue;
+		}
 
 		if (redir->src.invert)
 		{

@@ -20,6 +20,8 @@
 
 
 const struct fw3_option fw3_forward_opts[] = {
+	FW3_OPT("enabled",             bool,     forward,     enabled),
+
 	FW3_OPT("name",                string,   forward,     name),
 	FW3_OPT("family",              family,   forward,     family),
 
@@ -53,7 +55,15 @@ fw3_load_forwards(struct fw3_state *state, struct uci_package *p)
 
 		memset(forward, 0, sizeof(*forward));
 
+		forward->enabled = true;
+
 		fw3_parse_options(forward, fw3_forward_opts, s);
+
+		if (!forward->enabled)
+		{
+			fw3_free_forward(forward);
+			continue;
+		}
 
 		if (forward->src.invert || forward->dest.invert)
 		{

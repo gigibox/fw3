@@ -20,6 +20,8 @@
 
 
 const struct fw3_option fw3_include_opts[] = {
+	FW3_OPT("enabled",             bool,           include,     enabled),
+
 	FW3_OPT("path",                string,         include,     path),
 	FW3_OPT("type",                include_type,   include,     type),
 	FW3_OPT("family",              family,         include,     family),
@@ -50,9 +52,17 @@ fw3_load_includes(struct fw3_state *state, struct uci_package *p)
 			continue;
 
 		memset(include, 0, sizeof(*include));
+
 		include->name = e->name;
+		include->enabled = true;
 
 		fw3_parse_options(include, fw3_include_opts, s);
+
+		if (!include->enabled)
+		{
+			fw3_free_include(include);
+			continue;
+		}
 
 		if (!include->path)
 		{

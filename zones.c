@@ -50,6 +50,8 @@ static const struct chain dst_chains[] = {
 };
 
 const struct fw3_option fw3_zone_opts[] = {
+	FW3_OPT("enabled",             bool,     zone,     enabled),
+
 	FW3_OPT("name",                string,   zone,     name),
 	FW3_OPT("family",              family,   zone,     family),
 
@@ -162,6 +164,7 @@ fw3_alloc_zone(void)
 	INIT_LIST_HEAD(&zone->masq_src);
 	INIT_LIST_HEAD(&zone->masq_dest);
 
+	zone->enabled = true;
 	zone->log_limit.rate = 10;
 
 	return zone;
@@ -190,6 +193,12 @@ fw3_load_zones(struct fw3_state *state, struct uci_package *p)
 			continue;
 
 		fw3_parse_options(zone, fw3_zone_opts, s);
+
+		if (!zone->enabled)
+		{
+			fw3_free_zone(zone);
+			continue;
+		}
 
 		if (!zone->extra_dest)
 			zone->extra_dest = zone->extra_src;
