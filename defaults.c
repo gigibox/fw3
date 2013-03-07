@@ -223,9 +223,14 @@ fw3_print_default_head_rules(enum fw3_table table, enum fw3_family family,
 
 		if (defs->custom_chains)
 		{
-			fw3_pr("-A delegate_input -j input_rule\n");
-			fw3_pr("-A delegate_output -j output_rule\n");
-			fw3_pr("-A delegate_forward -j forwarding_rule\n");
+			fw3_pr("-A delegate_input -j input_rule "
+			       "-m comment --comment \"user chain for input\"\n");
+
+			fw3_pr("-A delegate_output -j output_rule "
+			       "-m comment --comment \"user chain for output\"\n");
+
+			fw3_pr("-A delegate_forward -j forwarding_rule "
+			       "-m comment --comment \"user chain for forwarding\"\n");
 		}
 
 		for (i = 0; i < ARRAY_SIZE(chains); i++)
@@ -258,8 +263,11 @@ fw3_print_default_head_rules(enum fw3_table table, enum fw3_family family,
 	case FW3_TABLE_NAT:
 		if (defs->custom_chains)
 		{
-			fw3_pr("-A delegate_prerouting -j prerouting_rule\n");
-			fw3_pr("-A delegate_postrouting -j postrouting_rule\n");
+			fw3_pr("-A delegate_prerouting -j prerouting_rule "
+			       "-m comment --comment \"user chain for prerouting\"\n");
+
+			fw3_pr("-A delegate_postrouting -j postrouting_rule "
+			       "-m comment --comment \"user chain for postrouting\"\n");
 		}
 		break;
 

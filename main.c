@@ -206,11 +206,11 @@ stop(struct fw3_state *state, bool complete, bool reload)
 			{
 				/* pass 1 */
 				fw3_flush_rules(table, family, false, state, policy);
-				fw3_flush_zones(table, family, false, state);
+				fw3_flush_zones(table, family, false, reload, state);
 
 				/* pass 2 */
 				fw3_flush_rules(table, family, true, state, policy);
-				fw3_flush_zones(table, family, true, state);
+				fw3_flush_zones(table, family, true, reload, state);
 			}
 
 			fw3_pr("COMMIT\n");

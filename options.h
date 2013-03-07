@@ -63,13 +63,14 @@ enum fw3_family
 
 enum fw3_target
 {
-	FW3_TARGET_UNSPEC  = 0,
-	FW3_TARGET_ACCEPT  = 6,
-	FW3_TARGET_REJECT  = 7,
-	FW3_TARGET_DROP    = 8,
-	FW3_TARGET_NOTRACK = 9,
-	FW3_TARGET_DNAT    = 10,
-	FW3_TARGET_SNAT    = 11,
+	FW3_TARGET_UNSPEC        = 0,
+	FW3_TARGET_ACCEPT        = 6,
+	FW3_TARGET_REJECT        = 7,
+	FW3_TARGET_DROP          = 8,
+	FW3_TARGET_NOTRACK       = 9,
+	FW3_TARGET_DNAT          = 10,
+	FW3_TARGET_SNAT          = 11,
+	FW3_TARGET_CUSTOM_CHAINS = 12, /* alias to FW3_DEFAULT_CUSTOM_CHAINS */
 };
 
 enum fw3_default
