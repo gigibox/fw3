@@ -665,7 +665,7 @@ void
 fw3_parse_options(void *s, const struct fw3_option *opts,
                   struct uci_section *section)
 {
-	char *p;
+	char *p, *v;
 	bool known;
 	struct uci_element *e, *l;
 	struct uci_option *o;
@@ -720,8 +720,14 @@ fw3_parse_options(void *s, const struct fw3_option *opts,
 			}
 			else
 			{
-				if (!o->v.string)
+				v = o->v.string;
+
+				if (!v)
 					continue;
+
+				/* protocol "tcpudp" compatibility hack */
+				if (opt->parse == fw3_parse_protocol && !strcmp(v, "tcpudp"))
+					v = strdup("tcp udp");
 
 				if (!opt->elem_size)
 				{
@@ -730,9 +736,7 @@ fw3_parse_options(void *s, const struct fw3_option *opts,
 				}
 				else
 				{
-					for (p = strtok(o->v.string, " \t");
-					     p != NULL;
-					     p = strtok(NULL, " \t"))
+					for (p = strtok(v, " \t"); p != NULL; p = strtok(NULL, " \t"))
 					{
 						item = malloc(opt->elem_size);
 
@@ -752,6 +756,9 @@ fw3_parse_options(void *s, const struct fw3_option *opts,
 						list_add_tail(item, dest);
 					}
 				}
+
+				if (v != o->v.string)
+					free(v);
 			}
 
 			known = true;
