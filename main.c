@@ -255,8 +255,6 @@ start(struct fw3_state *state, bool reload)
 
 	if (!print_rules && !reload)
 	{
-		fw3_set_defaults(state);
-
 		if (fw3_command_pipe(false, "ipset", "-exist", "-"))
 		{
 			fw3_create_ipsets(state);
@@ -311,11 +309,16 @@ start(struct fw3_state *state, bool reload)
 		rv = 0;
 	}
 
-	if (!reload && !print_rules)
-		fw3_run_includes(state);
+	if (!rv)
+	{
+		fw3_set_defaults(state);
 
-	if (!rv && !print_rules)
-		fw3_write_statefile(state);
+		if (!reload && !print_rules)
+			fw3_run_includes(state);
+
+		if (!print_rules)
+			fw3_write_statefile(state);
+	}
 
 	return rv;
 }
