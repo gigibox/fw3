@@ -55,6 +55,9 @@ void info(const char *format, ...);
 #define fw3_is_family(p, f)                                                \
 	(!p || (p)->family == FW3_FAMILY_ANY || (p)->family == f)
 
+#define fw3_no_family(p)                                                   \
+	(!p || !((p)->flags & ((1 << FW3_FAMILY_V4) | (1 << FW3_FAMILY_V6))))
+
 const char * fw3_find_command(const char *cmd);
 
 bool fw3_stdout_pipe(void);

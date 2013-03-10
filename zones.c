@@ -540,7 +540,6 @@ fw3_flush_zones(enum fw3_table table, enum fw3_family family,
 {
 	struct fw3_zone *z, *tmp;
 	uint32_t custom_mask = ~0;
-	uint32_t family_mask = (1 << FW3_FAMILY_V4) | (1 << FW3_FAMILY_V6);
 
 	/* don't touch user chains on selective stop */
 	if (reload)
@@ -566,7 +565,7 @@ fw3_flush_zones(enum fw3_table table, enum fw3_family family,
 		{
 			delbit(z->flags, family);
 
-			if (!(z->flags & family_mask))
+			if (fw3_no_family(z))
 				fw3_set_running(z, NULL);
 		}
 	}
