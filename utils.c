@@ -352,11 +352,11 @@ fw3_read_statefile(void *state)
 {
 	FILE *sf;
 
-	int n, type;
+	int type;
 	char line[128];
 	const char *p, *name;
 
-	uint32_t flags[2];
+	uint32_t flags;
 
 	struct fw3_state *s = state;
 	struct fw3_zone *zone;
@@ -374,23 +374,23 @@ fw3_read_statefile(void *state)
 		if (!p)
 			continue;
 
-		type = strtoul(p, NULL, 10);
+		type = strtoul(p, NULL, 16);
 		name = strtok(NULL, " \t\n");
 
 		if (!name)
 			continue;
 
-		for (n = 0, p = strtok(NULL, " \t\n");
-		     n < ARRAY_SIZE(flags) && p != NULL;
-		     n++, p = strtok(NULL, " \t\n"))
-		{
-			flags[n] = strtoul(p, NULL, 10);
-		}
+		p = strtok(NULL, " \t\n");
+
+		if (!p)
+			continue;
+
+		flags = strtoul(p, NULL, 16);
 
 		switch (type)
 		{
 		case FW3_TYPE_DEFAULTS:
-			s->defaults.running_flags = flags[0];
+			s->defaults.running_flags = flags;
 			break;
 
 		case FW3_TYPE_ZONE:
@@ -405,8 +405,7 @@ fw3_read_statefile(void *state)
 				list_add_tail(&zone->list, &s->zones);
 			}
 
-			zone->running_src_flags = flags[0];
-			zone->running_dst_flags = flags[1];
+			zone->running_dst_flags = flags;
 			list_add_tail(&zone->running_list, &s->running_zones);
 			break;
 
@@ -422,7 +421,7 @@ fw3_read_statefile(void *state)
 				list_add_tail(&ipset->list, &s->ipsets);
 			}
 
-			ipset->running_flags = flags[0];
+			ipset->running_flags = flags;
 			list_add_tail(&ipset->running_list, &s->running_ipsets);
 			break;
 		}
@@ -461,17 +460,16 @@ fw3_write_statefile(void *state)
 		return;
 	}
 
-	fprintf(sf, "%u - %u\n", FW3_TYPE_DEFAULTS, d->flags);
+	fprintf(sf, "%x - %x\n", FW3_TYPE_DEFAULTS, d->flags);
 
 	list_for_each_entry(z, &s->running_zones, running_list)
 	{
-		fprintf(sf, "%u %s %u %u\n", FW3_TYPE_ZONE,
-		        z->name, z->src_flags, z->dst_flags);
+		fprintf(sf, "%x %s %x\n", FW3_TYPE_ZONE, z->name, z->dst_flags);
 	}
 
 	list_for_each_entry(i, &s->running_ipsets, running_list)
 	{
-		fprintf(sf, "%u %s %u\n", FW3_TYPE_IPSET, i->name, i->flags);
+		fprintf(sf, "%x %s %x\n", FW3_TYPE_IPSET, i->name, i->flags);
 	}
 
 	fclose(sf);
