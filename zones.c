@@ -563,9 +563,9 @@ fw3_flush_zones(enum fw3_table table, enum fw3_family family,
 
 		if (pass2)
 		{
-			delbit(z->flags, family);
+			delbit(z->running_flags, family);
 
-			if (fw3_no_family(z))
+			if (fw3_no_family(z->running_flags))
 				fw3_set_running(z, NULL);
 		}
 	}

@@ -441,7 +441,7 @@ fw3_write_statefile(void *state)
 	struct fw3_zone *z;
 	struct fw3_ipset *i;
 
-	if (fw3_no_family(d))
+	if (fw3_no_family(d->flags))
 	{
 		if (unlink(FW3_STATEFILE))
 			warn("Unable to remove state %s: %s",
