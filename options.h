@@ -279,11 +279,8 @@ struct fw3_zone
 
 	bool custom_chains;
 
-	uint32_t src_flags;
-	uint32_t dst_flags;
-
-	uint32_t running_src_flags;
-	uint32_t running_dst_flags;
+	uint32_t flags;
+	uint32_t running_flags;
 };
 
 struct fw3_rule

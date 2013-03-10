@@ -405,7 +405,7 @@ fw3_read_statefile(void *state)
 				list_add_tail(&zone->list, &s->zones);
 			}
 
-			zone->running_dst_flags = flags;
+			zone->running_flags = flags;
 			list_add_tail(&zone->running_list, &s->running_zones);
 			break;
 
@@ -464,7 +464,7 @@ fw3_write_statefile(void *state)
 
 	list_for_each_entry(z, &s->running_zones, running_list)
 	{
-		fprintf(sf, "%x %s %x\n", FW3_TYPE_ZONE, z->name, z->dst_flags);
+		fprintf(sf, "%x %s %x\n", FW3_TYPE_ZONE, z->name, z->flags);
 	}
 
 	list_for_each_entry(i, &s->running_ipsets, running_list)

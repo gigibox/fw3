@@ -88,7 +88,7 @@ fw3_load_forwards(struct fw3_state *state, struct uci_package *p)
 
 		if (forward->_dest)
 		{
-			setbit(forward->_dest->dst_flags, FW3_TARGET_ACCEPT);
+			setbit(forward->_dest->flags, FW3_TARGET_ACCEPT);
 
 			if (forward->_src &&
 			    (forward->_src->conntrack || forward->_dest->conntrack))
