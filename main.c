@@ -186,15 +186,13 @@ stop(struct fw3_state *state, bool complete, bool reload)
 		if (!family_used(family) || !restore_pipe(family, true))
 			continue;
 
-		info("Removing %s rules ...", fw3_flag_names[family]);
-
 		for (table = FW3_TABLE_FILTER; table <= FW3_TABLE_RAW; table++)
 		{
 			if (!fw3_has_table(family == FW3_FAMILY_V6, fw3_flag_names[table]))
 				continue;
 
-			info(" * %sing %s table",
-			     complete ? "Flush" : "Clear", fw3_flag_names[table]);
+			info(" * %sing %s %s table", complete ? "Flush" : "Clear",
+			     fw3_flag_names[family], fw3_flag_names[table]);
 
 			fw3_pr("*%s\n", fw3_flag_names[table]);
 
@@ -234,7 +232,7 @@ stop(struct fw3_state *state, bool complete, bool reload)
 
 	if (complete && (ct = fopen("/proc/net/nf_conntrack", "w")) != NULL)
 	{
-		info("Flushing conntrack table ...");
+		info(" * Flushing conntrack table ...");
 
 		fwrite("f\n", 2, 1, ct);
 		fclose(ct);
@@ -279,14 +277,13 @@ start(struct fw3_state *state, bool reload)
 		if (!family_loaded(state, family) || !restore_pipe(family, false))
 			continue;
 
-		info("Constructing %s rules ...", fw3_flag_names[family]);
-
 		for (table = FW3_TABLE_FILTER; table <= FW3_TABLE_RAW; table++)
 		{
 			if (!fw3_has_table(family == FW3_FAMILY_V6, fw3_flag_names[table]))
 				continue;
 
-			info(" * Populating %s table", fw3_flag_names[table]);
+			info(" * Populating %s %s table",
+			     fw3_flag_names[family], fw3_flag_names[table]);
 
 			fw3_pr("*%s\n", fw3_flag_names[table]);
 			fw3_print_default_chains(table, family, state);

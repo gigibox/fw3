@@ -296,7 +296,7 @@ create_ipset(struct fw3_ipset *ipset, struct fw3_state *state)
 	if (ipset->external && *ipset->external)
 		return;
 
-	info("Creating ipset %s", ipset->name);
+	info(" * Creating ipset %s", ipset->name);
 
 	first = true;
 	fw3_pr("create %s %s", ipset->name, methods[ipset->method]);
@@ -384,7 +384,7 @@ fw3_destroy_ipsets(struct fw3_state *state, enum fw3_family family)
 
 		if (fw3_no_family(s))
 		{
-			info("Deleting ipset %s", s->name);
+			info(" * Deleting ipset %s", s->name);
 
 			fw3_pr("flush %s\n", s->name);
 			fw3_pr("destroy %s\n", s->name);

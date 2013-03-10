@@ -318,8 +318,6 @@ set_default(const char *name, bool set)
 void
 fw3_set_defaults(struct fw3_state *state)
 {
-	info("Setting sysctl values");
-
 	set_default("ecn",            state->defaults.tcp_ecn);
 	set_default("syncookies",     state->defaults.tcp_syncookies);
 	set_default("window_scaling", state->defaults.tcp_window_scaling);
