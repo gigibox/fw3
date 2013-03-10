@@ -193,7 +193,7 @@ fw3_print_default_chains(enum fw3_table table, enum fw3_family family,
 	}
 
 	/* user chains already loaded, don't create again */
-	if (hasbit(state->running_defaults.flags, FW3_DEFAULT_CUSTOM_CHAINS))
+	if (hasbit(state->defaults.running_flags, FW3_DEFAULT_CUSTOM_CHAINS))
 		delbit(custom_mask, FW3_DEFAULT_CUSTOM_CHAINS);
 
 	print_chains(table, family, ":%s - [0:0]\n", defs->flags & custom_mask,
@@ -340,10 +340,10 @@ void
 fw3_flush_rules(enum fw3_table table, enum fw3_family family,
                 bool pass2, struct fw3_state *state, enum fw3_target policy)
 {
-	struct fw3_defaults *d = &state->running_defaults;
+	struct fw3_defaults *defs = &state->defaults;
 	uint32_t custom_mask = ~0;
 
-	if (!hasbit(d->flags, family))
+	if (!hasbit(defs->running_flags, family))
 		return;
 
 	/* don't touch user chains on selective stop */
@@ -353,18 +353,21 @@ fw3_flush_rules(enum fw3_table table, enum fw3_family family,
 	{
 		reset_policy(table, policy);
 
-		print_chains(table, family, "-D %s\n", d->flags & custom_mask,
+		print_chains(table, family, "-D %s\n",
+		             defs->running_flags & custom_mask,
 					 toplevel_rules, ARRAY_SIZE(toplevel_rules));
 
-		print_chains(table, family, "-F %s\n", d->flags & custom_mask,
+		print_chains(table, family, "-F %s\n",
+		             defs->running_flags & custom_mask,
 					 default_chains, ARRAY_SIZE(default_chains));
 	}
 	else
 	{
-		print_chains(table, family, "-X %s\n", d->flags & custom_mask,
+		print_chains(table, family, "-X %s\n",
+		             defs->running_flags & custom_mask,
 					 default_chains, ARRAY_SIZE(default_chains));
 
-		delbit(d->flags, family);
+		delbit(defs->flags, family);
 	}
 }
 

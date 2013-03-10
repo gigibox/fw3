@@ -240,6 +240,7 @@ struct fw3_defaults
 	bool disable_ipv6;
 
 	uint32_t flags;
+	uint32_t running_flags;
 };
 
 struct fw3_zone
@@ -424,7 +425,6 @@ struct fw3_state
 	struct list_head ipsets;
 	struct list_head includes;
 
-	struct fw3_defaults running_defaults;
 	struct list_head running_zones;
 	struct list_head running_ipsets;
 

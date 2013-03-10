@@ -390,7 +390,7 @@ fw3_read_statefile(void *state)
 		switch (type)
 		{
 		case FW3_TYPE_DEFAULTS:
-			s->running_defaults.flags = flags[0];
+			s->defaults.running_flags = flags[0];
 			break;
 
 		case FW3_TYPE_ZONE:

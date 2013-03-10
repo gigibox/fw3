@@ -135,7 +135,7 @@ restore_pipe(enum fw3_family family, bool silent)
 static bool
 family_running(struct fw3_state *state, enum fw3_family family)
 {
-	return hasbit(state->running_defaults.flags, family);
+	return hasbit(state->defaults.running_flags, family);
 }
 
 static bool
