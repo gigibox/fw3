@@ -35,9 +35,9 @@ static const struct chain src_chains[] = {
 	C(ANY, FILTER, UNSPEC,  "zone_%1$s_output"),
 	C(ANY, FILTER, UNSPEC,  "zone_%1$s_forward"),
 
-	C(ANY, FILTER, ACCEPT,  "zone_%1$s_src_ACCEPT"),
-	C(ANY, FILTER, REJECT,  "zone_%1$s_src_REJECT"),
-	C(ANY, FILTER, DROP,    "zone_%1$s_src_DROP"),
+	C(ANY, FILTER, SRC_ACCEPT, "zone_%1$s_src_ACCEPT"),
+	C(ANY, FILTER, SRC_REJECT, "zone_%1$s_src_REJECT"),
+	C(ANY, FILTER, SRC_DROP,   "zone_%1$s_src_DROP"),
 };
 
 static const struct chain dst_chains[] = {
@@ -265,7 +265,7 @@ fw3_load_zones(struct fw3_state *state, struct uci_package *p)
 			setbit(zone->dst_flags, FW3_TARGET_DNAT);
 		}
 
-		setbit(zone->src_flags, zone->policy_input);
+		setbit(zone->dst_flags, fw3_to_src_target(zone->policy_input));
 		setbit(zone->dst_flags, zone->policy_output);
 		setbit(zone->dst_flags, zone->policy_forward);
 
@@ -300,7 +300,7 @@ print_zone_chain(enum fw3_table table, enum fw3_family family,
 		setbit(zone->dst_flags, FW3_TARGET_NOTRACK);
 
 	s = print_chains(table, family, ":%s - [0:0]\n", zone->name,
-	                 zone->src_flags,
+	                 zone->dst_flags,
 	                 src_chains, ARRAY_SIZE(src_chains));
 
 	d = print_chains(table, family, ":%s - [0:0]\n", zone->name,
@@ -332,7 +332,7 @@ print_interface_rule(enum fw3_table table, enum fw3_family family,
 	{
 		for (t = FW3_TARGET_ACCEPT; t <= FW3_TARGET_DROP; t++)
 		{
-			if (hasbit(zone->src_flags, t))
+			if (hasbit(zone->dst_flags, fw3_to_src_target(t)))
 			{
 				fw3_pr("-A zone_%s_src_%s", zone->name, fw3_flag_names[t]);
 				fw3_format_in_out(dev, NULL);
@@ -474,7 +474,7 @@ print_zone_rule(enum fw3_table table, enum fw3_family family,
 		{
 			for (t = FW3_TARGET_REJECT; t <= FW3_TARGET_DROP; t++)
 			{
-				if (hasbit(zone->src_flags, t))
+				if (hasbit(zone->dst_flags, fw3_to_src_target(t)))
 				{
 					fw3_pr("-A zone_%s_src_%s", zone->name, fw3_flag_names[t]);
 					fw3_format_limit(&zone->log_limit);
@@ -555,7 +555,7 @@ fw3_flush_zones(enum fw3_table table, enum fw3_family family,
 			continue;
 
 		print_chains(table, family, pass2 ? "-X %s\n" : "-F %s\n",
-		             z->name, z->running_src_flags,
+		             z->name, z->running_dst_flags,
 		             src_chains, ARRAY_SIZE(src_chains));
 
 		print_chains(table, family, pass2 ? "-X %s\n" : "-F %s\n",

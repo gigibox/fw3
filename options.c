@@ -55,6 +55,10 @@ const char *fw3_flag_names[FW3_DEFAULT_DROP_INVALID + 1] = {
 	"NOTRACK",
 	"DNAT",
 	"SNAT",
+
+	"ACCEPT",
+	"REJECT",
+	"DROP",
 };
 
 static const char *limit_units[] = {
