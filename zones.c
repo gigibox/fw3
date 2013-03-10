@@ -31,29 +31,49 @@ struct chain {
 };
 
 static const struct chain src_chains[] = {
-	C(ANY, FILTER, UNSPEC,  "zone_%s_input"),
-	C(ANY, FILTER, UNSPEC,  "zone_%s_output"),
-	C(ANY, FILTER, UNSPEC,  "zone_%s_forward"),
+	C(ANY, FILTER, UNSPEC,  "zone_%1$s_input"),
+	C(ANY, FILTER, UNSPEC,  "zone_%1$s_output"),
+	C(ANY, FILTER, UNSPEC,  "zone_%1$s_forward"),
 
-	C(ANY, FILTER, ACCEPT,  "zone_%s_src_ACCEPT"),
-	C(ANY, FILTER, REJECT,  "zone_%s_src_REJECT"),
-	C(ANY, FILTER, DROP,    "zone_%s_src_DROP"),
+	C(ANY, FILTER, ACCEPT,  "zone_%1$s_src_ACCEPT"),
+	C(ANY, FILTER, REJECT,  "zone_%1$s_src_REJECT"),
+	C(ANY, FILTER, DROP,    "zone_%1$s_src_DROP"),
 };
 
 static const struct chain dst_chains[] = {
-	C(ANY, FILTER, ACCEPT,  "zone_%s_dest_ACCEPT"),
-	C(ANY, FILTER, REJECT,  "zone_%s_dest_REJECT"),
-	C(ANY, FILTER, DROP,    "zone_%s_dest_DROP"),
+	C(ANY, FILTER, ACCEPT,  "zone_%1$s_dest_ACCEPT"),
+	C(ANY, FILTER, REJECT,  "zone_%1$s_dest_REJECT"),
+	C(ANY, FILTER, DROP,    "zone_%1$s_dest_DROP"),
 
-	C(V4,  NAT,    SNAT,    "zone_%s_postrouting"),
-	C(V4,  NAT,    DNAT,    "zone_%s_prerouting"),
+	C(V4,  NAT,    SNAT,    "zone_%1$s_postrouting"),
+	C(V4,  NAT,    DNAT,    "zone_%1$s_prerouting"),
 
-	C(ANY, FILTER, CUSTOM_CHAINS, "input_%s_rule"),
-	C(ANY, FILTER, CUSTOM_CHAINS, "output_%s_rule"),
-	C(ANY, FILTER, CUSTOM_CHAINS, "forwarding_%s_rule"),
+	C(ANY, FILTER, CUSTOM_CNS_V4, "input_%1$s_rule"),
+	C(ANY, FILTER, CUSTOM_CNS_V4, "output_%1$s_rule"),
+	C(ANY, FILTER, CUSTOM_CNS_V4, "forwarding_%1$s_rule"),
+	C(ANY, FILTER, CUSTOM_CNS_V6, "input_%1$s_rule"),
+	C(ANY, FILTER, CUSTOM_CNS_V6, "output_%1$s_rule"),
+	C(ANY, FILTER, CUSTOM_CNS_V6, "forwarding_%1$s_rule"),
 
-	C(V4,  NAT,    CUSTOM_CHAINS, "prerouting_%s_rule"),
-	C(V4,  NAT,    CUSTOM_CHAINS, "postrouting_%s_rule"),
+	C(V4,  NAT,    CUSTOM_CNS_V4, "prerouting_%1$s_rule"),
+	C(V4,  NAT,    CUSTOM_CNS_V4, "postrouting_%1$s_rule"),
+};
+
+
+#define R(dir1, dir2) \
+	"zone_%1$s_" #dir1 " -m comment --comment \"user chain for %1$s " \
+	#dir2 "\" -j " #dir2 "_%1$s_rule"
+
+static const struct chain def_rules[] = {
+	C(ANY, FILTER, CUSTOM_CNS_V4, R(input, input)),
+	C(ANY, FILTER, CUSTOM_CNS_V4, R(output, output)),
+	C(ANY, FILTER, CUSTOM_CNS_V4, R(forward, forwarding)),
+	C(ANY, FILTER, CUSTOM_CNS_V6, R(input, input)),
+	C(ANY, FILTER, CUSTOM_CNS_V6, R(output, output)),
+	C(ANY, FILTER, CUSTOM_CNS_V6, R(forward, forwarding)),
+
+	C(V4,  NAT,    CUSTOM_CNS_V4, R(prerouting, prerouting)),
+	C(V4,  NAT,    CUSTOM_CNS_V4, R(postrouting, postrouting)),
 };
 
 const struct fw3_option fw3_zone_opts[] = {
@@ -91,11 +111,11 @@ const struct fw3_option fw3_zone_opts[] = {
 
 static bool
 print_chains(enum fw3_table table, enum fw3_family family,
-             const char *fmt, const char *name, uint16_t targets,
+             const char *fmt, const char *name, uint32_t targets,
              const struct chain *chains, int n)
 {
 	bool rv = false;
-	char cn[128] = { 0 };
+	char cn[256] = { 0 };
 	const struct chain *c;
 
 	for (c = chains; n > 0; c++, n--)
@@ -258,8 +278,9 @@ static void
 print_zone_chain(enum fw3_table table, enum fw3_family family,
                  struct fw3_zone *zone, struct fw3_state *state)
 {
-	bool s, d;
-	uint16_t mask = ~0;
+	bool s, d, r;
+	enum fw3_target f;
+	uint32_t custom_mask = ~0;
 
 	if (!fw3_is_family(zone, family))
 		return;
@@ -267,52 +288,30 @@ print_zone_chain(enum fw3_table table, enum fw3_family family,
 	setbit(zone->dst_flags, family);
 
 	/* user chains already loaded, don't create again */
-	if (hasbit(zone->dst_flags, FW3_TARGET_CUSTOM_CHAINS))
-		delbit(mask, FW3_TARGET_CUSTOM_CHAINS);
+	for (f = FW3_TARGET_CUSTOM_CNS_V4; f <= FW3_TARGET_CUSTOM_CNS_V6; f++)
+		if (hasbit(zone->running_dst_flags, f))
+			delbit(custom_mask, f);
 
 	if (zone->custom_chains)
-		setbit(zone->dst_flags, FW3_TARGET_CUSTOM_CHAINS);
+		setbit(zone->dst_flags, (family == FW3_FAMILY_V4) ?
+		       FW3_TARGET_CUSTOM_CNS_V4 : FW3_TARGET_CUSTOM_CNS_V6);
 
 	if (!zone->conntrack && !state->defaults.drop_invalid)
 		setbit(zone->dst_flags, FW3_TARGET_NOTRACK);
 
 	s = print_chains(table, family, ":%s - [0:0]\n", zone->name,
-	                 zone->src_flags & mask,
+	                 zone->src_flags,
 	                 src_chains, ARRAY_SIZE(src_chains));
 
 	d = print_chains(table, family, ":%s - [0:0]\n", zone->name,
-	                 zone->dst_flags & mask,
+	                 zone->dst_flags & custom_mask,
 	                 dst_chains, ARRAY_SIZE(dst_chains));
 
-	if (zone->custom_chains)
-	{
-		if (table == FW3_TABLE_FILTER)
-		{
-			fw3_pr("-A zone_%s_input -j input_%s_rule "
-				   "-m comment --comment \"user chain for %s input\"\n",
-			       zone->name, zone->name, zone->name);
+	r = print_chains(table, family, "-A %s\n", zone->name,
+	                 zone->dst_flags,
+	                 def_rules, ARRAY_SIZE(def_rules));
 
-			fw3_pr("-A zone_%s_output -j output_%s_rule "
-				   "-m comment --comment \"user chain for %s output\"\n",
-			       zone->name, zone->name, zone->name);
-
-			fw3_pr("-A zone_%s_forward -j forwarding_%s_rule "
-				   "-m comment --comment \"user chain for %s forwarding\"\n",
-			       zone->name, zone->name, zone->name);
-		}
-		else if (table == FW3_TABLE_NAT)
-		{
-			fw3_pr("-A zone_%s_prerouting -j prerouting_%s_rule "
-			       "-m comment --comment \"user chain for %s prerouting\"\n",
-			       zone->name, zone->name, zone->name);
-
-			fw3_pr("-A zone_%s_postrouting -j postrouting_%s_rule "
-			       "-m comment --comment \"user chain for %s postrouting\"\n",
-			       zone->name, zone->name, zone->name);
-		}
-	}
-
-	if (s || d)
+	if (s || d || r)
 	{
 		info("   * Zone '%s'", zone->name);
 		fw3_set_running(zone, &state->running_zones);
@@ -540,12 +539,15 @@ fw3_flush_zones(enum fw3_table table, enum fw3_family family,
 			    bool pass2, bool reload, struct fw3_state *state)
 {
 	struct fw3_zone *z, *tmp;
-	uint16_t mask = ~0;
-	uint16_t families = (1 << FW3_FAMILY_V4) | (1 << FW3_FAMILY_V6);
+	uint32_t custom_mask = ~0;
+	uint32_t family_mask = (1 << FW3_FAMILY_V4) | (1 << FW3_FAMILY_V6);
 
 	/* don't touch user chains on selective stop */
 	if (reload)
-		delbit(mask, FW3_DEFAULT_CUSTOM_CHAINS);
+	{
+		delbit(custom_mask, FW3_TARGET_CUSTOM_CNS_V4);
+		delbit(custom_mask, FW3_TARGET_CUSTOM_CNS_V6);
+	}
 
 	list_for_each_entry_safe(z, tmp, &state->running_zones, running_list)
 	{
@@ -553,18 +555,18 @@ fw3_flush_zones(enum fw3_table table, enum fw3_family family,
 			continue;
 
 		print_chains(table, family, pass2 ? "-X %s\n" : "-F %s\n",
-		             z->name, z->src_flags & mask,
+		             z->name, z->running_src_flags,
 		             src_chains, ARRAY_SIZE(src_chains));
 
 		print_chains(table, family, pass2 ? "-X %s\n" : "-F %s\n",
-		             z->name, z->dst_flags & mask,
+		             z->name, z->running_dst_flags & custom_mask,
 		             dst_chains, ARRAY_SIZE(dst_chains));
 
 		if (pass2)
 		{
 			delbit(z->dst_flags, family);
 
-			if (!(z->dst_flags & families))
+			if (!(z->dst_flags & family_mask))
 				fw3_set_running(z, NULL);
 		}
 	}

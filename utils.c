@@ -356,7 +356,7 @@ fw3_read_statefile(void *state)
 	char line[128];
 	const char *p, *name;
 
-	uint16_t flags[2];
+	uint32_t flags[2];
 
 	struct fw3_state *s = state;
 	struct fw3_zone *zone;
@@ -405,8 +405,8 @@ fw3_read_statefile(void *state)
 				list_add_tail(&zone->list, &s->zones);
 			}
 
-			zone->src_flags = flags[0];
-			zone->dst_flags = flags[1];
+			zone->running_src_flags = flags[0];
+			zone->running_dst_flags = flags[1];
 			list_add_tail(&zone->running_list, &s->running_zones);
 			break;
 

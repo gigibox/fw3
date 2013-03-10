@@ -88,7 +88,7 @@ const struct fw3_option fw3_default_opts[] = {
 
 static bool
 print_chains(enum fw3_table table, enum fw3_family family,
-             const char *fmt, uint16_t flags,
+             const char *fmt, uint32_t flags,
              const struct chain *chains, int n)
 {
 	bool rv = false;
@@ -180,7 +180,7 @@ fw3_print_default_chains(enum fw3_table table, enum fw3_family family,
                          struct fw3_state *state)
 {
 	struct fw3_defaults *defs = &state->defaults;
-	uint16_t mask = ~0;
+	uint32_t custom_mask = ~0;
 
 #define policy(t) \
 	((t == FW3_TARGET_REJECT) ? "DROP" : fw3_flag_names[t])
@@ -194,9 +194,9 @@ fw3_print_default_chains(enum fw3_table table, enum fw3_family family,
 
 	/* user chains already loaded, don't create again */
 	if (hasbit(state->running_defaults.flags, FW3_DEFAULT_CUSTOM_CHAINS))
-		delbit(mask, FW3_DEFAULT_CUSTOM_CHAINS);
+		delbit(custom_mask, FW3_DEFAULT_CUSTOM_CHAINS);
 
-	print_chains(table, family, ":%s - [0:0]\n", defs->flags & mask,
+	print_chains(table, family, ":%s - [0:0]\n", defs->flags & custom_mask,
 	             default_chains, ARRAY_SIZE(default_chains));
 }
 
@@ -207,9 +207,9 @@ fw3_print_default_head_rules(enum fw3_table table, enum fw3_family family,
 	int i;
 	struct fw3_defaults *defs = &state->defaults;
 	const char *chains[] = {
-		"input",
-		"output",
-		"forward",
+		"input", "input",
+		"output", "output",
+		"forward", "forwarding",
 	};
 
 	print_chains(table, family, "-A %s\n", 0,
@@ -223,17 +223,15 @@ fw3_print_default_head_rules(enum fw3_table table, enum fw3_family family,
 
 		if (defs->custom_chains)
 		{
-			fw3_pr("-A delegate_input -j input_rule "
-			       "-m comment --comment \"user chain for input\"\n");
-
-			fw3_pr("-A delegate_output -j output_rule "
-			       "-m comment --comment \"user chain for output\"\n");
-
-			fw3_pr("-A delegate_forward -j forwarding_rule "
-			       "-m comment --comment \"user chain for forwarding\"\n");
+			for (i = 0; i < ARRAY_SIZE(chains); i += 2)
+			{
+				fw3_pr("-A delegate_%s -m comment "
+				       "--comment \"user chain for %s\" -j %s_rule\n",
+					   chains[i], chains[i+1], chains[i+1]);
+			}
 		}
 
-		for (i = 0; i < ARRAY_SIZE(chains); i++)
+		for (i = 0; i < ARRAY_SIZE(chains); i += 2)
 		{
 			fw3_pr("-A delegate_%s -m conntrack --ctstate RELATED,ESTABLISHED "
 			       "-j ACCEPT\n", chains[i]);
@@ -263,11 +261,13 @@ fw3_print_default_head_rules(enum fw3_table table, enum fw3_family family,
 	case FW3_TABLE_NAT:
 		if (defs->custom_chains)
 		{
-			fw3_pr("-A delegate_prerouting -j prerouting_rule "
-			       "-m comment --comment \"user chain for prerouting\"\n");
+			fw3_pr("-A delegate_prerouting "
+			       "-m comment --comment \"user chain for prerouting\" "
+			       "-j prerouting_rule\n");
 
-			fw3_pr("-A delegate_postrouting -j postrouting_rule "
-			       "-m comment --comment \"user chain for postrouting\"\n");
+			fw3_pr("-A delegate_postrouting "
+			       "-m comment --comment \"user chain for postrouting\" "
+			       "-j postrouting_rule\n");
 		}
 		break;
 
@@ -341,27 +341,27 @@ fw3_flush_rules(enum fw3_table table, enum fw3_family family,
                 bool pass2, struct fw3_state *state, enum fw3_target policy)
 {
 	struct fw3_defaults *d = &state->running_defaults;
-	uint16_t mask = ~0;
+	uint32_t custom_mask = ~0;
 
 	if (!hasbit(d->flags, family))
 		return;
 
 	/* don't touch user chains on selective stop */
-	delbit(mask, FW3_DEFAULT_CUSTOM_CHAINS);
+	delbit(custom_mask, FW3_DEFAULT_CUSTOM_CHAINS);
 
 	if (!pass2)
 	{
 		reset_policy(table, policy);
 
-		print_chains(table, family, "-D %s\n", d->flags & mask,
+		print_chains(table, family, "-D %s\n", d->flags & custom_mask,
 					 toplevel_rules, ARRAY_SIZE(toplevel_rules));
 
-		print_chains(table, family, "-F %s\n", d->flags & mask,
+		print_chains(table, family, "-F %s\n", d->flags & custom_mask,
 					 default_chains, ARRAY_SIZE(default_chains));
 	}
 	else
 	{
-		print_chains(table, family, "-X %s\n", d->flags & mask,
+		print_chains(table, family, "-X %s\n", d->flags & custom_mask,
 					 default_chains, ARRAY_SIZE(default_chains));
 
 		delbit(d->flags, family);

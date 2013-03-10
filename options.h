@@ -70,16 +70,17 @@ enum fw3_target
 	FW3_TARGET_NOTRACK       = 9,
 	FW3_TARGET_DNAT          = 10,
 	FW3_TARGET_SNAT          = 11,
-	FW3_TARGET_CUSTOM_CHAINS = 12, /* alias to FW3_DEFAULT_CUSTOM_CHAINS */
+	FW3_TARGET_CUSTOM_CNS_V4 = 12,
+	FW3_TARGET_CUSTOM_CNS_V6 = 13,
 };
 
 enum fw3_default
 {
 	FW3_DEFAULT_UNSPEC        = 0,
-	FW3_DEFAULT_CUSTOM_CHAINS = 12,
-	FW3_DEFAULT_SYN_FLOOD     = 13,
-	FW3_DEFAULT_MTU_FIX       = 14,
-	FW3_DEFAULT_DROP_INVALID  = 15,
+	FW3_DEFAULT_CUSTOM_CHAINS = 14,
+	FW3_DEFAULT_SYN_FLOOD     = 15,
+	FW3_DEFAULT_MTU_FIX       = 16,
+	FW3_DEFAULT_DROP_INVALID  = 17,
 };
 
 extern const char *fw3_flag_names[FW3_DEFAULT_DROP_INVALID + 1];
@@ -170,7 +171,7 @@ struct fw3_protocol
 
 	bool any;
 	bool invert;
-	uint16_t protocol;
+	uint32_t protocol;
 };
 
 struct fw3_port
@@ -238,7 +239,7 @@ struct fw3_defaults
 
 	bool disable_ipv6;
 
-	uint16_t flags;
+	uint32_t flags;
 };
 
 struct fw3_zone
@@ -274,8 +275,11 @@ struct fw3_zone
 
 	bool custom_chains;
 
-	uint16_t src_flags;
-	uint16_t dst_flags;
+	uint32_t src_flags;
+	uint32_t dst_flags;
+
+	uint32_t running_src_flags;
+	uint32_t running_dst_flags;
 };
 
 struct fw3_rule
@@ -393,7 +397,7 @@ struct fw3_ipset
 
 	const char *external;
 
-	uint16_t flags;
+	uint32_t flags;
 };
 
 struct fw3_include
