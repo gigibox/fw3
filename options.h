@@ -399,6 +399,7 @@ struct fw3_ipset
 	const char *external;
 
 	uint32_t flags;
+	uint32_t running_flags;
 };
 
 struct fw3_include

@@ -219,15 +219,17 @@ stop(struct fw3_state *state, bool complete, bool reload)
 		fw3_command_close();
 
 		if (!reload)
+		{
+			if (fw3_command_pipe(false, "ipset", "-exist", "-"))
+			{
+				fw3_destroy_ipsets(state, family);
+				fw3_command_close();
+			}
+
 			family_set(state, family, false);
+		}
 
 		rv = 0;
-	}
-
-	if (!reload && fw3_command_pipe(false, "ipset", "-exist", "-"))
-	{
-		fw3_destroy_ipsets(state);
-		fw3_command_close();
 	}
 
 	if (complete && (ct = fopen("/proc/net/nf_conntrack", "w")) != NULL)

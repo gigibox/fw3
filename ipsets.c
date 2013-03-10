@@ -373,20 +373,17 @@ fw3_create_ipsets(struct fw3_state *state)
 }
 
 void
-fw3_destroy_ipsets(struct fw3_state *state)
+fw3_destroy_ipsets(struct fw3_state *state, enum fw3_family family)
 {
 	struct fw3_ipset *s, *tmp;
-	int mask = (1 << FW3_FAMILY_V4) | (1 << FW3_FAMILY_V6);
+	uint32_t family_mask = (1 << FW3_FAMILY_V4) | (1 << FW3_FAMILY_V6);
 
 	list_for_each_entry_safe(s, tmp, &state->running_ipsets, running_list)
 	{
-		if (!hasbit(state->defaults.flags, FW3_FAMILY_V4))
-			delbit(s->flags, FW3_FAMILY_V4);
+		if (hasbit(s->running_flags, family))
+			delbit(s->flags, family);
 
-		if (!hasbit(state->defaults.flags, FW3_FAMILY_V6))
-			delbit(s->flags, FW3_FAMILY_V6);
-
-		if (!(s->flags & mask))
+		if (!(s->flags & family_mask))
 		{
 			info("Deleting ipset %s", s->name);
 

@@ -422,7 +422,7 @@ fw3_read_statefile(void *state)
 				list_add_tail(&ipset->list, &s->ipsets);
 			}
 
-			ipset->flags = flags[0];
+			ipset->running_flags = flags[0];
 			list_add_tail(&ipset->running_list, &s->running_ipsets);
 			break;
 		}
