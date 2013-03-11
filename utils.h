@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <sys/file.h>
