@@ -356,7 +356,7 @@ fw3_read_statefile(void *state)
 	char line[128];
 	const char *p, *name;
 
-	uint32_t flags;
+	uint32_t flags[2];
 
 	struct fw3_state *s = state;
 	struct fw3_zone *zone;
@@ -380,17 +380,21 @@ fw3_read_statefile(void *state)
 		if (!name)
 			continue;
 
-		p = strtok(NULL, " \t\n");
-
-		if (!p)
+		if (!(p = strtok(NULL, " \t\n")))
 			continue;
 
-		flags = strtoul(p, NULL, 16);
+		flags[0] = strtoul(p, NULL, 16);
+
+		if (!(p = strtok(NULL, " \t\n")))
+			continue;
+
+		flags[1] = strtoul(p, NULL, 16);
 
 		switch (type)
 		{
 		case FW3_TYPE_DEFAULTS:
-			s->defaults.running_flags = flags;
+			s->defaults.flags[0] = flags[0];
+			s->defaults.flags[1] = flags[1];
 			break;
 
 		case FW3_TYPE_ZONE:
@@ -405,7 +409,8 @@ fw3_read_statefile(void *state)
 				list_add_tail(&zone->list, &s->zones);
 			}
 
-			zone->running_flags = flags;
+			zone->flags[0] = flags[0];
+			zone->flags[1] = flags[1];
 			list_add_tail(&zone->running_list, &s->running_zones);
 			break;
 
@@ -421,7 +426,8 @@ fw3_read_statefile(void *state)
 				list_add_tail(&ipset->list, &s->ipsets);
 			}
 
-			ipset->running_flags = flags;
+			ipset->flags[0] = flags[0];
+			ipset->flags[1] = flags[1];
 			list_add_tail(&ipset->running_list, &s->running_ipsets);
 			break;
 		}
@@ -441,7 +447,7 @@ fw3_write_statefile(void *state)
 	struct fw3_zone *z;
 	struct fw3_ipset *i;
 
-	if (fw3_no_family(d->flags))
+	if (fw3_no_table(d->flags[0]) && fw3_no_table(d->flags[1]))
 	{
 		if (unlink(FW3_STATEFILE))
 			warn("Unable to remove state %s: %s",
@@ -458,16 +464,24 @@ fw3_write_statefile(void *state)
 		return;
 	}
 
-	fprintf(sf, "%x - %x\n", FW3_TYPE_DEFAULTS, d->flags);
+	fprintf(sf, "%x - %x %x\n", FW3_TYPE_DEFAULTS, d->flags[0], d->flags[1]);
 
 	list_for_each_entry(z, &s->running_zones, running_list)
 	{
-		fprintf(sf, "%x %s %x\n", FW3_TYPE_ZONE, z->name, z->flags);
+		if (!fw3_no_table(z->flags[0]) || !fw3_no_table(z->flags[1]))
+		{
+			fprintf(sf, "%x %s %x %x\n",
+					FW3_TYPE_ZONE, z->name, z->flags[0], z->flags[1]);
+		}
 	}
 
 	list_for_each_entry(i, &s->running_ipsets, running_list)
 	{
-		fprintf(sf, "%x %s %x\n", FW3_TYPE_IPSET, i->name, i->flags);
+		if (!fw3_no_family(i->flags[0]) || !fw3_no_family(i->flags[1]))
+		{
+			fprintf(sf, "%x %s %x %x\n",
+					FW3_TYPE_IPSET, i->name, i->flags[0], i->flags[1]);
+		}
 	}
 
 	fclose(sf);

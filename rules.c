@@ -161,8 +161,12 @@ fw3_load_rules(struct fw3_state *state, struct uci_package *p)
 			rule->target = FW3_TARGET_REJECT;
 		}
 
+		/* NB: rule family... */
 		if (rule->_dest)
-			setbit(rule->_dest->flags, rule->target);
+		{
+			setbit(rule->_dest->flags[0], rule->target);
+			setbit(rule->_dest->flags[1], rule->target);
+		}
 
 		list_add_tail(&rule->list, &state->rules);
 		continue;
@@ -312,7 +316,7 @@ expand_rule(enum fw3_table table, enum fw3_family family,
 			return;
 		}
 
-		setbit(rule->_ipset->flags, family);
+		set(rule->_ipset->flags, family, family);
 	}
 
 	list_for_each_entry(proto, &rule->proto, list)

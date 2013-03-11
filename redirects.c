@@ -203,16 +203,16 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 				warn_elem(e, "has no source specified");
 			else
 			{
-				setbit(redir->_src->flags, redir->target);
+				set(redir->_src->flags, FW3_FAMILY_V4, redir->target);
 				redir->_src->conntrack = true;
 				valid = true;
 			}
 
 			if (redir->reflection && redir->_dest && redir->_src->masq)
 			{
-				setbit(redir->_dest->flags, FW3_TARGET_ACCEPT);
-				setbit(redir->_dest->flags, FW3_TARGET_DNAT);
-				setbit(redir->_dest->flags, FW3_TARGET_SNAT);
+				set(redir->_dest->flags, FW3_FAMILY_V4, FW3_TARGET_ACCEPT);
+				set(redir->_dest->flags, FW3_FAMILY_V4, FW3_TARGET_DNAT);
+				set(redir->_dest->flags, FW3_FAMILY_V4, FW3_TARGET_SNAT);
 			}
 		}
 		else
@@ -225,7 +225,7 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 				warn_elem(e, "has no src_dip option specified");
 			else
 			{
-				setbit(redir->_dest->flags, redir->target);
+				set(redir->_dest->flags, FW3_FAMILY_V4, redir->target);
 				redir->_dest->conntrack = true;
 				valid = true;
 			}
@@ -357,7 +357,7 @@ print_redirect(enum fw3_table table, enum fw3_family family,
 			return;
 		}
 
-		setbit(redir->_ipset->flags, family);
+		set(redir->_ipset->flags, family, family);
 	}
 
 	fw3_foreach(proto, &redir->proto)

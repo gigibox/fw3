@@ -379,9 +379,9 @@ fw3_destroy_ipsets(struct fw3_state *state, enum fw3_family family)
 
 	list_for_each_entry_safe(s, tmp, &state->running_ipsets, running_list)
 	{
-		delbit(s->running_flags, family);
+		del(s->flags, family, family);
 
-		if (fw3_no_family(s->running_flags))
+		if (fw3_no_family(s->flags[family == FW3_FAMILY_V6]))
 		{
 			info(" * Deleting ipset %s", s->name);
 

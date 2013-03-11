@@ -28,10 +28,10 @@ struct fw3_zone * fw3_alloc_zone(void);
 void fw3_load_zones(struct fw3_state *state, struct uci_package *p);
 
 void fw3_print_zone_chains(enum fw3_table table, enum fw3_family family,
-                           struct fw3_state *state);
+                           bool reload, struct fw3_state *state);
 
 void fw3_print_zone_rules(enum fw3_table table, enum fw3_family family,
-                          struct fw3_state *state);
+                          bool reload, struct fw3_state *state);
 
 void fw3_flush_zones(enum fw3_table table, enum fw3_family family,
                      bool pass2, bool reload, struct fw3_state *state);

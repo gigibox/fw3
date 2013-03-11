@@ -46,6 +46,10 @@ void info(const char *format, ...);
 #define delbit(field, flag) field &= ~(1 << (flag))
 #define hasbit(field, flag) (field & (1 << (flag)))
 
+#define set(field, family, flag) setbit(field[family == FW3_FAMILY_V6], flag)
+#define del(field, family, flag) delbit(field[family == FW3_FAMILY_V6], flag)
+#define has(field, family, flag) hasbit(field[family == FW3_FAMILY_V6], flag)
+
 #define fw3_foreach(p, h)                                                  \
 	for (p = list_empty(h) ? NULL : list_first_entry(h, typeof(*p), list); \
          list_empty(h) ? (p == NULL) : (&p->list != (h));                  \
@@ -57,6 +61,11 @@ void info(const char *format, ...);
 
 #define fw3_no_family(flags)                                               \
 	(!(flags & ((1 << FW3_FAMILY_V4) | (1 << FW3_FAMILY_V6))))
+
+#define fw3_no_table(flags)                                                \
+    (!(flags & ((1<<FW3_TABLE_FILTER)|(1<<FW3_TABLE_NAT)|                  \
+                (1<<FW3_TABLE_MANGLE)|(1<<FW3_TABLE_RAW))))
+
 
 const char * fw3_find_command(const char *cmd);
 

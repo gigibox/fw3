@@ -30,33 +30,28 @@ struct chain {
 	const char *name;
 };
 
-static const struct chain src_chains[] = {
-	C(ANY, FILTER, UNSPEC,  "zone_%1$s_input"),
-	C(ANY, FILTER, UNSPEC,  "zone_%1$s_output"),
-	C(ANY, FILTER, UNSPEC,  "zone_%1$s_forward"),
+static const struct chain zone_chains[] = {
+	C(ANY, FILTER, UNSPEC,        "zone_%1$s_input"),
+	C(ANY, FILTER, UNSPEC,        "zone_%1$s_output"),
+	C(ANY, FILTER, UNSPEC,        "zone_%1$s_forward"),
 
-	C(ANY, FILTER, SRC_ACCEPT, "zone_%1$s_src_ACCEPT"),
-	C(ANY, FILTER, SRC_REJECT, "zone_%1$s_src_REJECT"),
-	C(ANY, FILTER, SRC_DROP,   "zone_%1$s_src_DROP"),
-};
+	C(ANY, FILTER, SRC_ACCEPT,    "zone_%1$s_src_ACCEPT"),
+	C(ANY, FILTER, SRC_REJECT,    "zone_%1$s_src_REJECT"),
+	C(ANY, FILTER, SRC_DROP,      "zone_%1$s_src_DROP"),
 
-static const struct chain dst_chains[] = {
-	C(ANY, FILTER, ACCEPT,  "zone_%1$s_dest_ACCEPT"),
-	C(ANY, FILTER, REJECT,  "zone_%1$s_dest_REJECT"),
-	C(ANY, FILTER, DROP,    "zone_%1$s_dest_DROP"),
+	C(ANY, FILTER, ACCEPT,        "zone_%1$s_dest_ACCEPT"),
+	C(ANY, FILTER, REJECT,        "zone_%1$s_dest_REJECT"),
+	C(ANY, FILTER, DROP,          "zone_%1$s_dest_DROP"),
 
-	C(V4,  NAT,    SNAT,    "zone_%1$s_postrouting"),
-	C(V4,  NAT,    DNAT,    "zone_%1$s_prerouting"),
+	C(V4,  NAT,    SNAT,          "zone_%1$s_postrouting"),
+	C(V4,  NAT,    DNAT,          "zone_%1$s_prerouting"),
 
-	C(ANY, FILTER, CUSTOM_CNS_V4, "input_%1$s_rule"),
-	C(ANY, FILTER, CUSTOM_CNS_V4, "output_%1$s_rule"),
-	C(ANY, FILTER, CUSTOM_CNS_V4, "forwarding_%1$s_rule"),
-	C(ANY, FILTER, CUSTOM_CNS_V6, "input_%1$s_rule"),
-	C(ANY, FILTER, CUSTOM_CNS_V6, "output_%1$s_rule"),
-	C(ANY, FILTER, CUSTOM_CNS_V6, "forwarding_%1$s_rule"),
+	C(ANY, FILTER, CUSTOM_CHAINS, "input_%1$s_rule"),
+	C(ANY, FILTER, CUSTOM_CHAINS, "output_%1$s_rule"),
+	C(ANY, FILTER, CUSTOM_CHAINS, "forwarding_%1$s_rule"),
 
-	C(V4,  NAT,    CUSTOM_CNS_V4, "prerouting_%1$s_rule"),
-	C(V4,  NAT,    CUSTOM_CNS_V4, "postrouting_%1$s_rule"),
+	C(V4,  NAT,    CUSTOM_CHAINS, "prerouting_%1$s_rule"),
+	C(V4,  NAT,    CUSTOM_CHAINS, "postrouting_%1$s_rule"),
 };
 
 
@@ -64,16 +59,13 @@ static const struct chain dst_chains[] = {
 	"zone_%1$s_" #dir1 " -m comment --comment \"user chain for %1$s " \
 	#dir2 "\" -j " #dir2 "_%1$s_rule"
 
-static const struct chain def_rules[] = {
-	C(ANY, FILTER, CUSTOM_CNS_V4, R(input, input)),
-	C(ANY, FILTER, CUSTOM_CNS_V4, R(output, output)),
-	C(ANY, FILTER, CUSTOM_CNS_V4, R(forward, forwarding)),
-	C(ANY, FILTER, CUSTOM_CNS_V6, R(input, input)),
-	C(ANY, FILTER, CUSTOM_CNS_V6, R(output, output)),
-	C(ANY, FILTER, CUSTOM_CNS_V6, R(forward, forwarding)),
+static const struct chain zone_rules[] = {
+	C(ANY, FILTER, CUSTOM_CHAINS, R(input, input)),
+	C(ANY, FILTER, CUSTOM_CHAINS, R(output, output)),
+	C(ANY, FILTER, CUSTOM_CHAINS, R(forward, forwarding)),
 
-	C(V4,  NAT,    CUSTOM_CNS_V4, R(prerouting, prerouting)),
-	C(V4,  NAT,    CUSTOM_CNS_V4, R(postrouting, postrouting)),
+	C(V4,  NAT,    CUSTOM_CHAINS, R(prerouting, prerouting)),
+	C(V4,  NAT,    CUSTOM_CHAINS, R(postrouting, postrouting)),
 };
 
 const struct fw3_option fw3_zone_opts[] = {
@@ -111,12 +103,16 @@ const struct fw3_option fw3_zone_opts[] = {
 
 static bool
 print_chains(enum fw3_table table, enum fw3_family family,
-             const char *fmt, const char *name, uint32_t targets,
+             const char *fmt, const char *name, uint32_t *targets, uint32_t mask,
              const struct chain *chains, int n)
 {
 	bool rv = false;
 	char cn[256] = { 0 };
 	const struct chain *c;
+	uint32_t t = targets ? targets[family == FW3_FAMILY_V6] : 0;
+
+	if (mask)
+		t &= mask;
 
 	for (c = chains; n > 0; c++, n--)
 	{
@@ -126,7 +122,7 @@ print_chains(enum fw3_table table, enum fw3_family family,
 		if (c->table != table)
 			continue;
 
-		if ((c->target != FW3_TARGET_UNSPEC) && !hasbit(targets, c->target))
+		if ((c->target != FW3_TARGET_UNSPEC) && !hasbit(t, c->target))
 			continue;
 
 		snprintf(cn, sizeof(cn), c->name, name);
@@ -255,19 +251,23 @@ fw3_load_zones(struct fw3_state *state, struct uci_package *p)
 
 		if (zone->masq)
 		{
-			setbit(zone->flags, FW3_TARGET_SNAT);
+			setbit(zone->flags[0], FW3_TARGET_SNAT);
 			zone->conntrack = true;
 		}
 
 		if (zone->custom_chains)
 		{
-			setbit(zone->flags, FW3_TARGET_SNAT);
-			setbit(zone->flags, FW3_TARGET_DNAT);
+			setbit(zone->flags[0], FW3_TARGET_SNAT);
+			setbit(zone->flags[0], FW3_TARGET_DNAT);
 		}
 
-		setbit(zone->flags, fw3_to_src_target(zone->policy_input));
-		setbit(zone->flags, zone->policy_output);
-		setbit(zone->flags, zone->policy_forward);
+		setbit(zone->flags[0], fw3_to_src_target(zone->policy_input));
+		setbit(zone->flags[0], zone->policy_output);
+		setbit(zone->flags[0], zone->policy_forward);
+
+		setbit(zone->flags[1], fw3_to_src_target(zone->policy_input));
+		setbit(zone->flags[1], zone->policy_output);
+		setbit(zone->flags[1], zone->policy_forward);
 
 		list_add_tail(&zone->list, &state->zones);
 	}
@@ -276,52 +276,47 @@ fw3_load_zones(struct fw3_state *state, struct uci_package *p)
 
 static void
 print_zone_chain(enum fw3_table table, enum fw3_family family,
-                 struct fw3_zone *zone, struct fw3_state *state)
+                 struct fw3_zone *zone, bool reload, struct fw3_state *state)
 {
-	bool s, d, r;
-	enum fw3_target f;
+	bool c, r;
 	uint32_t custom_mask = ~0;
 
 	if (!fw3_is_family(zone, family))
 		return;
 
-	setbit(zone->flags, family);
+	set(zone->flags, family, table);
 
-	/* user chains already loaded, don't create again */
-	for (f = FW3_TARGET_CUSTOM_CNS_V4; f <= FW3_TARGET_CUSTOM_CNS_V6; f++)
-		if (hasbit(zone->running_flags, f))
-			delbit(custom_mask, f);
+	/* Don't touch user chains on reload */
+	if (reload)
+		delbit(custom_mask, FW3_TARGET_CUSTOM_CHAINS);
 
 	if (zone->custom_chains)
-		setbit(zone->flags, (family == FW3_FAMILY_V4) ?
-		       FW3_TARGET_CUSTOM_CNS_V4 : FW3_TARGET_CUSTOM_CNS_V6);
+		set(zone->flags, family, FW3_TARGET_CUSTOM_CHAINS);
 
 	if (!zone->conntrack && !state->defaults.drop_invalid)
-		setbit(zone->flags, FW3_TARGET_NOTRACK);
+		set(zone->flags, family, FW3_TARGET_NOTRACK);
 
-	s = print_chains(table, family, ":%s - [0:0]\n", zone->name,
-	                 zone->flags,
-	                 src_chains, ARRAY_SIZE(src_chains));
-
-	d = print_chains(table, family, ":%s - [0:0]\n", zone->name,
-	                 zone->flags & custom_mask,
-	                 dst_chains, ARRAY_SIZE(dst_chains));
+	c = print_chains(table, family, ":%s - [0:0]\n", zone->name,
+	                 zone->flags, custom_mask,
+	                 zone_chains, ARRAY_SIZE(zone_chains));
 
 	r = print_chains(table, family, "-A %s\n", zone->name,
-	                 zone->flags,
-	                 def_rules, ARRAY_SIZE(def_rules));
+	                 zone->flags, 0,
+	                 zone_rules, ARRAY_SIZE(zone_rules));
 
-	if (s || d || r)
+	if (c || r)
 	{
 		info("   * Zone '%s'", zone->name);
 		fw3_set_running(zone, &state->running_zones);
+
+		set(zone->flags, family, table);
 	}
 }
 
 static void
 print_interface_rule(enum fw3_table table, enum fw3_family family,
                      struct fw3_zone *zone, struct fw3_device *dev,
-                     struct fw3_address *sub, bool disable_notrack)
+                     struct fw3_address *sub, bool reload, bool disable_notrack)
 {
 	enum fw3_target t;
 
@@ -332,7 +327,7 @@ print_interface_rule(enum fw3_table table, enum fw3_family family,
 	{
 		for (t = FW3_TARGET_ACCEPT; t <= FW3_TARGET_DROP; t++)
 		{
-			if (hasbit(zone->flags, fw3_to_src_target(t)))
+			if (has(zone->flags, family, fw3_to_src_target(t)))
 			{
 				fw3_pr("-A zone_%s_src_%s", zone->name, fw3_flag_names[t]);
 				fw3_format_in_out(dev, NULL);
@@ -341,7 +336,7 @@ print_interface_rule(enum fw3_table table, enum fw3_family family,
 				fw3_pr(" -j %s\n", jump_target(t));
 			}
 
-			if (hasbit(zone->flags, t))
+			if (has(zone->flags, family, t))
 			{
 				fw3_pr("-A zone_%s_dest_%s", zone->name, fw3_flag_names[t]);
 				fw3_format_in_out(NULL, dev);
@@ -371,7 +366,7 @@ print_interface_rule(enum fw3_table table, enum fw3_family family,
 	}
 	else if (table == FW3_TABLE_NAT)
 	{
-		if (hasbit(zone->flags, FW3_TARGET_DNAT))
+		if (has(zone->flags, family, FW3_TARGET_DNAT))
 		{
 			fw3_pr("-A delegate_prerouting");
 			fw3_format_in_out(dev, NULL);
@@ -380,7 +375,7 @@ print_interface_rule(enum fw3_table table, enum fw3_family family,
 			fw3_pr(" -j zone_%s_prerouting\n", zone->name);
 		}
 
-		if (hasbit(zone->flags, FW3_TARGET_SNAT))
+		if (has(zone->flags, family, FW3_TARGET_SNAT))
 		{
 			fw3_pr("-A delegate_postrouting");
 			fw3_format_in_out(NULL, dev);
@@ -428,7 +423,7 @@ print_interface_rule(enum fw3_table table, enum fw3_family family,
 
 static void
 print_interface_rules(enum fw3_table table, enum fw3_family family,
-                      struct fw3_zone *zone, bool disable_notrack)
+                      struct fw3_zone *zone, bool reload, bool disable_notrack)
 {
 	struct fw3_device *dev;
 	struct fw3_address *sub;
@@ -442,13 +437,13 @@ print_interface_rules(enum fw3_table table, enum fw3_family family,
 		if (!dev && !sub)
 			continue;
 
-		print_interface_rule(table, family, zone, dev, sub, disable_notrack);
+		print_interface_rule(table, family, zone, dev, sub, reload, disable_notrack);
 	}
 }
 
 static void
 print_zone_rule(enum fw3_table table, enum fw3_family family,
-                struct fw3_zone *zone, bool disable_notrack)
+                struct fw3_zone *zone, bool reload, bool disable_notrack)
 {
 	struct fw3_address *msrc;
 	struct fw3_address *mdest;
@@ -474,7 +469,7 @@ print_zone_rule(enum fw3_table table, enum fw3_family family,
 		{
 			for (t = FW3_TARGET_REJECT; t <= FW3_TARGET_DROP; t++)
 			{
-				if (hasbit(zone->flags, fw3_to_src_target(t)))
+				if (has(zone->flags, family, fw3_to_src_target(t)))
 				{
 					fw3_pr("-A zone_%s_src_%s", zone->name, fw3_flag_names[t]);
 					fw3_format_limit(&zone->log_limit);
@@ -482,7 +477,7 @@ print_zone_rule(enum fw3_table table, enum fw3_family family,
 						   fw3_flag_names[t], zone->name);
 				}
 
-				if (hasbit(zone->flags, t))
+				if (has(zone->flags, family, t))
 				{
 					fw3_pr("-A zone_%s_dest_%s", zone->name, fw3_flag_names[t]);
 					fw3_format_limit(&zone->log_limit);
@@ -511,27 +506,27 @@ print_zone_rule(enum fw3_table table, enum fw3_family family,
 		break;
 	}
 
-	print_interface_rules(table, family, zone, disable_notrack);
+	print_interface_rules(table, family, zone, reload, disable_notrack);
 }
 
 void
 fw3_print_zone_chains(enum fw3_table table, enum fw3_family family,
-                      struct fw3_state *state)
+                      bool reload, struct fw3_state *state)
 {
 	struct fw3_zone *zone;
 
 	list_for_each_entry(zone, &state->zones, list)
-		print_zone_chain(table, family, zone, state);
+		print_zone_chain(table, family, zone, reload, state);
 }
 
 void
 fw3_print_zone_rules(enum fw3_table table, enum fw3_family family,
-                     struct fw3_state *state)
+                     bool reload, struct fw3_state *state)
 {
 	struct fw3_zone *zone;
 
 	list_for_each_entry(zone, &state->zones, list)
-		print_zone_rule(table, family, zone, state->defaults.drop_invalid);
+		print_zone_rule(table, family, zone, reload, state->defaults.drop_invalid);
 }
 
 void
@@ -543,30 +538,20 @@ fw3_flush_zones(enum fw3_table table, enum fw3_family family,
 
 	/* don't touch user chains on selective stop */
 	if (reload)
-	{
-		delbit(custom_mask, FW3_TARGET_CUSTOM_CNS_V4);
-		delbit(custom_mask, FW3_TARGET_CUSTOM_CNS_V6);
-	}
+		delbit(custom_mask, FW3_TARGET_CUSTOM_CHAINS);
 
 	list_for_each_entry_safe(z, tmp, &state->running_zones, running_list)
 	{
-		if (!hasbit(z->flags, family))
+		if (!has(z->flags, family, table))
 			continue;
 
 		print_chains(table, family, pass2 ? "-X %s\n" : "-F %s\n",
-		             z->name, z->running_flags,
-		             src_chains, ARRAY_SIZE(src_chains));
-
-		print_chains(table, family, pass2 ? "-X %s\n" : "-F %s\n",
-		             z->name, z->running_flags & custom_mask,
-		             dst_chains, ARRAY_SIZE(dst_chains));
+		             z->name, z->flags, custom_mask,
+		             zone_chains, ARRAY_SIZE(zone_chains));
 
 		if (pass2)
 		{
-			delbit(z->running_flags, family);
-
-			if (fw3_no_family(z->running_flags))
-				fw3_set_running(z, NULL);
+			del(z->flags, family, table);
 		}
 	}
 }

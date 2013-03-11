@@ -135,7 +135,7 @@ restore_pipe(enum fw3_family family, bool silent)
 static bool
 family_running(struct fw3_state *state, enum fw3_family family)
 {
-	return hasbit(state->defaults.running_flags, family);
+	return has(state->defaults.flags, family, family);
 }
 
 static bool
@@ -144,19 +144,13 @@ family_used(enum fw3_family family)
 	return (use_family == FW3_FAMILY_ANY) || (use_family == family);
 }
 
-static bool
-family_loaded(struct fw3_state *state, enum fw3_family family)
-{
-	return hasbit(state->defaults.flags, family);
-}
-
 static void
 family_set(struct fw3_state *state, enum fw3_family family, bool set)
 {
 	if (set)
-		setbit(state->defaults.flags, family);
+		set(state->defaults.flags, family, family);
 	else
-		delbit(state->defaults.flags, family);
+		del(state->defaults.flags, family, family);
 }
 
 static int
@@ -167,7 +161,6 @@ stop(struct fw3_state *state, bool complete, bool reload)
 	int rv = 1;
 	enum fw3_family family;
 	enum fw3_table table;
-	enum fw3_target policy = reload ? FW3_TARGET_DROP : FW3_TARGET_ACCEPT;
 
 	if (!complete && !state->statefile)
 	{
@@ -203,11 +196,11 @@ stop(struct fw3_state *state, bool complete, bool reload)
 			else
 			{
 				/* pass 1 */
-				fw3_flush_rules(table, family, false, state, policy);
+				fw3_flush_rules(table, family, false, reload, state);
 				fw3_flush_zones(table, family, false, reload, state);
 
 				/* pass 2 */
-				fw3_flush_rules(table, family, true, state, policy);
+				fw3_flush_rules(table, family, true, reload, state);
 				fw3_flush_zones(table, family, true, reload, state);
 			}
 
@@ -274,7 +267,7 @@ start(struct fw3_state *state, bool reload)
 			continue;
 		}
 
-		if (!family_loaded(state, family) || !restore_pipe(family, false))
+		if (!restore_pipe(family, false))
 			continue;
 
 		for (table = FW3_TABLE_FILTER; table <= FW3_TABLE_RAW; table++)
@@ -286,14 +279,14 @@ start(struct fw3_state *state, bool reload)
 			     fw3_flag_names[family], fw3_flag_names[table]);
 
 			fw3_pr("*%s\n", fw3_flag_names[table]);
-			fw3_print_default_chains(table, family, state);
-			fw3_print_zone_chains(table, family, state);
-			fw3_print_default_head_rules(table, family, state);
+			fw3_print_default_chains(table, family, reload, state);
+			fw3_print_zone_chains(table, family, reload, state);
+			fw3_print_default_head_rules(table, family, reload, state);
 			fw3_print_rules(table, family, state);
 			fw3_print_redirects(table, family, state);
 			fw3_print_forwards(table, family, state);
-			fw3_print_zone_rules(table, family, state);
-			fw3_print_default_tail_rules(table, family, state);
+			fw3_print_zone_rules(table, family, reload, state);
+			fw3_print_default_tail_rules(table, family, reload, state);
 			fw3_pr("COMMIT\n");
 		}
 
