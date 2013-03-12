@@ -361,6 +361,7 @@ fw3_read_statefile(void *state)
 	struct fw3_state *s = state;
 	struct fw3_zone *zone;
 	struct fw3_ipset *ipset;
+	struct fw3_device *net, *dev;
 
 	sf = fopen(FW3_STATEFILE, "r");
 
@@ -430,6 +431,28 @@ fw3_read_statefile(void *state)
 			ipset->flags[1] = flags[1];
 			list_add_tail(&ipset->running_list, &s->running_ipsets);
 			break;
+
+		case FW3_TYPE_NETWORK:
+			if (!(zone = fw3_lookup_zone(state, name, false)))
+				continue;
+
+			if (!(p = strtok(NULL, " \t\n")) || !(name = strtok(NULL, " \t\n")))
+				continue;
+
+			if (!(net = malloc(sizeof(*net))))
+				continue;
+
+			memset(net, 0, sizeof(*net));
+			snprintf(net->name, sizeof(net->name), "%s", p);
+			list_add_tail(&net->list, &zone->running_networks);
+
+			if (!(dev = malloc(sizeof(*dev))))
+				continue;
+
+			memset(dev, 0, sizeof(*dev));
+			dev->network = net;
+			snprintf(dev->name, sizeof(dev->name), "%s", name);
+			list_add_tail(&dev->list, &zone->running_devices);
 		}
 	}
 
@@ -443,11 +466,12 @@ fw3_write_statefile(void *state)
 {
 	FILE *sf;
 	struct fw3_state *s = state;
-	struct fw3_defaults *d = &s->defaults;
+	struct fw3_defaults *defs = &s->defaults;
 	struct fw3_zone *z;
 	struct fw3_ipset *i;
+	struct fw3_device *d;
 
-	if (fw3_no_table(d->flags[0]) && fw3_no_table(d->flags[1]))
+	if (fw3_no_table(defs->flags[0]) && fw3_no_table(defs->flags[1]))
 	{
 		if (unlink(FW3_STATEFILE))
 			warn("Unable to remove state %s: %s",
@@ -464,14 +488,24 @@ fw3_write_statefile(void *state)
 		return;
 	}
 
-	fprintf(sf, "%x - %x %x\n", FW3_TYPE_DEFAULTS, d->flags[0], d->flags[1]);
+	fprintf(sf, "%x - %x %x\n",
+	        FW3_TYPE_DEFAULTS, defs->flags[0], defs->flags[1]);
 
 	list_for_each_entry(z, &s->running_zones, running_list)
 	{
-		if (!fw3_no_table(z->flags[0]) || !fw3_no_table(z->flags[1]))
+		if (fw3_no_table(z->flags[0]) && fw3_no_table(z->flags[1]))
+			continue;
+
+		fprintf(sf, "%x %s %x %x\n",
+		        FW3_TYPE_ZONE, z->name, z->flags[0], z->flags[1]);
+
+		list_for_each_entry(d, &z->devices, list)
 		{
-			fprintf(sf, "%x %s %x %x\n",
-					FW3_TYPE_ZONE, z->name, z->flags[0], z->flags[1]);
+			if (!d->network)
+				continue;
+
+			fprintf(sf, "%x %s 0 0 %s %s\n",
+			        FW3_TYPE_NETWORK, z->name, d->network->name, d->name);
 		}
 	}
 

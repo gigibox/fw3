@@ -129,6 +129,7 @@ resolve_networks(struct uci_element *e, struct fw3_zone *zone)
 			continue;
 		}
 
+		tmp->network = net;
 		list_add_tail(&tmp->list, &zone->devices);
 	}
 }
@@ -150,6 +151,9 @@ fw3_alloc_zone(void)
 	INIT_LIST_HEAD(&zone->subnets);
 	INIT_LIST_HEAD(&zone->masq_src);
 	INIT_LIST_HEAD(&zone->masq_dest);
+
+	INIT_LIST_HEAD(&zone->running_networks);
+	INIT_LIST_HEAD(&zone->running_devices);
 
 	zone->enabled = true;
 	zone->custom_chains = true;

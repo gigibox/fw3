@@ -87,7 +87,8 @@ enum fw3_statefile_type
 {
 	FW3_TYPE_DEFAULTS = 0,
 	FW3_TYPE_ZONE     = 1,
-	FW3_TYPE_IPSET    = 2,
+	FW3_TYPE_NETWORK  = 2,
+	FW3_TYPE_IPSET    = 3,
 };
 
 bool fw3_read_statefile(void *state);

@@ -135,6 +135,7 @@ struct fw3_device
 	bool any;
 	bool invert;
 	char name[32];
+	struct fw3_device *network;
 };
 
 struct fw3_address
@@ -261,6 +262,9 @@ struct fw3_zone
 	struct list_head networks;
 	struct list_head devices;
 	struct list_head subnets;
+
+	struct list_head running_networks;
+	struct list_head running_devices;
 
 	const char *extra_src;
 	const char *extra_dest;
