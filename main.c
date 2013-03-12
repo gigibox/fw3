@@ -171,6 +171,9 @@ stop(struct fw3_state *state, bool complete, bool reload)
 		return rv;
 	}
 
+	if (!print_rules)
+		fw3_hotplug_zones(false, state);
+
 	for (family = FW3_FAMILY_V4; family <= FW3_FAMILY_V6; family++)
 	{
 		if (!complete && !family_running(state, family))
@@ -303,11 +306,14 @@ start(struct fw3_state *state, bool reload)
 	{
 		fw3_set_defaults(state);
 
-		if (!reload && !print_rules)
-			fw3_run_includes(state);
-
 		if (!print_rules)
+		{
+			if (!reload)
+				fw3_run_includes(state);
+
+			fw3_hotplug_zones(true, state);
 			fw3_write_statefile(state);
+		}
 	}
 
 	return rv;

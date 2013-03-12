@@ -244,6 +244,7 @@ __fw3_command_pipe(bool silent, const char *command, ...)
 		signal(SIGPIPE, SIG_IGN);
 		pipe_pid = pid;
 		close(pfds[0]);
+		fcntl(pfds[1], F_SETFD, fcntl(pfds[1], F_GETFD) | FD_CLOEXEC);
 	}
 
 	pipe_fd = fdopen(pfds[1], "w");
@@ -596,4 +597,44 @@ fw3_pr_rulespec(int table, int family, uint32_t *flags, uint32_t mask,
 	}
 
 	return rv;
+}
+
+
+bool
+fw3_hotplug(bool add, void *zone, void *device)
+{
+	struct fw3_zone *z = zone;
+	struct fw3_device *d = device;
+
+	if (!d->network)
+		return false;
+
+	switch (fork())
+	{
+	case -1:
+		warn("Unable to fork(): %s\n", strerror(errno));
+		return false;
+
+	case 0:
+		break;
+
+	default:
+		return true;
+	}
+
+	close(0);
+	close(1);
+	close(2);
+	chdir("/");
+
+	clearenv();
+	setenv("ACTION",    add ? "add" : "remove", 1);
+	setenv("ZONE",      z->name,                1);
+	setenv("INTERFACE", d->network->name,       1);
+	setenv("DEVICE",    d->name,                1);
+
+	execl(FW3_HOTPLUG, FW3_HOTPLUG, "firewall", NULL);
+
+	/* unreached */
+	return false;
 }

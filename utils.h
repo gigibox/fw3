@@ -35,6 +35,7 @@
 
 #define FW3_STATEFILE	"/var/run/fw3.state"
 #define FW3_LOCKFILE	"/var/run/fw3.lock"
+#define FW3_HOTPLUG     "/sbin/hotplug-call"
 
 extern bool fw3_pr_debug;
 
@@ -108,5 +109,7 @@ struct fw3_rule_spec {
 
 bool fw3_pr_rulespec(int table, int family, uint32_t *flags, uint32_t mask,
                      const struct fw3_rule_spec *r, const char *fmt, ...);
+
+bool fw3_hotplug(bool add, void *zone, void *device);
 
 #endif

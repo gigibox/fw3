@@ -36,13 +36,14 @@ void fw3_print_zone_rules(enum fw3_table table, enum fw3_family family,
 void fw3_flush_zones(enum fw3_table table, enum fw3_family family,
                      bool pass2, bool reload, struct fw3_state *state);
 
+void fw3_hotplug_zones(bool add, struct fw3_state *state);
+
 struct fw3_zone * fw3_lookup_zone(struct fw3_state *state, const char *name,
                                   bool running);
 
+void fw3_free_zone(struct fw3_zone *zone);
+
 #define fw3_to_src_target(t) \
 	(FW3_FLAG_SRC_ACCEPT - FW3_FLAG_ACCEPT + t)
-
-#define fw3_free_zone(zone) \
-	fw3_free_object(zone, fw3_zone_opts)
 
 #endif

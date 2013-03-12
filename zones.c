@@ -521,6 +521,40 @@ fw3_flush_zones(enum fw3_table table, enum fw3_family family,
 	}
 }
 
+void
+fw3_hotplug_zones(bool add, struct fw3_state *state)
+{
+	struct fw3_zone *z;
+	struct fw3_device *d;
+
+	if (add)
+	{
+		list_for_each_entry(z, &state->running_zones, running_list)
+		{
+			if (!hasbit(z->flags[0], FW3_FLAG_HOTPLUG))
+			{
+				list_for_each_entry(d, &z->devices, list)
+					fw3_hotplug(add, z, d);
+
+				setbit(z->flags[0], FW3_FLAG_HOTPLUG);
+			}
+		}
+	}
+	else
+	{
+		list_for_each_entry(z, &state->running_zones, running_list)
+		{
+			if (hasbit(z->flags[0], FW3_FLAG_HOTPLUG))
+			{
+				list_for_each_entry(d, &z->running_devices, list)
+					fw3_hotplug(add, z, d);
+
+				delbit(z->flags[0], FW3_FLAG_HOTPLUG);
+			}
+		}
+	}
+}
+
 struct fw3_zone *
 fw3_lookup_zone(struct fw3_state *state, const char *name, bool running)
 {
@@ -541,4 +575,24 @@ fw3_lookup_zone(struct fw3_state *state, const char *name, bool running)
 	}
 
 	return NULL;
+}
+
+void
+fw3_free_zone(struct fw3_zone *zone)
+{
+	struct fw3_device *dev, *tmp;
+
+	list_for_each_entry_safe(dev, tmp, &zone->running_devices, list)
+	{
+		list_del(&dev->list);
+		free(dev);
+	}
+
+	list_for_each_entry_safe(dev, tmp, &zone->running_networks, list)
+	{
+		list_del(&dev->list);
+		free(dev);
+	}
+
+	fw3_free_object(zone, fw3_zone_opts);
 }
