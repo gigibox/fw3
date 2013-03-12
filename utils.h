@@ -97,4 +97,15 @@ void fw3_set_running(void *object, struct list_head *dest);
 
 void fw3_free_object(void *obj, const void *opts);
 
+
+struct fw3_rule_spec {
+	int family;
+	int table;
+	int flag;
+	const char *format;
+};
+
+bool fw3_pr_rulespec(int table, int family, uint32_t *flags, uint32_t mask,
+                     const struct fw3_rule_spec *r, const char *fmt, ...);
+
 #endif

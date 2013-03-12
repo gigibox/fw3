@@ -526,3 +526,40 @@ fw3_free_object(void *obj, const void *opts)
 
 	free(obj);
 }
+
+
+bool
+fw3_pr_rulespec(int table, int family, uint32_t *flags, uint32_t mask,
+                const struct fw3_rule_spec *r, const char *fmt, ...)
+{
+	char buf[256];
+	bool rv = false;
+
+	va_list ap;
+	uint32_t f = flags ? flags[family == FW3_FAMILY_V6] : 0;
+
+	if (mask)
+		f &= mask;
+
+	for (; r->format; r++)
+	{
+		if (!fw3_is_family(r, family))
+			continue;
+
+		if (r->table != table)
+			continue;
+
+		if ((r->flag != 0) && !hasbit(f, r->flag))
+			continue;
+
+		va_start(ap, fmt);
+		vsnprintf(buf, sizeof(buf), r->format, ap);
+		va_end(ap);
+
+		fw3_pr(fmt, buf);
+
+		rv = true;
+	}
+
+	return rv;
+}

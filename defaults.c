@@ -19,17 +19,10 @@
 #include "defaults.h"
 
 
-#define C(f, tbl, def, name) \
-	{ FW3_FAMILY_##f, FW3_TABLE_##tbl, FW3_DEFAULT_##def, name }
+#define C(f, tbl, def, fmt) \
+	{ FW3_FAMILY_##f, FW3_TABLE_##tbl, FW3_DEFAULT_##def, fmt }
 
-struct chain {
-	enum fw3_family family;
-	enum fw3_table table;
-	enum fw3_default flag;
-	const char *name;
-};
-
-static const struct chain default_chains[] = {
+static const struct fw3_rule_spec default_chains[] = {
 	C(ANY, FILTER, UNSPEC,        "delegate_input"),
 	C(ANY, FILTER, UNSPEC,        "delegate_output"),
 	C(ANY, FILTER, UNSPEC,        "delegate_forward"),
@@ -46,9 +39,11 @@ static const struct chain default_chains[] = {
 
 	C(ANY, MANGLE, UNSPEC,        "mssfix"),
 	C(ANY, RAW,    UNSPEC,        "notrack"),
+
+	{ }
 };
 
-static const struct chain toplevel_rules[] = {
+static const struct fw3_rule_spec toplevel_rules[] = {
 	C(ANY, FILTER, UNSPEC,        "INPUT -j delegate_input"),
 	C(ANY, FILTER, UNSPEC,        "OUTPUT -j delegate_output"),
 	C(ANY, FILTER, UNSPEC,        "FORWARD -j delegate_forward"),
@@ -58,6 +53,8 @@ static const struct chain toplevel_rules[] = {
 
 	C(ANY, MANGLE, UNSPEC,        "FORWARD -j mssfix"),
 	C(ANY, RAW,    UNSPEC,        "PREROUTING -j notrack"),
+
+	{ }
 };
 
 const struct fw3_option fw3_default_opts[] = {
@@ -85,37 +82,6 @@ const struct fw3_option fw3_default_opts[] = {
 	{ }
 };
 
-
-static bool
-print_chains(enum fw3_table table, enum fw3_family family,
-             const char *fmt, uint32_t *flags, uint32_t mask,
-             const struct chain *chains, int n)
-{
-	bool rv = false;
-	const struct chain *c;
-	uint32_t f = flags ? flags[family == FW3_FAMILY_V6] : 0;
-
-	if (mask)
-		f &= mask;
-
-	for (c = chains; n > 0; c++, n--)
-	{
-		if (!fw3_is_family(c, family))
-			continue;
-
-		if (c->table != table)
-			continue;
-
-		if ((c->flag != FW3_DEFAULT_UNSPEC) && !hasbit(f, c->flag))
-			continue;
-
-		fw3_pr(fmt, c->name);
-
-		rv = true;
-	}
-
-	return rv;
-}
 
 static void
 check_policy(struct uci_element *e, enum fw3_target *pol, const char *name)
@@ -199,8 +165,8 @@ fw3_print_default_chains(enum fw3_table table, enum fw3_family family,
 	if (defs->syn_flood)
 		set(defs->flags, family, FW3_DEFAULT_SYN_FLOOD);
 
-	rv = print_chains(table, family, ":%s - [0:0]\n", defs->flags, custom_mask,
-	                  default_chains, ARRAY_SIZE(default_chains));
+	rv = fw3_pr_rulespec(table, family, defs->flags, custom_mask,
+	                     default_chains, ":%s - [0:0]\n");
 
 	if (rv)
 		set(defs->flags, family, table);
@@ -218,8 +184,7 @@ fw3_print_default_head_rules(enum fw3_table table, enum fw3_family family,
 		"forward", "forwarding",
 	};
 
-	print_chains(table, family, "-A %s\n", NULL, 0,
-	             toplevel_rules, ARRAY_SIZE(toplevel_rules));
+	fw3_pr_rulespec(table, family, NULL, 0, toplevel_rules, "-A %s\n");
 
 	switch (table)
 	{
@@ -358,19 +323,16 @@ fw3_flush_rules(enum fw3_table table, enum fw3_family family,
 	{
 		reset_policy(table, reload ? FW3_TARGET_DROP : FW3_TARGET_ACCEPT);
 
-		print_chains(table, family, "-D %s\n",
-		             defs->flags, custom_mask,
-					 toplevel_rules, ARRAY_SIZE(toplevel_rules));
+		fw3_pr_rulespec(table, family, defs->flags, custom_mask,
+		                toplevel_rules, "-D %s\n");
 
-		print_chains(table, family, "-F %s\n",
-		             defs->flags, custom_mask,
-					 default_chains, ARRAY_SIZE(default_chains));
+		fw3_pr_rulespec(table, family, defs->flags, custom_mask,
+		                default_chains, "-F %s\n");
 	}
 	else
 	{
-		print_chains(table, family, "-X %s\n",
-		             defs->flags, custom_mask,
-					 default_chains, ARRAY_SIZE(default_chains));
+		fw3_pr_rulespec(table, family, defs->flags, custom_mask,
+		                default_chains, "-X %s\n");
 
 		del(defs->flags, family, table);
 	}

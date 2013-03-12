@@ -20,17 +20,10 @@
 #include "ubus.h"
 
 
-#define C(f, tbl, tgt, name) \
-	{ FW3_FAMILY_##f, FW3_TABLE_##tbl, FW3_TARGET_##tgt, name }
+#define C(f, tbl, tgt, fmt) \
+	{ FW3_FAMILY_##f, FW3_TABLE_##tbl, FW3_TARGET_##tgt, fmt }
 
-struct chain {
-	enum fw3_family family;
-	enum fw3_table table;
-	enum fw3_target target;
-	const char *name;
-};
-
-static const struct chain zone_chains[] = {
+static const struct fw3_rule_spec zone_chains[] = {
 	C(ANY, FILTER, UNSPEC,        "zone_%1$s_input"),
 	C(ANY, FILTER, UNSPEC,        "zone_%1$s_output"),
 	C(ANY, FILTER, UNSPEC,        "zone_%1$s_forward"),
@@ -52,6 +45,8 @@ static const struct chain zone_chains[] = {
 
 	C(V4,  NAT,    CUSTOM_CHAINS, "prerouting_%1$s_rule"),
 	C(V4,  NAT,    CUSTOM_CHAINS, "postrouting_%1$s_rule"),
+
+	{ }
 };
 
 
@@ -59,13 +54,15 @@ static const struct chain zone_chains[] = {
 	"zone_%1$s_" #dir1 " -m comment --comment \"user chain for %1$s " \
 	#dir2 "\" -j " #dir2 "_%1$s_rule"
 
-static const struct chain zone_rules[] = {
+static const struct fw3_rule_spec zone_rules[] = {
 	C(ANY, FILTER, CUSTOM_CHAINS, R(input, input)),
 	C(ANY, FILTER, CUSTOM_CHAINS, R(output, output)),
 	C(ANY, FILTER, CUSTOM_CHAINS, R(forward, forwarding)),
 
 	C(V4,  NAT,    CUSTOM_CHAINS, R(prerouting, prerouting)),
 	C(V4,  NAT,    CUSTOM_CHAINS, R(postrouting, postrouting)),
+
+	{ }
 };
 
 const struct fw3_option fw3_zone_opts[] = {
@@ -100,39 +97,6 @@ const struct fw3_option fw3_zone_opts[] = {
 	{ }
 };
 
-
-static bool
-print_chains(enum fw3_table table, enum fw3_family family,
-             const char *fmt, const char *name, uint32_t *targets, uint32_t mask,
-             const struct chain *chains, int n)
-{
-	bool rv = false;
-	char cn[256] = { 0 };
-	const struct chain *c;
-	uint32_t t = targets ? targets[family == FW3_FAMILY_V6] : 0;
-
-	if (mask)
-		t &= mask;
-
-	for (c = chains; n > 0; c++, n--)
-	{
-		if (!fw3_is_family(c, family))
-			continue;
-
-		if (c->table != table)
-			continue;
-
-		if ((c->target != FW3_TARGET_UNSPEC) && !hasbit(t, c->target))
-			continue;
-
-		snprintf(cn, sizeof(cn), c->name, name);
-		fw3_pr(fmt, cn);
-
-		rv = true;
-	}
-
-	return rv;
-}
 
 static void
 check_policy(struct uci_element *e, enum fw3_target *pol, enum fw3_target def,
@@ -296,13 +260,11 @@ print_zone_chain(enum fw3_table table, enum fw3_family family,
 	if (!zone->conntrack && !state->defaults.drop_invalid)
 		set(zone->flags, family, FW3_TARGET_NOTRACK);
 
-	c = print_chains(table, family, ":%s - [0:0]\n", zone->name,
-	                 zone->flags, custom_mask,
-	                 zone_chains, ARRAY_SIZE(zone_chains));
+	c = fw3_pr_rulespec(table, family, zone->flags, custom_mask, zone_chains,
+	                    ":%s - [0:0]\n", zone->name);
 
-	r = print_chains(table, family, "-A %s\n", zone->name,
-	                 zone->flags, 0,
-	                 zone_rules, ARRAY_SIZE(zone_rules));
+	r = fw3_pr_rulespec(table, family, zone->flags, 0, zone_rules,
+	                    "-A %s\n", zone->name);
 
 	if (c || r)
 	{
@@ -545,9 +507,8 @@ fw3_flush_zones(enum fw3_table table, enum fw3_family family,
 		if (!has(z->flags, family, table))
 			continue;
 
-		print_chains(table, family, pass2 ? "-X %s\n" : "-F %s\n",
-		             z->name, z->flags, custom_mask,
-		             zone_chains, ARRAY_SIZE(zone_chains));
+		fw3_pr_rulespec(table, family, z->flags, custom_mask, zone_chains,
+		                pass2 ? "-X %s\n" : "-F %s\n", z->name);
 
 		if (pass2)
 		{
