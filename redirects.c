@@ -184,18 +184,18 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 			continue;
 		}
 
-		if (redir->target == FW3_TARGET_UNSPEC)
+		if (redir->target == FW3_FLAG_UNSPEC)
 		{
 			warn_elem(e, "has no target specified, defaulting to DNAT");
-			redir->target = FW3_TARGET_DNAT;
+			redir->target = FW3_FLAG_DNAT;
 		}
-		else if (redir->target < FW3_TARGET_DNAT)
+		else if (redir->target < FW3_FLAG_DNAT)
 		{
 			warn_elem(e, "has invalid target specified, defaulting to DNAT");
-			redir->target = FW3_TARGET_DNAT;
+			redir->target = FW3_FLAG_DNAT;
 		}
 
-		if (redir->target == FW3_TARGET_DNAT)
+		if (redir->target == FW3_FLAG_DNAT)
 		{
 			if (redir->src.any)
 				warn_elem(e, "must not have source '*' for DNAT target");
@@ -210,9 +210,9 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 
 			if (redir->reflection && redir->_dest && redir->_src->masq)
 			{
-				set(redir->_dest->flags, FW3_FAMILY_V4, FW3_TARGET_ACCEPT);
-				set(redir->_dest->flags, FW3_FAMILY_V4, FW3_TARGET_DNAT);
-				set(redir->_dest->flags, FW3_FAMILY_V4, FW3_TARGET_SNAT);
+				set(redir->_dest->flags, FW3_FAMILY_V4, FW3_FLAG_ACCEPT);
+				set(redir->_dest->flags, FW3_FAMILY_V4, FW3_FLAG_DNAT);
+				set(redir->_dest->flags, FW3_FAMILY_V4, FW3_FLAG_SNAT);
 			}
 		}
 		else
@@ -247,20 +247,20 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 static void
 print_chain_nat(struct fw3_redirect *redir)
 {
-	if (redir->target == FW3_TARGET_DNAT)
+	if (redir->target == FW3_FLAG_DNAT)
 		fw3_pr("-A zone_%s_prerouting", redir->src.name);
 	else
 		fw3_pr("-A zone_%s_postrouting", redir->dest.name);
 }
 
 static void
-print_snat_dnat(enum fw3_target target,
+print_snat_dnat(enum fw3_flag target,
                 struct fw3_address *addr, struct fw3_port *port)
 {
 	const char *t;
 	char s[sizeof("255.255.255.255 ")];
 
-	if (target == FW3_TARGET_DNAT)
+	if (target == FW3_FLAG_DNAT)
 		t = "DNAT --to-destination";
 	else
 		t = "SNAT --to-source";
@@ -283,7 +283,7 @@ print_snat_dnat(enum fw3_target target,
 static void
 print_target_nat(struct fw3_redirect *redir)
 {
-	if (redir->target == FW3_TARGET_DNAT)
+	if (redir->target == FW3_FLAG_DNAT)
 		print_snat_dnat(redir->target, &redir->ip_redir, &redir->port_redir);
 	else
 		print_snat_dnat(redir->target, &redir->ip_dest, &redir->port_dest);
@@ -292,7 +292,7 @@ print_target_nat(struct fw3_redirect *redir)
 static void
 print_chain_filter(struct fw3_redirect *redir)
 {
-	if (redir->target == FW3_TARGET_DNAT)
+	if (redir->target == FW3_FLAG_DNAT)
 	{
 		/* XXX: check for local ip */
 		if (!redir->ip_redir.set)
@@ -313,7 +313,7 @@ static void
 print_target_filter(struct fw3_redirect *redir)
 {
 	/* XXX: check for local ip */
-	if (redir->target == FW3_TARGET_DNAT && !redir->ip_redir.set)
+	if (redir->target == FW3_FLAG_DNAT && !redir->ip_redir.set)
 		fw3_pr(" -m conntrack --ctstate DNAT -j ACCEPT\n");
 	else
 		fw3_pr(" -j ACCEPT\n");
@@ -369,7 +369,7 @@ print_redirect(enum fw3_table table, enum fw3_family family,
 			fw3_format_ipset(redir->_ipset, redir->ipset.invert);
 			fw3_format_protocol(proto, family);
 
-			if (redir->target == FW3_TARGET_DNAT)
+			if (redir->target == FW3_FLAG_DNAT)
 			{
 				fw3_format_src_dest(&redir->ip_src, &redir->ip_dest);
 				fw3_format_sport_dport(&redir->port_src, &redir->port_dest);
@@ -402,7 +402,7 @@ print_redirect(enum fw3_table table, enum fw3_family family,
 	}
 
 	/* reflection rules */
-	if (redir->target != FW3_TARGET_DNAT || !redir->reflection)
+	if (redir->target != FW3_FLAG_DNAT || !redir->reflection)
 		return;
 
 	if (!redir->_dest || !redir->_src->masq)
@@ -443,7 +443,7 @@ print_redirect(enum fw3_table table, enum fw3_family family,
 					fw3_format_sport_dport(NULL, &redir->port_dest);
 					fw3_format_time(&redir->time);
 					fw3_format_comment(redir->name, " (reflection)");
-					print_snat_dnat(FW3_TARGET_DNAT,
+					print_snat_dnat(FW3_FLAG_DNAT,
 					                &redir->ip_redir, &redir->port_redir);
 
 					fw3_pr("-A zone_%s_postrouting", redir->dest.name);
@@ -452,7 +452,7 @@ print_redirect(enum fw3_table table, enum fw3_family family,
 					fw3_format_sport_dport(NULL, &redir->port_redir);
 					fw3_format_time(&redir->time);
 					fw3_format_comment(redir->name, " (reflection)");
-					print_snat_dnat(FW3_TARGET_SNAT, ext_addr, NULL);
+					print_snat_dnat(FW3_FLAG_SNAT, ext_addr, NULL);
 				}
 				else if (table == FW3_TABLE_FILTER)
 				{

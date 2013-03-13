@@ -20,7 +20,7 @@
 
 
 #define C(f, tbl, def, fmt) \
-	{ FW3_FAMILY_##f, FW3_TABLE_##tbl, FW3_DEFAULT_##def, fmt }
+	{ FW3_FAMILY_##f, FW3_TABLE_##tbl, FW3_FLAG_##def, fmt }
 
 static const struct fw3_rule_spec default_chains[] = {
 	C(ANY, FILTER, UNSPEC,        "delegate_input"),
@@ -57,7 +57,7 @@ static const struct fw3_rule_spec toplevel_rules[] = {
 	{ }
 };
 
-const struct fw3_option fw3_default_opts[] = {
+const struct fw3_option fw3_flag_opts[] = {
 	FW3_OPT("input",               target,   defaults, policy_input),
 	FW3_OPT("forward",             target,   defaults, policy_forward),
 	FW3_OPT("output",              target,   defaults, policy_output),
@@ -84,17 +84,17 @@ const struct fw3_option fw3_default_opts[] = {
 
 
 static void
-check_policy(struct uci_element *e, enum fw3_target *pol, const char *name)
+check_policy(struct uci_element *e, enum fw3_flag *pol, const char *name)
 {
-	if (*pol == FW3_TARGET_UNSPEC)
+	if (*pol == FW3_FLAG_UNSPEC)
 	{
 		warn_elem(e, "has no %s policy specified, defaulting to DROP", name);
-		*pol = FW3_TARGET_DROP;
+		*pol = FW3_FLAG_DROP;
 	}
-	else if (*pol > FW3_TARGET_DROP)
+	else if (*pol > FW3_FLAG_DROP)
 	{
 		warn_elem(e, "has invalid %s policy, defaulting to DROP", name);
-		*pol = FW3_TARGET_DROP;
+		*pol = FW3_FLAG_DROP;
 	}
 }
 
@@ -126,7 +126,7 @@ fw3_load_defaults(struct fw3_state *state, struct uci_package *p)
 			continue;
 		}
 
-		fw3_parse_options(&state->defaults, fw3_default_opts, s);
+		fw3_parse_options(&state->defaults, fw3_flag_opts, s);
 
 		check_policy(e, &defs->policy_input, "input");
 		check_policy(e, &defs->policy_output, "output");
@@ -143,7 +143,7 @@ fw3_print_default_chains(enum fw3_table table, enum fw3_family family,
 	uint32_t custom_mask = ~0;
 
 #define policy(t) \
-	((t == FW3_TARGET_REJECT) ? "DROP" : fw3_flag_names[t])
+	((t == FW3_FLAG_REJECT) ? "DROP" : fw3_flag_names[t])
 
 	if (family == FW3_FAMILY_V6 && defs->disable_ipv6)
 		return;
@@ -157,13 +157,13 @@ fw3_print_default_chains(enum fw3_table table, enum fw3_family family,
 
 	/* Don't touch user chains on reload */
 	if (reload)
-		delbit(custom_mask, FW3_DEFAULT_CUSTOM_CHAINS);
+		delbit(custom_mask, FW3_FLAG_CUSTOM_CHAINS);
 
 	if (defs->custom_chains)
-		set(defs->flags, family, FW3_DEFAULT_CUSTOM_CHAINS);
+		set(defs->flags, family, FW3_FLAG_CUSTOM_CHAINS);
 
 	if (defs->syn_flood)
-		set(defs->flags, family, FW3_DEFAULT_SYN_FLOOD);
+		set(defs->flags, family, FW3_FLAG_SYN_FLOOD);
 
 	rv = fw3_pr_rulespec(table, family, defs->flags, custom_mask,
 	                     default_chains, ":%s - [0:0]\n");
@@ -256,13 +256,13 @@ fw3_print_default_tail_rules(enum fw3_table table, enum fw3_family family,
 	if (table != FW3_TABLE_FILTER)
 		return;
 
-	if (defs->policy_input == FW3_TARGET_REJECT)
+	if (defs->policy_input == FW3_FLAG_REJECT)
 		fw3_pr("-A delegate_input -j reject\n");
 
-	if (defs->policy_output == FW3_TARGET_REJECT)
+	if (defs->policy_output == FW3_FLAG_REJECT)
 		fw3_pr("-A delegate_output -j reject\n");
 
-	if (defs->policy_forward == FW3_TARGET_REJECT)
+	if (defs->policy_forward == FW3_FLAG_REJECT)
 		fw3_pr("-A delegate_forward -j reject\n");
 }
 
@@ -295,7 +295,7 @@ fw3_set_defaults(struct fw3_state *state)
 }
 
 static void
-reset_policy(enum fw3_table table, enum fw3_target policy)
+reset_policy(enum fw3_table table, enum fw3_flag policy)
 {
 	if (table != FW3_TABLE_FILTER)
 		return;
@@ -317,11 +317,11 @@ fw3_flush_rules(enum fw3_table table, enum fw3_family family,
 
 	/* don't touch user chains on selective stop */
 	if (reload)
-		delbit(custom_mask, FW3_DEFAULT_CUSTOM_CHAINS);
+		delbit(custom_mask, FW3_FLAG_CUSTOM_CHAINS);
 
 	if (!pass2)
 	{
-		reset_policy(table, reload ? FW3_TARGET_DROP : FW3_TARGET_ACCEPT);
+		reset_policy(table, reload ? FW3_FLAG_DROP : FW3_FLAG_ACCEPT);
 
 		fw3_pr_rulespec(table, family, defs->flags, custom_mask,
 		                toplevel_rules, "-D %s\n");
@@ -341,7 +341,7 @@ fw3_flush_rules(enum fw3_table table, enum fw3_family family,
 void
 fw3_flush_all(enum fw3_table table)
 {
-	reset_policy(table, FW3_TARGET_ACCEPT);
+	reset_policy(table, FW3_FLAG_ACCEPT);
 
 	fw3_pr("-F\n");
 	fw3_pr("-X\n");

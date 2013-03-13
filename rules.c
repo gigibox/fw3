@@ -137,7 +137,7 @@ fw3_load_rules(struct fw3_state *state, struct uci_package *p)
 			continue;
 		}
 
-		if (!rule->_src && rule->target == FW3_TARGET_NOTRACK)
+		if (!rule->_src && rule->target == FW3_FLAG_NOTRACK)
 		{
 			warn_elem(e, "is set to target NOTRACK but has no source assigned");
 			fw3_free_rule(rule);
@@ -150,15 +150,15 @@ fw3_load_rules(struct fw3_state *state, struct uci_package *p)
 			             "- assuming an output rule");
 		}
 
-		if (rule->target == FW3_TARGET_UNSPEC)
+		if (rule->target == FW3_FLAG_UNSPEC)
 		{
 			warn_elem(e, "has no target specified, defaulting to REJECT");
-			rule->target = FW3_TARGET_REJECT;
+			rule->target = FW3_FLAG_REJECT;
 		}
-		else if (rule->target > FW3_TARGET_NOTRACK)
+		else if (rule->target > FW3_FLAG_NOTRACK)
 		{
 			warn_elem(e, "has invalid target specified, defaulting to REJECT");
-			rule->target = FW3_TARGET_REJECT;
+			rule->target = FW3_FLAG_REJECT;
 		}
 
 		/* NB: rule family... */
@@ -181,7 +181,7 @@ print_chain(struct fw3_rule *rule)
 
 	sprintf(chain, "delegate_output");
 
-	if (rule->target == FW3_TARGET_NOTRACK)
+	if (rule->target == FW3_FLAG_NOTRACK)
 	{
 		sprintf(chain, "zone_%s_notrack", rule->src.name);
 	}
@@ -218,20 +218,20 @@ static void print_target(struct fw3_rule *rule)
 
 	switch(rule->target)
 	{
-	case FW3_TARGET_ACCEPT:
-	case FW3_TARGET_DROP:
-	case FW3_TARGET_NOTRACK:
+	case FW3_FLAG_ACCEPT:
+	case FW3_FLAG_DROP:
+	case FW3_FLAG_NOTRACK:
 		target = fw3_flag_names[rule->target];
 		break;
 
 	default:
-		target = fw3_flag_names[FW3_TARGET_REJECT];
+		target = fw3_flag_names[FW3_FLAG_REJECT];
 		break;
 	}
 
 	if (rule->dest.set && !rule->dest.any)
 		fw3_pr(" -j zone_%s_dest_%s\n", rule->dest.name, target);
-	else if (rule->target == FW3_TARGET_REJECT)
+	else if (rule->target == FW3_FLAG_REJECT)
 		fw3_pr(" -j reject\n");
 	else
 		fw3_pr(" -j %s\n", target);
@@ -292,7 +292,7 @@ expand_rule(enum fw3_table table, enum fw3_family family,
 	if (!fw3_is_family(rule, family))
 		return;
 
-	if ((table == FW3_TABLE_RAW && rule->target != FW3_TARGET_NOTRACK) ||
+	if ((table == FW3_TABLE_RAW && rule->target != FW3_FLAG_NOTRACK) ||
 	    (table != FW3_TABLE_FILTER))
 		return;
 

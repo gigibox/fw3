@@ -40,7 +40,7 @@ parse_enum(void *ptr, const char *val, const char **values, int min, int max)
 }
 
 
-const char *fw3_flag_names[FW3_DEFAULT_DROP_INVALID + 1] = {
+const char *fw3_flag_names[__FW3_FLAG_MAX] = {
 	"filter",
 	"nat",
 	"mangle",
@@ -132,8 +132,8 @@ fw3_parse_string(void *ptr, const char *val)
 bool
 fw3_parse_target(void *ptr, const char *val)
 {
-	return parse_enum(ptr, val, &fw3_flag_names[FW3_TARGET_ACCEPT],
-	                  FW3_TARGET_ACCEPT, FW3_TARGET_SNAT);
+	return parse_enum(ptr, val, &fw3_flag_names[FW3_FLAG_ACCEPT],
+	                  FW3_FLAG_ACCEPT, FW3_FLAG_SNAT);
 }
 
 bool

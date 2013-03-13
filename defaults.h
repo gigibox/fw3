@@ -21,7 +21,7 @@
 
 #include "options.h"
 
-extern const struct fw3_option fw3_default_opts[];
+extern const struct fw3_option fw3_flag_opts[];
 
 void fw3_load_defaults(struct fw3_state *state, struct uci_package *p);
 

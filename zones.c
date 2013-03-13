@@ -21,7 +21,7 @@
 
 
 #define C(f, tbl, tgt, fmt) \
-	{ FW3_FAMILY_##f, FW3_TABLE_##tbl, FW3_TARGET_##tgt, fmt }
+	{ FW3_FAMILY_##f, FW3_TABLE_##tbl, FW3_FLAG_##tgt, fmt }
 
 static const struct fw3_rule_spec zone_chains[] = {
 	C(ANY, FILTER, UNSPEC,        "zone_%1$s_input"),
@@ -99,15 +99,15 @@ const struct fw3_option fw3_zone_opts[] = {
 
 
 static void
-check_policy(struct uci_element *e, enum fw3_target *pol, enum fw3_target def,
+check_policy(struct uci_element *e, enum fw3_flag *pol, enum fw3_flag def,
              const char *name)
 {
-	if (*pol == FW3_TARGET_UNSPEC)
+	if (*pol == FW3_FLAG_UNSPEC)
 	{
 		warn_elem(e, "has no %s policy specified, using default", name);
 		*pol = def;
 	}
-	else if (*pol > FW3_TARGET_DROP)
+	else if (*pol > FW3_FLAG_DROP)
 	{
 		warn_elem(e, "has invalid %s policy, using default", name);
 		*pol = def;
@@ -219,14 +219,14 @@ fw3_load_zones(struct fw3_state *state, struct uci_package *p)
 
 		if (zone->masq)
 		{
-			setbit(zone->flags[0], FW3_TARGET_SNAT);
+			setbit(zone->flags[0], FW3_FLAG_SNAT);
 			zone->conntrack = true;
 		}
 
 		if (zone->custom_chains)
 		{
-			setbit(zone->flags[0], FW3_TARGET_SNAT);
-			setbit(zone->flags[0], FW3_TARGET_DNAT);
+			setbit(zone->flags[0], FW3_FLAG_SNAT);
+			setbit(zone->flags[0], FW3_FLAG_DNAT);
 		}
 
 		setbit(zone->flags[0], fw3_to_src_target(zone->policy_input));
@@ -256,13 +256,13 @@ print_zone_chain(enum fw3_table table, enum fw3_family family,
 
 	/* Don't touch user chains on reload */
 	if (reload)
-		delbit(custom_mask, FW3_TARGET_CUSTOM_CHAINS);
+		delbit(custom_mask, FW3_FLAG_CUSTOM_CHAINS);
 
 	if (zone->custom_chains)
-		set(zone->flags, family, FW3_TARGET_CUSTOM_CHAINS);
+		set(zone->flags, family, FW3_FLAG_CUSTOM_CHAINS);
 
 	if (!zone->conntrack && !state->defaults.drop_invalid)
-		set(zone->flags, family, FW3_TARGET_NOTRACK);
+		set(zone->flags, family, FW3_FLAG_NOTRACK);
 
 	c = fw3_pr_rulespec(table, family, zone->flags, custom_mask, zone_chains,
 	                    ":%s - [0:0]\n", zone->name);
@@ -284,14 +284,14 @@ print_interface_rule(enum fw3_table table, enum fw3_family family,
                      struct fw3_zone *zone, struct fw3_device *dev,
                      struct fw3_address *sub, bool reload, bool disable_notrack)
 {
-	enum fw3_target t;
+	enum fw3_flag t;
 
 #define jump_target(t) \
-	((t == FW3_TARGET_REJECT) ? "reject" : fw3_flag_names[t])
+	((t == FW3_FLAG_REJECT) ? "reject" : fw3_flag_names[t])
 
 	if (table == FW3_TABLE_FILTER)
 	{
-		for (t = FW3_TARGET_ACCEPT; t <= FW3_TARGET_DROP; t++)
+		for (t = FW3_FLAG_ACCEPT; t <= FW3_FLAG_DROP; t++)
 		{
 			if (has(zone->flags, family, fw3_to_src_target(t)))
 			{
@@ -332,7 +332,7 @@ print_interface_rule(enum fw3_table table, enum fw3_family family,
 	}
 	else if (table == FW3_TABLE_NAT)
 	{
-		if (has(zone->flags, family, FW3_TARGET_DNAT))
+		if (has(zone->flags, family, FW3_FLAG_DNAT))
 		{
 			fw3_pr("-A delegate_prerouting");
 			fw3_format_in_out(dev, NULL);
@@ -341,7 +341,7 @@ print_interface_rule(enum fw3_table table, enum fw3_family family,
 			fw3_pr(" -j zone_%s_prerouting\n", zone->name);
 		}
 
-		if (has(zone->flags, family, FW3_TARGET_SNAT))
+		if (has(zone->flags, family, FW3_FLAG_SNAT))
 		{
 			fw3_pr("-A delegate_postrouting");
 			fw3_format_in_out(NULL, dev);
@@ -414,7 +414,7 @@ print_zone_rule(enum fw3_table table, enum fw3_family family,
 	struct fw3_address *msrc;
 	struct fw3_address *mdest;
 
-	enum fw3_target t;
+	enum fw3_flag t;
 
 	if (!fw3_is_family(zone, family))
 		return;
@@ -433,7 +433,7 @@ print_zone_rule(enum fw3_table table, enum fw3_family family,
 
 		if (zone->log)
 		{
-			for (t = FW3_TARGET_REJECT; t <= FW3_TARGET_DROP; t++)
+			for (t = FW3_FLAG_REJECT; t <= FW3_FLAG_DROP; t++)
 			{
 				if (has(zone->flags, family, fw3_to_src_target(t)))
 				{
@@ -504,7 +504,7 @@ fw3_flush_zones(enum fw3_table table, enum fw3_family family,
 
 	/* don't touch user chains on selective stop */
 	if (reload)
-		delbit(custom_mask, FW3_TARGET_CUSTOM_CHAINS);
+		delbit(custom_mask, FW3_FLAG_CUSTOM_CHAINS);
 
 	list_for_each_entry_safe(z, tmp, &state->running_zones, running_list)
 	{

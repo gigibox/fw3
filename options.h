@@ -61,31 +61,27 @@ enum fw3_family
 	FW3_FAMILY_V6  = 5,
 };
 
-enum fw3_target
+enum fw3_flag
 {
-	FW3_TARGET_UNSPEC        = 0,
-	FW3_TARGET_ACCEPT        = 6,
-	FW3_TARGET_REJECT        = 7,
-	FW3_TARGET_DROP          = 8,
-	FW3_TARGET_NOTRACK       = 9,
-	FW3_TARGET_DNAT          = 10,
-	FW3_TARGET_SNAT          = 11,
-	FW3_TARGET_SRC_ACCEPT    = 12,
-	FW3_TARGET_SRC_REJECT    = 13,
-	FW3_TARGET_SRC_DROP      = 14,
-	FW3_TARGET_CUSTOM_CHAINS = 15,
+	FW3_FLAG_UNSPEC        = 0,
+	FW3_FLAG_ACCEPT        = 6,
+	FW3_FLAG_REJECT        = 7,
+	FW3_FLAG_DROP          = 8,
+	FW3_FLAG_NOTRACK       = 9,
+	FW3_FLAG_DNAT          = 10,
+	FW3_FLAG_SNAT          = 11,
+	FW3_FLAG_SRC_ACCEPT    = 12,
+	FW3_FLAG_SRC_REJECT    = 13,
+	FW3_FLAG_SRC_DROP      = 14,
+	FW3_FLAG_CUSTOM_CHAINS = 15,
+	FW3_FLAG_SYN_FLOOD     = 16,
+	FW3_FLAG_MTU_FIX       = 17,
+	FW3_FLAG_DROP_INVALID  = 18,
+
+	__FW3_FLAG_MAX
 };
 
-enum fw3_default
-{
-	FW3_DEFAULT_UNSPEC        = 0,
-	FW3_DEFAULT_CUSTOM_CHAINS = 16,
-	FW3_DEFAULT_SYN_FLOOD     = 17,
-	FW3_DEFAULT_MTU_FIX       = 18,
-	FW3_DEFAULT_DROP_INVALID  = 19,
-};
-
-extern const char *fw3_flag_names[FW3_DEFAULT_DROP_INVALID + 1];
+extern const char *fw3_flag_names[__FW3_FLAG_MAX];
 
 
 enum fw3_limit_unit
@@ -222,9 +218,9 @@ struct fw3_time
 
 struct fw3_defaults
 {
-	enum fw3_target policy_input;
-	enum fw3_target policy_output;
-	enum fw3_target policy_forward;
+	enum fw3_flag policy_input;
+	enum fw3_flag policy_output;
+	enum fw3_flag policy_forward;
 
 	bool drop_invalid;
 
@@ -255,9 +251,9 @@ struct fw3_zone
 
 	enum fw3_family family;
 
-	enum fw3_target policy_input;
-	enum fw3_target policy_output;
-	enum fw3_target policy_forward;
+	enum fw3_flag policy_input;
+	enum fw3_flag policy_output;
+	enum fw3_flag policy_forward;
 
 	struct list_head networks;
 	struct list_head devices;
@@ -316,7 +312,7 @@ struct fw3_rule
 	struct fw3_limit limit;
 	struct fw3_time time;
 
-	enum fw3_target target;
+	enum fw3_flag target;
 
 	const char *extra;
 };
@@ -353,7 +349,7 @@ struct fw3_redirect
 
 	struct fw3_time time;
 
-	enum fw3_target target;
+	enum fw3_flag target;
 
 	const char *extra;
 
