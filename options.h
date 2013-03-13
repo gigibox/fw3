@@ -117,6 +117,12 @@ enum fw3_include_type
 	FW3_INC_TYPE_RESTORE  = 1,
 };
 
+enum fw3_reflection_source
+{
+	FW3_REFLECTION_INTERNAL = 0,
+	FW3_REFLECTION_EXTERNAL = 1,
+};
+
 struct fw3_ipset_datatype
 {
 	struct list_head list;
@@ -355,6 +361,7 @@ struct fw3_redirect
 	const char *extra;
 
 	bool reflection;
+	enum fw3_reflection_source reflection_src;
 };
 
 struct fw3_forward
@@ -464,6 +471,7 @@ bool fw3_parse_ipset_method(void *ptr, const char *val);
 bool fw3_parse_ipset_datatype(void *ptr, const char *val);
 
 bool fw3_parse_include_type(void *ptr, const char *val);
+bool fw3_parse_reflection_source(void *ptr, const char *val);
 
 bool fw3_parse_date(void *ptr, const char *val);
 bool fw3_parse_time(void *ptr, const char *val);

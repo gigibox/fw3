@@ -53,6 +53,8 @@ const struct fw3_option fw3_redirect_opts[] = {
 	FW3_OPT("monthdays",           monthdays, redirect,     time.monthdays),
 
 	FW3_OPT("reflection",          bool,      redirect,     reflection),
+	FW3_OPT("reflection_src",      reflection_source,
+	                                          redirect,     reflection_src),
 
 	FW3_OPT("target",              target,    redirect,     target),
 
@@ -324,7 +326,7 @@ print_redirect(enum fw3_table table, enum fw3_family family,
                struct fw3_redirect *redir, int num)
 {
 	struct list_head *ext_addrs, *int_addrs;
-	struct fw3_address *ext_addr, *int_addr;
+	struct fw3_address *ext_addr, *int_addr, ref_addr;
 	struct fw3_device *ext_net, *int_net;
 	struct fw3_protocol *proto;
 	struct fw3_mac *mac;
@@ -433,6 +435,12 @@ print_redirect(enum fw3_table table, enum fw3_family family,
 				if (!proto || (proto->protocol != 6 && proto->protocol != 17))
 					continue;
 
+				if (redir->reflection_src == FW3_REFLECTION_INTERNAL)
+					ref_addr = *int_addr;
+				else
+					ref_addr = *ext_addr;
+
+				ref_addr.mask = 32;
 				ext_addr->mask = 32;
 
 				if (table == FW3_TABLE_NAT)
@@ -452,7 +460,7 @@ print_redirect(enum fw3_table table, enum fw3_family family,
 					fw3_format_sport_dport(NULL, &redir->port_redir);
 					fw3_format_time(&redir->time);
 					fw3_format_comment(redir->name, " (reflection)");
-					print_snat_dnat(FW3_FLAG_SNAT, ext_addr, NULL);
+					print_snat_dnat(FW3_FLAG_SNAT, &ref_addr, NULL);
 				}
 				else if (table == FW3_TABLE_FILTER)
 				{

@@ -97,6 +97,11 @@ static const char *include_types[] = {
 	"restore",
 };
 
+static const char *reflection_sources[] = {
+	"internal",
+	"external",
+};
+
 
 bool
 fw3_parse_bool(void *ptr, const char *val)
@@ -662,6 +667,13 @@ fw3_parse_include_type(void *ptr, const char *val)
 {
 	return parse_enum(ptr, val, include_types,
 	                  FW3_INC_TYPE_SCRIPT, FW3_INC_TYPE_RESTORE);
+}
+
+bool
+fw3_parse_reflection_source(void *ptr, const char *val)
+{
+	return parse_enum(ptr, val, reflection_sources,
+	                  FW3_REFLECTION_INTERNAL, FW3_REFLECTION_EXTERNAL);
 }
 
 
