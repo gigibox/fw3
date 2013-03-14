@@ -243,8 +243,8 @@ fw3_load_zones(struct fw3_state *state, struct uci_package *p)
 
 
 static void
-print_zone_chain(enum fw3_table table, enum fw3_family family,
-                 struct fw3_zone *zone, bool reload, struct fw3_state *state)
+print_zone_chain(struct fw3_state *state, enum fw3_family family,
+                 enum fw3_table table, bool reload, struct fw3_zone *zone)
 {
 	bool c, r;
 	uint32_t custom_mask = ~0;
@@ -280,10 +280,12 @@ print_zone_chain(enum fw3_table table, enum fw3_family family,
 }
 
 static void
-print_interface_rule(enum fw3_table table, enum fw3_family family,
-                     struct fw3_zone *zone, struct fw3_device *dev,
-                     struct fw3_address *sub, bool reload, bool disable_notrack)
+print_interface_rule(struct fw3_state *state, enum fw3_family family,
+                     enum fw3_table table, bool reload, struct fw3_zone *zone,
+                     struct fw3_device *dev, struct fw3_address *sub)
 {
+	bool disable_notrack = state->defaults.drop_invalid;
+
 	enum fw3_flag t;
 
 #define jump_target(t) \
@@ -388,8 +390,8 @@ print_interface_rule(enum fw3_table table, enum fw3_family family,
 }
 
 static void
-print_interface_rules(enum fw3_table table, enum fw3_family family,
-                      struct fw3_zone *zone, bool reload, bool disable_notrack)
+print_interface_rules(struct fw3_state *state, enum fw3_family family,
+                      enum fw3_table table, bool reload, struct fw3_zone *zone)
 {
 	struct fw3_device *dev;
 	struct fw3_address *sub;
@@ -403,13 +405,13 @@ print_interface_rules(enum fw3_table table, enum fw3_family family,
 		if (!dev && !sub)
 			continue;
 
-		print_interface_rule(table, family, zone, dev, sub, reload, disable_notrack);
+		print_interface_rule(state, family, table, reload, zone, dev, sub);
 	}
 }
 
 static void
-print_zone_rule(enum fw3_table table, enum fw3_family family,
-                struct fw3_zone *zone, bool reload, bool disable_notrack)
+print_zone_rule(struct fw3_state *state, enum fw3_family family,
+                enum fw3_table table, bool reload, struct fw3_zone *zone)
 {
 	struct fw3_address *msrc;
 	struct fw3_address *mdest;
@@ -472,32 +474,32 @@ print_zone_rule(enum fw3_table table, enum fw3_family family,
 		break;
 	}
 
-	print_interface_rules(table, family, zone, reload, disable_notrack);
+	print_interface_rules(state, family, table, reload, zone);
 }
 
 void
-fw3_print_zone_chains(enum fw3_table table, enum fw3_family family,
-                      bool reload, struct fw3_state *state)
+fw3_print_zone_chains(struct fw3_state *state, enum fw3_family family,
+                      enum fw3_table table, bool reload)
 {
 	struct fw3_zone *zone;
 
 	list_for_each_entry(zone, &state->zones, list)
-		print_zone_chain(table, family, zone, reload, state);
+		print_zone_chain(state, family, table, reload, zone);
 }
 
 void
-fw3_print_zone_rules(enum fw3_table table, enum fw3_family family,
-                     bool reload, struct fw3_state *state)
+fw3_print_zone_rules(struct fw3_state *state, enum fw3_family family,
+                     enum fw3_table table, bool reload)
 {
 	struct fw3_zone *zone;
 
 	list_for_each_entry(zone, &state->zones, list)
-		print_zone_rule(table, family, zone, reload, state->defaults.drop_invalid);
+		print_zone_rule(state, family, table, reload, zone);
 }
 
 void
-fw3_flush_zones(enum fw3_table table, enum fw3_family family,
-			    bool pass2, bool reload, struct fw3_state *state)
+fw3_flush_zones(struct fw3_state *state, enum fw3_family family,
+				enum fw3_table table, bool reload, bool pass2)
 {
 	struct fw3_zone *z, *tmp;
 	uint32_t custom_mask = ~0;
@@ -515,14 +517,12 @@ fw3_flush_zones(enum fw3_table table, enum fw3_family family,
 		                pass2 ? "-X %s\n" : "-F %s\n", z->name);
 
 		if (pass2)
-		{
 			del(z->flags, family, table);
-		}
 	}
 }
 
 void
-fw3_hotplug_zones(bool add, struct fw3_state *state)
+fw3_hotplug_zones(struct fw3_state *state, bool add)
 {
 	struct fw3_zone *z;
 	struct fw3_device *d;

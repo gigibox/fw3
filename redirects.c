@@ -322,8 +322,8 @@ print_target_filter(struct fw3_redirect *redir)
 }
 
 static void
-print_redirect(enum fw3_table table, enum fw3_family family,
-               struct fw3_redirect *redir, int num)
+print_redirect(struct fw3_state *state, enum fw3_family family,
+               enum fw3_table table, struct fw3_redirect *redir, int num)
 {
 	struct list_head *ext_addrs, *int_addrs;
 	struct fw3_address *ext_addr, *int_addr, ref_addr;
@@ -482,8 +482,8 @@ print_redirect(enum fw3_table table, enum fw3_family family,
 }
 
 void
-fw3_print_redirects(enum fw3_table table, enum fw3_family family,
-                    struct fw3_state *state)
+fw3_print_redirects(struct fw3_state *state, enum fw3_family family,
+                    enum fw3_table table)
 {
 	int num = 0;
 	struct fw3_redirect *redir;
@@ -495,5 +495,5 @@ fw3_print_redirects(enum fw3_table table, enum fw3_family family,
 		return;
 
 	list_for_each_entry(redir, &state->redirects, list)
-		print_redirect(table, family, redir, num++);
+		print_redirect(state, family, table, redir, num++);
 }

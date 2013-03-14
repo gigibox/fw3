@@ -123,8 +123,8 @@ static void print_target(struct fw3_forward *forward)
 }
 
 static void
-print_forward(enum fw3_table table, enum fw3_family family,
-              struct fw3_forward *forward)
+print_forward(struct fw3_forward *forward, enum fw3_family family,
+              enum fw3_table table)
 {
 	const char *s, *d;
 
@@ -152,11 +152,11 @@ print_forward(enum fw3_table table, enum fw3_family family,
 }
 
 void
-fw3_print_forwards(enum fw3_table table, enum fw3_family family,
-                   struct fw3_state *state)
+fw3_print_forwards(struct fw3_state *state, enum fw3_family family,
+                   enum fw3_table table)
 {
 	struct fw3_forward *forward;
 
 	list_for_each_entry(forward, &state->forwards, list)
-		print_forward(table, family, forward);
+		print_forward(forward, family, table);
 }

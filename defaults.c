@@ -135,8 +135,8 @@ fw3_load_defaults(struct fw3_state *state, struct uci_package *p)
 }
 
 void
-fw3_print_default_chains(enum fw3_table table, enum fw3_family family,
-                         bool reload, struct fw3_state *state)
+fw3_print_default_chains(struct fw3_state *state, enum fw3_family family,
+                         enum fw3_table table, bool reload)
 {
 	bool rv;
 	struct fw3_defaults *defs = &state->defaults;
@@ -173,8 +173,8 @@ fw3_print_default_chains(enum fw3_table table, enum fw3_family family,
 }
 
 void
-fw3_print_default_head_rules(enum fw3_table table, enum fw3_family family,
-                             bool reload, struct fw3_state *state)
+fw3_print_default_head_rules(struct fw3_state *state, enum fw3_family family,
+                             enum fw3_table table, bool reload)
 {
 	int i;
 	struct fw3_defaults *defs = &state->defaults;
@@ -248,8 +248,8 @@ fw3_print_default_head_rules(enum fw3_table table, enum fw3_family family,
 }
 
 void
-fw3_print_default_tail_rules(enum fw3_table table, enum fw3_family family,
-                             bool reload, struct fw3_state *state)
+fw3_print_default_tail_rules(struct fw3_state *state, enum fw3_family family,
+                             enum fw3_table table, bool reload)
 {
 	struct fw3_defaults *defs = &state->defaults;
 
@@ -306,8 +306,8 @@ reset_policy(enum fw3_table table, enum fw3_flag policy)
 }
 
 void
-fw3_flush_rules(enum fw3_table table, enum fw3_family family,
-                bool pass2, bool reload, struct fw3_state *state)
+fw3_flush_rules(struct fw3_state *state, enum fw3_family family,
+                enum fw3_table table, bool reload, bool pass2)
 {
 	struct fw3_defaults *defs = &state->defaults;
 	uint32_t custom_mask = ~0;

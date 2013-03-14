@@ -172,7 +172,7 @@ stop(struct fw3_state *state, bool complete, bool reload)
 	}
 
 	if (!print_rules)
-		fw3_hotplug_zones(false, state);
+		fw3_hotplug_zones(state, false);
 
 	for (family = FW3_FAMILY_V4; family <= FW3_FAMILY_V6; family++)
 	{
@@ -199,12 +199,12 @@ stop(struct fw3_state *state, bool complete, bool reload)
 			else
 			{
 				/* pass 1 */
-				fw3_flush_rules(table, family, false, reload, state);
-				fw3_flush_zones(table, family, false, reload, state);
+				fw3_flush_rules(state, family, table, reload, false);
+				fw3_flush_zones(state, family, table, reload, false);
 
 				/* pass 2 */
-				fw3_flush_rules(table, family, true, reload, state);
-				fw3_flush_zones(table, family, true, reload, state);
+				fw3_flush_rules(state, family, table, reload, true);
+				fw3_flush_zones(state, family, table, reload, true);
 			}
 
 			fw3_pr("COMMIT\n");
@@ -282,14 +282,14 @@ start(struct fw3_state *state, bool reload)
 			     fw3_flag_names[family], fw3_flag_names[table]);
 
 			fw3_pr("*%s\n", fw3_flag_names[table]);
-			fw3_print_default_chains(table, family, reload, state);
-			fw3_print_zone_chains(table, family, reload, state);
-			fw3_print_default_head_rules(table, family, reload, state);
-			fw3_print_rules(table, family, state);
-			fw3_print_redirects(table, family, state);
-			fw3_print_forwards(table, family, state);
-			fw3_print_zone_rules(table, family, reload, state);
-			fw3_print_default_tail_rules(table, family, reload, state);
+			fw3_print_default_chains(state, family, table, reload);
+			fw3_print_zone_chains(state, family, table, reload);
+			fw3_print_default_head_rules(state, family, table, reload);
+			fw3_print_rules(state, family, table);
+			fw3_print_redirects(state, family, table);
+			fw3_print_forwards(state, family, table);
+			fw3_print_zone_rules(state, family, table, reload);
+			fw3_print_default_tail_rules(state, family, table, reload);
 			fw3_pr("COMMIT\n");
 		}
 
@@ -308,7 +308,7 @@ start(struct fw3_state *state, bool reload)
 		if (!print_rules)
 		{
 			fw3_run_includes(state, reload);
-			fw3_hotplug_zones(true, state);
+			fw3_hotplug_zones(state, true);
 			fw3_write_statefile(state);
 		}
 	}

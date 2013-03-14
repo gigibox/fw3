@@ -238,8 +238,9 @@ static void print_target(struct fw3_rule *rule)
 }
 
 static void
-print_rule(enum fw3_table table, enum fw3_family family,
-           struct fw3_rule *rule, struct fw3_protocol *proto,
+print_rule(struct fw3_state *state, enum fw3_family family,
+           enum fw3_table table, struct fw3_rule *rule,
+           struct fw3_protocol *proto,
            struct fw3_address *sip, struct fw3_address *dip,
            struct fw3_port *sport, struct fw3_port *dport,
            struct fw3_mac *mac, struct fw3_icmptype *icmptype)
@@ -271,8 +272,8 @@ print_rule(enum fw3_table table, enum fw3_family family,
 }
 
 static void
-expand_rule(enum fw3_table table, enum fw3_family family,
-            struct fw3_rule *rule, int num)
+expand_rule(struct fw3_state *state, enum fw3_family family,
+            enum fw3_table table, struct fw3_rule *rule, int num)
 {
 	struct fw3_protocol *proto;
 	struct fw3_address *sip;
@@ -341,18 +342,18 @@ expand_rule(enum fw3_table table, enum fw3_family family,
 		fw3_foreach(dport, dports)
 		fw3_foreach(mac, &rule->mac_src)
 		fw3_foreach(icmptype, icmptypes)
-			print_rule(table, family, rule, proto, sip, dip, sport, dport,
-			           mac, icmptype);
+			print_rule(state, family, table, rule, proto, sip, dip,
+			           sport, dport, mac, icmptype);
 	}
 }
 
 void
-fw3_print_rules(enum fw3_table table, enum fw3_family family,
-                struct fw3_state *state)
+fw3_print_rules(struct fw3_state *state, enum fw3_family family,
+                enum fw3_table table)
 {
 	int num = 0;
 	struct fw3_rule *rule;
 
 	list_for_each_entry(rule, &state->rules, list)
-		expand_rule(table, family, rule, num++);
+		expand_rule(state, family, table, rule, num++);
 }
