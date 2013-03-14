@@ -417,6 +417,8 @@ struct fw3_include
 
 	const char *path;
 	enum fw3_include_type type;
+
+	bool reload;
 };
 
 struct fw3_state

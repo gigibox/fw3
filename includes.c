@@ -25,6 +25,7 @@ const struct fw3_option fw3_include_opts[] = {
 	FW3_OPT("path",                string,         include,     path),
 	FW3_OPT("type",                include_type,   include,     type),
 	FW3_OPT("family",              family,         include,     family),
+	FW3_OPT("reload",              bool,           include,     reload),
 
 	{ }
 };
@@ -82,7 +83,7 @@ fw3_load_includes(struct fw3_state *state, struct uci_package *p)
 
 
 static void
-print_include(enum fw3_family family, struct fw3_include *include)
+print_include(struct fw3_include *include, enum fw3_family family)
 {
 	FILE *f;
 	char line[1024];
@@ -105,13 +106,18 @@ print_include(enum fw3_family family, struct fw3_include *include)
 }
 
 void
-fw3_print_includes(enum fw3_family family, struct fw3_state *state)
+fw3_print_includes(struct fw3_state *state, enum fw3_family family, bool reload)
 {
 	struct fw3_include *include;
 
 	list_for_each_entry(include, &state->includes, list)
+	{
+		if (reload && !include->reload)
+			continue;
+
 		if (include->type == FW3_INC_TYPE_RESTORE)
-			print_include(family, include);
+			print_include(include, family);
+	}
 }
 
 
@@ -144,11 +150,16 @@ run_include(struct fw3_include *include)
 }
 
 void
-fw3_run_includes(struct fw3_state *state)
+fw3_run_includes(struct fw3_state *state, bool reload)
 {
 	struct fw3_include *include;
 
 	list_for_each_entry(include, &state->includes, list)
+	{
+		if (reload && !include->reload)
+			continue;
+
 		if (include->type == FW3_INC_TYPE_SCRIPT)
 			run_include(include);
+	}
 }

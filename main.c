@@ -293,8 +293,7 @@ start(struct fw3_state *state, bool reload)
 			fw3_pr("COMMIT\n");
 		}
 
-		if (!reload)
-			fw3_print_includes(family, state);
+		fw3_print_includes(state, family, reload);
 
 		fw3_command_close();
 		family_set(state, family, true);
@@ -308,9 +307,7 @@ start(struct fw3_state *state, bool reload)
 
 		if (!print_rules)
 		{
-			if (!reload)
-				fw3_run_includes(state);
-
+			fw3_run_includes(state, reload);
 			fw3_hotplug_zones(true, state);
 			fw3_write_statefile(state);
 		}

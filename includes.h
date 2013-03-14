@@ -25,8 +25,11 @@
 extern const struct fw3_option fw3_include_opts[];
 
 void fw3_load_includes(struct fw3_state *state, struct uci_package *p);
-void fw3_print_includes(enum fw3_family family, struct fw3_state *state);
-void fw3_run_includes(struct fw3_state *state);
+
+void fw3_print_includes(struct fw3_state *state, enum fw3_family family,
+                        bool reload);
+
+void fw3_run_includes(struct fw3_state *state, bool reload);
 
 #define fw3_free_include(include) \
 	fw3_free_object(include, fw3_include_opts)
