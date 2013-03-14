@@ -404,9 +404,6 @@ int main(int argc, char **argv)
 	state = build_state();
 	defs = &state->defaults;
 
-	if (!fw3_lock())
-		goto out;
-
 	if (optind >= argc)
 	{
 		rv = usage();
@@ -430,28 +427,50 @@ int main(int argc, char **argv)
 	}
 	else if (!strcmp(argv[optind], "start"))
 	{
-		rv = start(state, false);
+		if (fw3_lock())
+		{
+			rv = start(state, false);
+			fw3_unlock();
+		}
 	}
 	else if (!strcmp(argv[optind], "stop"))
 	{
-		rv = stop(state, false, false);
+		if (fw3_lock())
+		{
+			rv = stop(state, false, false);
+			fw3_unlock();
+		}
 	}
 	else if (!strcmp(argv[optind], "flush"))
 	{
-		rv = stop(state, true, false);
+		if (fw3_lock())
+		{
+			rv = stop(state, true, false);
+			fw3_unlock();
+		}
 	}
 	else if (!strcmp(argv[optind], "restart"))
 	{
-		stop(state, true, false);
-		free_state(state);
+		if (fw3_lock())
+		{
+			stop(state, true, false);
+			free_state(state);
 
-		state = build_state();
-		rv = start(state, false);
+			state = build_state();
+			rv = start(state, false);
+
+			fw3_unlock();
+		}
 	}
 	else if (!strcmp(argv[optind], "reload"))
 	{
-		rv = stop(state, false, true);
-		rv = start(state, !rv);
+		if (fw3_lock())
+		{
+			rv = stop(state, false, true);
+			rv = start(state, !rv);
+
+			fw3_unlock();
+		}
 	}
 	else if (!strcmp(argv[optind], "network") && (optind + 1) < argc)
 	{
@@ -469,8 +488,6 @@ int main(int argc, char **argv)
 out:
 	if (state)
 		free_state(state);
-
-	fw3_unlock();
 
 	return rv;
 }
