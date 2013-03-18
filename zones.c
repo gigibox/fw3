@@ -499,7 +499,7 @@ fw3_print_zone_rules(struct fw3_state *state, enum fw3_family family,
 
 void
 fw3_flush_zones(struct fw3_state *state, enum fw3_family family,
-				enum fw3_table table, bool reload, bool pass2)
+                enum fw3_table table, bool reload, bool pass2)
 {
 	struct fw3_zone *z, *tmp;
 	uint32_t custom_mask = ~0;

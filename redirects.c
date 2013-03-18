@@ -114,7 +114,7 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 	struct uci_element *e;
 	struct fw3_redirect *redir;
 
-	bool valid = false;
+	bool valid;
 
 	INIT_LIST_HEAD(&state->redirects);
 
@@ -137,6 +137,8 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 
 		redir->enabled = true;
 		redir->reflection = true;
+
+		valid = false;
 
 		fw3_parse_options(redir, fw3_redirect_opts, s);
 
@@ -225,6 +227,8 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 				warn_elem(e, "has no destination specified");
 			else if (!redir->ip_dest.set)
 				warn_elem(e, "has no src_dip option specified");
+			else if (!list_empty(&redir->mac_src))
+				warn_elem(e, "must not use 'src_mac' option for SNAT target");
 			else
 			{
 				set(redir->_dest->flags, FW3_FAMILY_V4, redir->target);
