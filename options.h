@@ -443,7 +443,7 @@ struct fw3_state
 struct fw3_option
 {
 	const char *name;
-	bool (*parse)(void *, const char *);
+	bool (*parse)(void *, const char *, bool);
 	uintptr_t offset;
 	size_t elem_size;
 };
@@ -455,31 +455,30 @@ struct fw3_option
 	{ name, fw3_parse_##parse, offsetof(struct fw3_##structure, member), \
 	  sizeof(struct fw3_##structure) }
 
+bool fw3_parse_bool(void *ptr, const char *val, bool is_list);
+bool fw3_parse_int(void *ptr, const char *val, bool is_list);
+bool fw3_parse_string(void *ptr, const char *val, bool is_list);
+bool fw3_parse_target(void *ptr, const char *val, bool is_list);
+bool fw3_parse_limit(void *ptr, const char *val, bool is_list);
+bool fw3_parse_device(void *ptr, const char *val, bool is_list);
+bool fw3_parse_address(void *ptr, const char *val, bool is_list);
+bool fw3_parse_network(void *ptr, const char *val, bool is_list);
+bool fw3_parse_mac(void *ptr, const char *val, bool is_list);
+bool fw3_parse_port(void *ptr, const char *val, bool is_list);
+bool fw3_parse_family(void *ptr, const char *val, bool is_list);
+bool fw3_parse_icmptype(void *ptr, const char *val, bool is_list);
+bool fw3_parse_protocol(void *ptr, const char *val, bool is_list);
 
-bool fw3_parse_bool(void *ptr, const char *val);
-bool fw3_parse_int(void *ptr, const char *val);
-bool fw3_parse_string(void *ptr, const char *val);
-bool fw3_parse_target(void *ptr, const char *val);
-bool fw3_parse_limit(void *ptr, const char *val);
-bool fw3_parse_device(void *ptr, const char *val);
-bool fw3_parse_address(void *ptr, const char *val);
-bool fw3_parse_network(void *ptr, const char *val);
-bool fw3_parse_mac(void *ptr, const char *val);
-bool fw3_parse_port(void *ptr, const char *val);
-bool fw3_parse_family(void *ptr, const char *val);
-bool fw3_parse_icmptype(void *ptr, const char *val);
-bool fw3_parse_protocol(void *ptr, const char *val);
+bool fw3_parse_ipset_method(void *ptr, const char *val, bool is_list);
+bool fw3_parse_ipset_datatype(void *ptr, const char *val, bool is_list);
 
-bool fw3_parse_ipset_method(void *ptr, const char *val);
-bool fw3_parse_ipset_datatype(void *ptr, const char *val);
+bool fw3_parse_include_type(void *ptr, const char *val, bool is_list);
+bool fw3_parse_reflection_source(void *ptr, const char *val, bool is_list);
 
-bool fw3_parse_include_type(void *ptr, const char *val);
-bool fw3_parse_reflection_source(void *ptr, const char *val);
-
-bool fw3_parse_date(void *ptr, const char *val);
-bool fw3_parse_time(void *ptr, const char *val);
-bool fw3_parse_weekdays(void *ptr, const char *val);
-bool fw3_parse_monthdays(void *ptr, const char *val);
+bool fw3_parse_date(void *ptr, const char *val, bool is_list);
+bool fw3_parse_time(void *ptr, const char *val, bool is_list);
+bool fw3_parse_weekdays(void *ptr, const char *val, bool is_list);
+bool fw3_parse_monthdays(void *ptr, const char *val, bool is_list);
 
 void fw3_parse_options(void *s, const struct fw3_option *opts,
                        struct uci_section *section);

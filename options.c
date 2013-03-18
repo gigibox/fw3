@@ -21,6 +21,27 @@
 
 
 static bool
+put_value(void *ptr, void *val, int elem_size, bool is_list)
+{
+	void *copy;
+
+	if (is_list)
+	{
+		copy = malloc(elem_size);
+
+		if (!copy)
+			return false;
+
+		memcpy(copy, val, elem_size);
+		list_add_tail((struct list_head *)copy, (struct list_head *)ptr);
+		return true;
+	}
+
+	memcpy(ptr, val, elem_size);
+	return false;
+}
+
+static bool
 parse_enum(void *ptr, const char *val, const char **values, int min, int max)
 {
 	int i, l = strlen(val);
@@ -105,7 +126,7 @@ static const char *reflection_sources[] = {
 
 
 bool
-fw3_parse_bool(void *ptr, const char *val)
+fw3_parse_bool(void *ptr, const char *val, bool is_list)
 {
 	if (!strcmp(val, "true") || !strcmp(val, "yes") || !strcmp(val, "1"))
 		*((bool *)ptr) = true;
@@ -116,7 +137,7 @@ fw3_parse_bool(void *ptr, const char *val)
 }
 
 bool
-fw3_parse_int(void *ptr, const char *val)
+fw3_parse_int(void *ptr, const char *val, bool is_list)
 {
 	int n = strtol(val, NULL, 10);
 
@@ -129,21 +150,21 @@ fw3_parse_int(void *ptr, const char *val)
 }
 
 bool
-fw3_parse_string(void *ptr, const char *val)
+fw3_parse_string(void *ptr, const char *val, bool is_list)
 {
 	*((char **)ptr) = (char *)val;
 	return true;
 }
 
 bool
-fw3_parse_target(void *ptr, const char *val)
+fw3_parse_target(void *ptr, const char *val, bool is_list)
 {
 	return parse_enum(ptr, val, &fw3_flag_names[FW3_FLAG_ACCEPT],
 	                  FW3_FLAG_ACCEPT, FW3_FLAG_SNAT);
 }
 
 bool
-fw3_parse_limit(void *ptr, const char *val)
+fw3_parse_limit(void *ptr, const char *val, bool is_list)
 {
 	struct fw3_limit *limit = ptr;
 	enum fw3_limit_unit u = FW3_LIMIT_UNIT_SECOND;
@@ -177,36 +198,37 @@ fw3_parse_limit(void *ptr, const char *val)
 }
 
 bool
-fw3_parse_device(void *ptr, const char *val)
+fw3_parse_device(void *ptr, const char *val, bool is_list)
 {
-	struct fw3_device *dev = ptr;
+	struct fw3_device dev = { };
 
 	if (*val == '*')
 	{
-		dev->set = true;
-		dev->any = true;
+		dev.set = true;
+		dev.any = true;
 		return true;
 	}
 
 	if (*val == '!')
 	{
-		dev->invert = true;
+		dev.invert = true;
 		while (isspace(*++val));
 	}
 
 	if (*val)
-		snprintf(dev->name, sizeof(dev->name), "%s", val);
+		snprintf(dev.name, sizeof(dev.name), "%s", val);
 	else
 		return false;
 
-	dev->set = true;
+	dev.set = true;
+	put_value(ptr, &dev, sizeof(dev), is_list);
 	return true;
 }
 
 bool
-fw3_parse_address(void *ptr, const char *val)
+fw3_parse_address(void *ptr, const char *val, bool is_list)
 {
-	struct fw3_address *addr = ptr;
+	struct fw3_address addr = { };
 	struct in_addr v4;
 	struct in6_addr v6;
 	char *p, *s, *e;
@@ -214,7 +236,7 @@ fw3_parse_address(void *ptr, const char *val)
 
 	if (*val == '!')
 	{
-		addr->invert = true;
+		addr.invert = true;
 		while (isspace(*++val));
 	}
 
@@ -249,15 +271,15 @@ fw3_parse_address(void *ptr, const char *val)
 
 		if (inet_pton(AF_INET6, p, &v6))
 		{
-			addr->family = FW3_FAMILY_V6;
-			addr->address2.v6 = v6;
-			addr->range = true;
+			addr.family = FW3_FAMILY_V6;
+			addr.address2.v6 = v6;
+			addr.range = true;
 		}
 		else if (inet_pton(AF_INET, p, &v4))
 		{
-			addr->family = FW3_FAMILY_V4;
-			addr->address2.v4 = v4;
-			addr->range = true;
+			addr.family = FW3_FAMILY_V4;
+			addr.address2.v4 = v4;
+			addr.range = true;
 		}
 		else
 		{
@@ -268,15 +290,15 @@ fw3_parse_address(void *ptr, const char *val)
 
 	if (inet_pton(AF_INET6, s, &v6))
 	{
-		addr->family = FW3_FAMILY_V6;
-		addr->address.v6 = v6;
-		addr->mask = (m >= 0) ? m : 128;
+		addr.family = FW3_FAMILY_V6;
+		addr.address.v6 = v6;
+		addr.mask = (m >= 0) ? m : 128;
 	}
 	else if (inet_pton(AF_INET, s, &v4))
 	{
-		addr->family = FW3_FAMILY_V4;
-		addr->address.v4 = v4;
-		addr->mask = (m >= 0) ? m : 32;
+		addr.family = FW3_FAMILY_V4;
+		addr.address.v4 = v4;
+		addr.mask = (m >= 0) ? m : 32;
 	}
 	else
 	{
@@ -285,36 +307,36 @@ fw3_parse_address(void *ptr, const char *val)
 	}
 
 	free(s);
-	addr->set = true;
+	addr.set = true;
+	put_value(ptr, &addr, sizeof(addr), is_list);
 	return true;
 }
 
 bool
-fw3_parse_network(void *ptr, const char *val)
+fw3_parse_network(void *ptr, const char *val, bool is_list)
 {
-	struct fw3_device dev;
-	struct fw3_address *tmp, *addr = ptr;
-	struct list_head *list;
+	struct fw3_device dev = { };
+	struct fw3_address *addr;
+	struct list_head *addr_list;
 
-	if (!fw3_parse_address(addr, val))
+	if (!fw3_parse_address(ptr, val, is_list))
 	{
-		memset(&dev, 0, sizeof(dev));
-
-		if (!fw3_parse_device(&dev, val))
+		if (!fw3_parse_device(&dev, val, false))
 			return false;
 
-		list = fw3_ubus_address(dev.name);
+		addr_list = fw3_ubus_address(dev.name);
 
-		if (list)
+		if (addr_list)
 		{
-			list_for_each_entry(tmp, list, list)
+			list_for_each_entry(addr, addr_list, list)
 			{
-				*addr = *tmp;
 				addr->invert = dev.invert;
-				break;
+
+				if (!put_value(ptr, addr, sizeof(*addr), is_list))
+					break;
 			}
 
-			fw3_ubus_address_free(list);
+			fw3_ubus_address_free(addr_list);
 		}
 	}
 
@@ -322,21 +344,23 @@ fw3_parse_network(void *ptr, const char *val)
 }
 
 bool
-fw3_parse_mac(void *ptr, const char *val)
+fw3_parse_mac(void *ptr, const char *val, bool is_list)
 {
-	struct fw3_mac *addr = ptr;
+	struct fw3_mac addr = { };
 	struct ether_addr *mac;
 
 	if (*val == '!')
 	{
-		addr->invert = true;
+		addr.invert = true;
 		while (isspace(*++val));
 	}
 
 	if ((mac = ether_aton(val)) != NULL)
 	{
-		addr->mac = *mac;
-		addr->set = true;
+		addr.mac = *mac;
+		addr.set = true;
+
+		put_value(ptr, &addr, sizeof(addr), is_list);
 		return true;
 	}
 
@@ -344,16 +368,16 @@ fw3_parse_mac(void *ptr, const char *val)
 }
 
 bool
-fw3_parse_port(void *ptr, const char *val)
+fw3_parse_port(void *ptr, const char *val, bool is_list)
 {
-	struct fw3_port *range = ptr;
+	struct fw3_port range = { };
 	uint16_t n;
 	uint16_t m;
 	char *p;
 
 	if (*val == '!')
 	{
-		range->invert = true;
+		range.invert = true;
 		while (isspace(*++val));
 	}
 
@@ -372,21 +396,22 @@ fw3_parse_port(void *ptr, const char *val)
 		if (errno == ERANGE || errno == EINVAL || m < n)
 			return false;
 
-		range->port_min = n;
-		range->port_max = m;
+		range.port_min = n;
+		range.port_max = m;
 	}
 	else
 	{
-		range->port_min = n;
-		range->port_max = n;
+		range.port_min = n;
+		range.port_max = n;
 	}
 
-	range->set = true;
+	range.set = true;
+	put_value(ptr, &range, sizeof(range), is_list);
 	return true;
 }
 
 bool
-fw3_parse_family(void *ptr, const char *val)
+fw3_parse_family(void *ptr, const char *val, bool is_list)
 {
 	if (!strcmp(val, "any"))
 		*((enum fw3_family *)ptr) = FW3_FAMILY_ANY;
@@ -401,9 +426,9 @@ fw3_parse_family(void *ptr, const char *val)
 }
 
 bool
-fw3_parse_icmptype(void *ptr, const char *val)
+fw3_parse_icmptype(void *ptr, const char *val, bool is_list)
 {
-	struct fw3_icmptype *icmp = ptr;
+	struct fw3_icmptype icmp = { };
 	bool v4 = false;
 	bool v6 = false;
 	char *p;
@@ -413,9 +438,9 @@ fw3_parse_icmptype(void *ptr, const char *val)
 	{
 		if (!strcmp(val, fw3_icmptype_list_v4[i].name))
 		{
-			icmp->type     = fw3_icmptype_list_v4[i].type;
-			icmp->code_min = fw3_icmptype_list_v4[i].code_min;
-			icmp->code_max = fw3_icmptype_list_v4[i].code_max;
+			icmp.type     = fw3_icmptype_list_v4[i].type;
+			icmp.code_min = fw3_icmptype_list_v4[i].code_min;
+			icmp.code_max = fw3_icmptype_list_v4[i].code_max;
 
 			v4 = true;
 			break;
@@ -426,9 +451,9 @@ fw3_parse_icmptype(void *ptr, const char *val)
 	{
 		if (!strcmp(val, fw3_icmptype_list_v6[i].name))
 		{
-			icmp->type6     = fw3_icmptype_list_v6[i].type;
-			icmp->code6_min = fw3_icmptype_list_v6[i].code_min;
-			icmp->code6_max = fw3_icmptype_list_v6[i].code_max;
+			icmp.type6     = fw3_icmptype_list_v6[i].type;
+			icmp.code6_min = fw3_icmptype_list_v6[i].code_min;
+			icmp.code6_max = fw3_icmptype_list_v6[i].code_max;
 
 			v6 = true;
 			break;
@@ -442,7 +467,7 @@ fw3_parse_icmptype(void *ptr, const char *val)
 		if ((p == val) || (*p != '/' && *p != 0) || (i > 0xFF))
 			return false;
 
-		icmp->type = i;
+		icmp.type = i;
 
 		if (*p == '/')
 		{
@@ -452,72 +477,90 @@ fw3_parse_icmptype(void *ptr, const char *val)
 			if ((p == val) || (*p != 0) || (i > 0xFF))
 				return false;
 
-			icmp->code_min = i;
-			icmp->code_max = i;
+			icmp.code_min = i;
+			icmp.code_max = i;
 		}
 		else
 		{
-			icmp->code_min = 0;
-			icmp->code_max = 0xFF;
+			icmp.code_min = 0;
+			icmp.code_max = 0xFF;
 		}
 
-		icmp->type6     = icmp->type;
-		icmp->code6_min = icmp->code_max;
-		icmp->code6_max = icmp->code_max;
+		icmp.type6     = icmp.type;
+		icmp.code6_min = icmp.code_max;
+		icmp.code6_max = icmp.code_max;
 
 		v4 = true;
 		v6 = true;
 	}
 
-	icmp->family = (v4 && v6) ? FW3_FAMILY_ANY
-	                          : (v6 ? FW3_FAMILY_V6 : FW3_FAMILY_V4);
+	icmp.family = (v4 && v6) ? FW3_FAMILY_ANY
+	                         : (v6 ? FW3_FAMILY_V6 : FW3_FAMILY_V4);
 
+	put_value(ptr, &icmp, sizeof(icmp), is_list);
 	return true;
 }
 
 bool
-fw3_parse_protocol(void *ptr, const char *val)
+fw3_parse_protocol(void *ptr, const char *val, bool is_list)
 {
-	struct fw3_protocol *proto = ptr;
+	struct fw3_protocol proto = { };
 	struct protoent *ent;
 
 	if (*val == '!')
 	{
-		proto->invert = true;
+		proto.invert = true;
 		while (isspace(*++val));
 	}
 
 	if (!strcmp(val, "all"))
 	{
-		proto->any = true;
+		proto.any = true;
 		return true;
 	}
 	else if (!strcmp(val, "icmpv6"))
 	{
 		val = "ipv6-icmp";
 	}
+	else if (!strcmp(val, "tcpudp"))
+	{
+		proto.protocol = 6;
+		if (put_value(ptr, &proto, sizeof(proto), is_list))
+		{
+			proto.protocol = 17;
+			put_value(ptr, &proto, sizeof(proto), is_list);
+		}
+
+		return true;
+	}
 
 	ent = getprotobyname(val);
 
 	if (ent)
 	{
-		proto->protocol = ent->p_proto;
+		proto.protocol = ent->p_proto;
+		put_value(ptr, &proto, sizeof(proto), is_list);
 		return true;
 	}
 
-	proto->protocol = strtoul(val, NULL, 10);
-	return (errno != ERANGE && errno != EINVAL);
+	proto.protocol = strtoul(val, NULL, 10);
+
+	if (errno == ERANGE || errno == EINVAL)
+		return false;
+
+	put_value(ptr, &proto, sizeof(proto), is_list);
+	return true;
 }
 
 bool
-fw3_parse_ipset_method(void *ptr, const char *val)
+fw3_parse_ipset_method(void *ptr, const char *val, bool is_list)
 {
 	return parse_enum(ptr, val, ipset_methods,
 	                  FW3_IPSET_METHOD_BITMAP, FW3_IPSET_METHOD_LIST);
 }
 
 bool
-fw3_parse_ipset_datatype(void *ptr, const char *val)
+fw3_parse_ipset_datatype(void *ptr, const char *val, bool is_list)
 {
 	struct fw3_ipset_datatype *type = ptr;
 
@@ -542,7 +585,7 @@ fw3_parse_ipset_datatype(void *ptr, const char *val)
 }
 
 bool
-fw3_parse_date(void *ptr, const char *val)
+fw3_parse_date(void *ptr, const char *val, bool is_list)
 {
 	unsigned int year = 1970, mon = 1, day = 1, hour = 0, min = 0, sec = 0;
 	struct tm tm = { 0 };
@@ -601,7 +644,7 @@ fail:
 }
 
 bool
-fw3_parse_time(void *ptr, const char *val)
+fw3_parse_time(void *ptr, const char *val, bool is_list)
 {
 	unsigned int hour = 0, min = 0, sec = 0;
 	char *p;
@@ -629,7 +672,7 @@ fail:
 }
 
 bool
-fw3_parse_weekdays(void *ptr, const char *val)
+fw3_parse_weekdays(void *ptr, const char *val, bool is_list)
 {
 	unsigned int w = 0;
 	char *p, *s;
@@ -664,7 +707,7 @@ fw3_parse_weekdays(void *ptr, const char *val)
 }
 
 bool
-fw3_parse_monthdays(void *ptr, const char *val)
+fw3_parse_monthdays(void *ptr, const char *val, bool is_list)
 {
 	unsigned int d;
 	char *p, *s;
@@ -696,14 +739,14 @@ fw3_parse_monthdays(void *ptr, const char *val)
 }
 
 bool
-fw3_parse_include_type(void *ptr, const char *val)
+fw3_parse_include_type(void *ptr, const char *val, bool is_list)
 {
 	return parse_enum(ptr, val, include_types,
 	                  FW3_INC_TYPE_SCRIPT, FW3_INC_TYPE_RESTORE);
 }
 
 bool
-fw3_parse_reflection_source(void *ptr, const char *val)
+fw3_parse_reflection_source(void *ptr, const char *val, bool is_list)
 {
 	return parse_enum(ptr, val, reflection_sources,
 	                  FW3_REFLECTION_INTERNAL, FW3_REFLECTION_EXTERNAL);
@@ -719,7 +762,6 @@ fw3_parse_options(void *s, const struct fw3_option *opts,
 	struct uci_element *e, *l;
 	struct uci_option *o;
 	const struct fw3_option *opt;
-	struct list_head *item;
 	struct list_head *dest;
 
 	uci_foreach_element(&section->options, e)
@@ -743,27 +785,18 @@ fw3_parse_options(void *s, const struct fw3_option *opts,
 				}
 				else
 				{
+					dest = (struct list_head *)((char *)s + opt->offset);
+
 					uci_foreach_element(&o->v.list, l)
 					{
 						if (!l->name)
 							continue;
 
-						item = malloc(opt->elem_size);
-
-						if (!item)
-							continue;
-
-						memset(item, 0, opt->elem_size);
-
-						if (!opt->parse(item, l->name))
+						if (!opt->parse(dest, l->name, true))
 						{
 							warn_elem(e, "has invalid value '%s'", l->name);
-							free(item);
 							continue;
 						}
-
-						dest = (struct list_head *)((char *)s + opt->offset);
-						list_add_tail(item, dest);
 					}
 				}
 			}
@@ -774,40 +807,24 @@ fw3_parse_options(void *s, const struct fw3_option *opts,
 				if (!v)
 					continue;
 
-				/* protocol "tcpudp" compatibility hack */
-				if (opt->parse == fw3_parse_protocol && !strcmp(v, "tcpudp"))
-					v = strdup("tcp udp");
-
 				if (!opt->elem_size)
 				{
-					if (!opt->parse((char *)s + opt->offset, o->v.string))
+					if (!opt->parse((char *)s + opt->offset, o->v.string, false))
 						warn_elem(e, "has invalid value '%s'", o->v.string);
 				}
 				else
 				{
+					dest = (struct list_head *)((char *)s + opt->offset);
+
 					for (p = strtok(v, " \t"); p != NULL; p = strtok(NULL, " \t"))
 					{
-						item = malloc(opt->elem_size);
-
-						if (!item)
-							continue;
-
-						memset(item, 0, opt->elem_size);
-
-						if (!opt->parse(item, p))
+						if (!opt->parse(dest, p, true))
 						{
 							warn_elem(e, "has invalid value '%s'", p);
-							free(item);
 							continue;
 						}
-
-						dest = (struct list_head *)((char *)s + opt->offset);
-						list_add_tail(item, dest);
 					}
 				}
-
-				if (v != o->v.string)
-					free(v);
 			}
 
 			known = true;
