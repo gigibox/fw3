@@ -17,6 +17,7 @@
  */
 
 #include "options.h"
+#include "ubus.h"
 
 
 static bool
@@ -285,6 +286,38 @@ fw3_parse_address(void *ptr, const char *val)
 
 	free(s);
 	addr->set = true;
+	return true;
+}
+
+bool
+fw3_parse_network(void *ptr, const char *val)
+{
+	struct fw3_device dev;
+	struct fw3_address *tmp, *addr = ptr;
+	struct list_head *list;
+
+	if (!fw3_parse_address(addr, val))
+	{
+		memset(&dev, 0, sizeof(dev));
+
+		if (!fw3_parse_device(&dev, val))
+			return false;
+
+		list = fw3_ubus_address(dev.name);
+
+		if (list)
+		{
+			list_for_each_entry(tmp, list, list)
+			{
+				*addr = *tmp;
+				addr->invert = dev.invert;
+				break;
+			}
+
+			fw3_ubus_address_free(list);
+		}
+	}
+
 	return true;
 }
 

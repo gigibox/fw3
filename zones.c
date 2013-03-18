@@ -80,8 +80,8 @@ const struct fw3_option fw3_zone_opts[] = {
 	FW3_OPT("output",              target,   zone,     policy_output),
 
 	FW3_OPT("masq",                bool,     zone,     masq),
-	FW3_LIST("masq_src",           address,  zone,     masq_src),
-	FW3_LIST("masq_dest",          address,  zone,     masq_dest),
+	FW3_LIST("masq_src",           network,  zone,     masq_src),
+	FW3_LIST("masq_dest",          network,  zone,     masq_dest),
 
 	FW3_OPT("extra",               string,   zone,     extra_src),
 	FW3_OPT("extra_src",           string,   zone,     extra_src),
@@ -462,9 +462,13 @@ print_zone_rule(struct fw3_state *state, enum fw3_family family,
 			fw3_foreach(msrc, &zone->masq_src)
 			fw3_foreach(mdest, &zone->masq_dest)
 			{
-				fw3_pr("-A zone_%s_postrouting ", zone->name);
+				if (!fw3_is_family(msrc, family) ||
+				    !fw3_is_family(mdest, family))
+					continue;
+				
+				fw3_pr("-A zone_%s_postrouting", zone->name);
 				fw3_format_src_dest(msrc, mdest);
-				fw3_pr("-j MASQUERADE\n");
+				fw3_pr(" -j MASQUERADE\n");
 			}
 		}
 		break;

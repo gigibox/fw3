@@ -463,6 +463,7 @@ bool fw3_parse_target(void *ptr, const char *val);
 bool fw3_parse_limit(void *ptr, const char *val);
 bool fw3_parse_device(void *ptr, const char *val);
 bool fw3_parse_address(void *ptr, const char *val);
+bool fw3_parse_network(void *ptr, const char *val);
 bool fw3_parse_mac(void *ptr, const char *val);
 bool fw3_parse_port(void *ptr, const char *val);
 bool fw3_parse_family(void *ptr, const char *val);
