@@ -409,6 +409,8 @@ fw3_read_statefile(void *state)
 
 				zone->name = strdup(name);
 				list_add_tail(&zone->list, &s->zones);
+
+				setbit(flags[0], FW3_FLAG_DELETED);
 			}
 
 			zone->flags[0] = flags[0];
@@ -426,6 +428,8 @@ fw3_read_statefile(void *state)
 
 				ipset->name = strdup(name);
 				list_add_tail(&ipset->list, &s->ipsets);
+
+				setbit(flags[0], FW3_FLAG_DELETED);
 			}
 
 			ipset->flags[0] = flags[0];
@@ -494,6 +498,9 @@ fw3_write_statefile(void *state)
 
 	list_for_each_entry(z, &s->running_zones, running_list)
 	{
+		if (hasbit(z->flags[0], FW3_FLAG_DELETED))
+			continue;
+
 		if (fw3_no_table(z->flags[0]) && fw3_no_table(z->flags[1]))
 			continue;
 
@@ -512,6 +519,9 @@ fw3_write_statefile(void *state)
 
 	list_for_each_entry(i, &s->running_ipsets, running_list)
 	{
+		if (hasbit(z->flags[0], FW3_FLAG_DELETED))
+			continue;
+
 		if (!fw3_no_family(i->flags[0]) || !fw3_no_family(i->flags[1]))
 		{
 			fprintf(sf, "%x %s %x %x\n",

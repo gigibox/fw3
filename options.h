@@ -78,6 +78,7 @@ enum fw3_flag
 	FW3_FLAG_MTU_FIX       = 17,
 	FW3_FLAG_DROP_INVALID  = 18,
 	FW3_FLAG_HOTPLUG       = 19,
+	FW3_FLAG_DELETED       = 20,
 
 	__FW3_FLAG_MAX
 };

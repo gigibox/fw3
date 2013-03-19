@@ -488,7 +488,8 @@ fw3_print_zone_chains(struct fw3_state *state, enum fw3_family family,
 	struct fw3_zone *zone;
 
 	list_for_each_entry(zone, &state->zones, list)
-		print_zone_chain(state, family, table, reload, zone);
+		if (!hasbit(zone->flags[0], FW3_FLAG_DELETED))
+			print_zone_chain(state, family, table, reload, zone);
 }
 
 void
@@ -498,7 +499,8 @@ fw3_print_zone_rules(struct fw3_state *state, enum fw3_family family,
 	struct fw3_zone *zone;
 
 	list_for_each_entry(zone, &state->zones, list)
-		print_zone_rule(state, family, table, reload, zone);
+		if (!hasbit(zone->flags[0], FW3_FLAG_DELETED))
+			print_zone_rule(state, family, table, reload, zone);
 }
 
 void
