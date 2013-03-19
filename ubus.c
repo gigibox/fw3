@@ -113,7 +113,8 @@ invoke_cb(struct ubus_request *req, int type, struct blob_attr *msg)
 		else if (!dev && !strcmp(blobmsg_name(cur), "ipv4-address"))
 			parse_subnets(da->addr, FW3_FAMILY_V4,
 			              blobmsg_data(cur), blobmsg_data_len(cur));
-		else if (!dev && !strcmp(blobmsg_name(cur), "ipv6-address"))
+		else if (!dev && (!strcmp(blobmsg_name(cur), "ipv6-address") ||
+		                  !strcmp(blobmsg_name(cur), "ipv6-prefix-assignment")))
 			parse_subnets(da->addr, FW3_FAMILY_V6,
 			              blobmsg_data(cur), blobmsg_data_len(cur));
 	}
