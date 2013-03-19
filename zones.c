@@ -73,7 +73,7 @@ const struct fw3_option fw3_zone_opts[] = {
 
 	FW3_LIST("network",            device,   zone,     networks),
 	FW3_LIST("device",             device,   zone,     devices),
-	FW3_LIST("subnet",             address,  zone,     subnets),
+	FW3_LIST("subnet",             network,  zone,     subnets),
 
 	FW3_OPT("input",               target,   zone,     policy_input),
 	FW3_OPT("forward",             target,   zone,     policy_forward),
@@ -465,7 +465,7 @@ print_zone_rule(struct fw3_state *state, enum fw3_family family,
 				if (!fw3_is_family(msrc, family) ||
 				    !fw3_is_family(mdest, family))
 					continue;
-				
+
 				fw3_pr("-A zone_%s_postrouting", zone->name);
 				fw3_format_src_dest(msrc, mdest);
 				fw3_pr(" -j MASQUERADE\n");
