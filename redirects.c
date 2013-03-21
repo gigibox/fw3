@@ -263,17 +263,18 @@ static void
 print_snat_dnat(enum fw3_flag target,
                 struct fw3_address *addr, struct fw3_port *port)
 {
-	const char *t;
 	char s[sizeof("255.255.255.255 ")];
 
 	if (target == FW3_FLAG_DNAT)
-		t = "DNAT --to-destination";
+		fw3_pr(" -j DNAT --to-destination ");
 	else
-		t = "SNAT --to-source";
+		fw3_pr(" -j SNAT --to-source ");
 
-	inet_ntop(AF_INET, &addr->address.v4, s, sizeof(s));
-
-	fw3_pr(" -j %s %s", t, s);
+	if (addr && addr->set)
+	{
+		inet_ntop(AF_INET, &addr->address.v4, s, sizeof(s));
+		fw3_pr(s);
+	}
 
 	if (port && port->set)
 	{
