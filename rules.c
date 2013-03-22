@@ -150,6 +150,12 @@ fw3_load_rules(struct fw3_state *state, struct uci_package *p)
 			             "- assuming an output rule");
 		}
 
+		if (list_empty(&rule->proto))
+		{
+			warn_elem(e, "does not specify a protocol, assuming TCP+UDP");
+			fw3_parse_protocol(&rule->proto, "tcpudp", true);
+		}
+
 		if (rule->target == FW3_FLAG_UNSPEC)
 		{
 			warn_elem(e, "has no target specified, defaulting to REJECT");

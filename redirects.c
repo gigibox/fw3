@@ -237,6 +237,12 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 			}
 		}
 
+		if (list_empty(&redir->proto))
+		{
+			warn_elem(e, "does not specify a protocol, assuming TCP+UDP");
+			fw3_parse_protocol(&redir->proto, "tcpudp", true);
+		}
+
 		if (!valid)
 		{
 			fw3_free_redirect(redir);
