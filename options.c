@@ -206,6 +206,7 @@ fw3_parse_device(void *ptr, const char *val, bool is_list)
 	{
 		dev.set = true;
 		dev.any = true;
+		put_value(ptr, &dev, sizeof(dev), is_list);
 		return true;
 	}
 
@@ -516,6 +517,7 @@ fw3_parse_protocol(void *ptr, const char *val, bool is_list)
 	if (!strcmp(val, "all"))
 	{
 		proto.any = true;
+		put_value(ptr, &proto, sizeof(proto), is_list);
 		return true;
 	}
 	else if (!strcmp(val, "icmpv6"))
