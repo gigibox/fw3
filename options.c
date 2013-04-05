@@ -75,6 +75,7 @@ const char *fw3_flag_names[__FW3_FLAG_MAX] = {
 	"REJECT",
 	"DROP",
 	"NOTRACK",
+	"MARK",
 	"DNAT",
 	"SNAT",
 
@@ -754,6 +755,44 @@ fw3_parse_reflection_source(void *ptr, const char *val, bool is_list)
 	                  FW3_REFLECTION_INTERNAL, FW3_REFLECTION_EXTERNAL);
 }
 
+bool
+fw3_parse_mark(void *ptr, const char *val, bool is_list)
+{
+	uint32_t n;
+	char *s, *e;
+	struct fw3_mark *m = ptr;
+
+	if (*val == '!')
+	{
+		m->invert = true;
+		while (isspace(*++val));
+	}
+
+	if ((s = strchr(val, '/')) != NULL)
+		*s++ = 0;
+
+	n = strtoul(val, &e, 0);
+
+	if (e == val || *e)
+		return false;
+
+	m->mark = n;
+	m->mask = 0xFFFFFFFF;
+
+	if (s)
+	{
+		n = strtoul(s, &e, 0);
+
+		if (e == s || *e)
+			return false;
+
+		m->mask = n;
+	}
+
+	m->set = true;
+	return true;
+}
+
 
 void
 fw3_parse_options(void *s, const struct fw3_option *opts,
@@ -1096,6 +1135,18 @@ fw3_format_time(struct fw3_time *time)
 			}
 		}
 	}
+}
+
+void
+fw3_format_mark(struct fw3_mark *mark)
+{
+	if (!mark->set)
+		return;
+
+	fw3_pr(" -m mark %s--mark 0x%x", mark->invert ? "! " : "", mark->mark);
+
+	if (mark->mask < 0xFFFFFFFF)
+		fw3_pr("/0x%x", mark->mask);
 }
 
 void

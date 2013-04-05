@@ -38,6 +38,8 @@ static const struct fw3_rule_spec default_chains[] = {
 	C(V4,  NAT,    CUSTOM_CHAINS, "postrouting_rule"),
 
 	C(ANY, MANGLE, UNSPEC,        "mssfix"),
+	C(ANY, MANGLE, UNSPEC,        "fwmark"),
+
 	C(ANY, RAW,    UNSPEC,        "notrack"),
 
 	{ }
@@ -52,6 +54,8 @@ static const struct fw3_rule_spec toplevel_rules[] = {
 	C(V4,  NAT,    UNSPEC,        "POSTROUTING -j delegate_postrouting"),
 
 	C(ANY, MANGLE, UNSPEC,        "FORWARD -j mssfix"),
+	C(ANY, MANGLE, UNSPEC,        "PREROUTING -j fwmark"),
+
 	C(ANY, RAW,    UNSPEC,        "PREROUTING -j notrack"),
 
 	{ }

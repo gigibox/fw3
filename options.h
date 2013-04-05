@@ -68,17 +68,18 @@ enum fw3_flag
 	FW3_FLAG_REJECT        = 7,
 	FW3_FLAG_DROP          = 8,
 	FW3_FLAG_NOTRACK       = 9,
-	FW3_FLAG_DNAT          = 10,
-	FW3_FLAG_SNAT          = 11,
-	FW3_FLAG_SRC_ACCEPT    = 12,
-	FW3_FLAG_SRC_REJECT    = 13,
-	FW3_FLAG_SRC_DROP      = 14,
-	FW3_FLAG_CUSTOM_CHAINS = 15,
-	FW3_FLAG_SYN_FLOOD     = 16,
-	FW3_FLAG_MTU_FIX       = 17,
-	FW3_FLAG_DROP_INVALID  = 18,
-	FW3_FLAG_HOTPLUG       = 19,
-	FW3_FLAG_DELETED       = 20,
+	FW3_FLAG_MARK          = 10,
+	FW3_FLAG_DNAT          = 11,
+	FW3_FLAG_SNAT          = 12,
+	FW3_FLAG_SRC_ACCEPT    = 13,
+	FW3_FLAG_SRC_REJECT    = 14,
+	FW3_FLAG_SRC_DROP      = 15,
+	FW3_FLAG_CUSTOM_CHAINS = 16,
+	FW3_FLAG_SYN_FLOOD     = 17,
+	FW3_FLAG_MTU_FIX       = 18,
+	FW3_FLAG_DROP_INVALID  = 19,
+	FW3_FLAG_HOTPLUG       = 20,
+	FW3_FLAG_DELETED       = 21,
 
 	__FW3_FLAG_MAX
 };
@@ -224,6 +225,14 @@ struct fw3_time
 	uint8_t weekdays;   /* bit 0 is invert + 1 .. 7 */
 };
 
+struct fw3_mark
+{
+	bool set;
+	bool invert;
+	uint32_t mark;
+	uint32_t mask;
+};
+
 struct fw3_defaults
 {
 	enum fw3_flag policy_input;
@@ -319,8 +328,11 @@ struct fw3_rule
 
 	struct fw3_limit limit;
 	struct fw3_time time;
+	struct fw3_mark mark;
 
 	enum fw3_flag target;
+	struct fw3_mark set_mark;
+	struct fw3_mark set_xmark;
 
 	const char *extra;
 };
@@ -356,6 +368,7 @@ struct fw3_redirect
 	struct fw3_port port_redir;
 
 	struct fw3_time time;
+	struct fw3_mark mark;
 
 	enum fw3_flag target;
 
@@ -480,6 +493,7 @@ bool fw3_parse_date(void *ptr, const char *val, bool is_list);
 bool fw3_parse_time(void *ptr, const char *val, bool is_list);
 bool fw3_parse_weekdays(void *ptr, const char *val, bool is_list);
 bool fw3_parse_monthdays(void *ptr, const char *val, bool is_list);
+bool fw3_parse_mark(void *ptr, const char *val, bool is_list);
 
 void fw3_parse_options(void *s, const struct fw3_option *opts,
                        struct uci_section *section);
@@ -493,6 +507,7 @@ void fw3_format_icmptype(struct fw3_icmptype *icmp, enum fw3_family family);
 void fw3_format_limit(struct fw3_limit *limit);
 void fw3_format_ipset(struct fw3_ipset *ipset, bool invert);
 void fw3_format_time(struct fw3_time *time);
+void fw3_format_mark(struct fw3_mark *mark);
 
 void __fw3_format_comment(const char *comment, ...);
 #define fw3_format_comment(...) __fw3_format_comment(__VA_ARGS__, NULL)

@@ -52,6 +52,8 @@ const struct fw3_option fw3_redirect_opts[] = {
 	FW3_OPT("weekdays",            weekdays,  redirect,     time.weekdays),
 	FW3_OPT("monthdays",           monthdays, redirect,     time.monthdays),
 
+	FW3_OPT("mark",                mark,      redirect,     mark),
+
 	FW3_OPT("reflection",          bool,      redirect,     reflection),
 	FW3_OPT("reflection_src",      reflection_source,
 	                                          redirect,     reflection_src),
@@ -395,6 +397,7 @@ print_redirect(struct fw3_state *state, enum fw3_family family,
 
 			fw3_format_mac(mac);
 			fw3_format_time(&redir->time);
+			fw3_format_mark(&redir->mark);
 			fw3_format_extra(redir->extra);
 			fw3_format_comment(redir->name);
 			print_target_nat(redir);
@@ -408,6 +411,7 @@ print_redirect(struct fw3_state *state, enum fw3_family family,
 			fw3_format_sport_dport(&redir->port_src, &redir->port_redir);
 			fw3_format_mac(mac);
 			fw3_format_time(&redir->time);
+			fw3_format_mark(&redir->mark);
 			fw3_format_extra(redir->extra);
 			fw3_format_comment(redir->name);
 			print_target_filter(redir);

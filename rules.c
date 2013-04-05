@@ -53,6 +53,10 @@ const struct fw3_option fw3_rule_opts[] = {
 	FW3_OPT("weekdays",            weekdays,  rule,     time.weekdays),
 	FW3_OPT("monthdays",           monthdays, rule,     time.monthdays),
 
+	FW3_OPT("mark",                mark,      rule,     mark),
+	FW3_OPT("set_mark",            mark,      rule,     set_mark),
+	FW3_OPT("set_xmark",           mark,      rule,     set_xmark),
+
 	FW3_OPT("target",              target,    rule,     target),
 
 	{ }
@@ -144,6 +148,29 @@ fw3_load_rules(struct fw3_state *state, struct uci_package *p)
 			continue;
 		}
 
+		if (!rule->set_mark.set && !rule->set_xmark.set &&
+		    rule->target == FW3_FLAG_MARK)
+		{
+			warn_elem(e, "is set to target MARK but specifies neither "
+			             "'set_mark' nor 'set_xmark' option");
+			fw3_free_rule(rule);
+			continue;
+		}
+
+		if (rule->_dest && rule->target == FW3_FLAG_MARK)
+		{
+			warn_elem(e, "must not specify 'dest' for MARK target");
+			fw3_free_rule(rule);
+			continue;
+		}
+
+		if (rule->set_mark.invert || rule->set_xmark.invert)
+		{
+			warn_elem(e, "must not have inverted 'set_mark' or 'set_xmark'");
+			fw3_free_rule(rule);
+			continue;
+		}
+
 		if (!rule->_src && !rule->_dest && !rule->src.any && !rule->dest.any)
 		{
 			warn_elem(e, "has neither a source nor a destination zone assigned "
@@ -161,7 +188,7 @@ fw3_load_rules(struct fw3_state *state, struct uci_package *p)
 			warn_elem(e, "has no target specified, defaulting to REJECT");
 			rule->target = FW3_FLAG_REJECT;
 		}
-		else if (rule->target > FW3_FLAG_NOTRACK)
+		else if (rule->target > FW3_FLAG_MARK)
 		{
 			warn_elem(e, "has invalid target specified, defaulting to REJECT");
 			rule->target = FW3_FLAG_REJECT;
@@ -190,6 +217,10 @@ print_chain(struct fw3_rule *rule)
 	if (rule->target == FW3_FLAG_NOTRACK)
 	{
 		sprintf(chain, "zone_%s_notrack", rule->src.name);
+	}
+	else if (rule->target == FW3_FLAG_MARK)
+	{
+		sprintf(chain, "fwmark");
 	}
 	else
 	{
@@ -224,6 +255,15 @@ static void print_target(struct fw3_rule *rule)
 
 	switch(rule->target)
 	{
+	case FW3_FLAG_MARK:
+		if (rule->set_mark.set)
+			fw3_pr(" -j MARK --set-mark 0x%x/0x%x\n",
+			       rule->set_mark.mark, rule->set_mark.mask);
+		else
+			fw3_pr(" -j MARK --set-xmark 0x%x/0x%x\n",
+			       rule->set_xmark.mark, rule->set_xmark.mask);
+		return;
+
 	case FW3_FLAG_ACCEPT:
 	case FW3_FLAG_DROP:
 	case FW3_FLAG_NOTRACK:
@@ -272,6 +312,7 @@ print_rule(struct fw3_state *state, enum fw3_family family,
 	fw3_format_mac(mac);
 	fw3_format_limit(&rule->limit);
 	fw3_format_time(&rule->time);
+	fw3_format_mark(&rule->mark);
 	fw3_format_extra(rule->extra);
 	fw3_format_comment(rule->name);
 	print_target(rule);
@@ -299,8 +340,9 @@ expand_rule(struct fw3_state *state, enum fw3_family family,
 	if (!fw3_is_family(rule, family))
 		return;
 
-	if ((table == FW3_TABLE_RAW && rule->target != FW3_FLAG_NOTRACK) ||
-	    (table != FW3_TABLE_FILTER))
+	if ((rule->target == FW3_FLAG_NOTRACK && table != FW3_TABLE_RAW) ||
+	    (rule->target == FW3_FLAG_MARK && table != FW3_TABLE_MANGLE) ||
+		(rule->target < FW3_FLAG_NOTRACK && table != FW3_TABLE_FILTER))
 		return;
 
 	if (rule->name)
