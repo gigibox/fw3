@@ -84,18 +84,7 @@ bool fw3_lock(void);
 void fw3_unlock(void);
 
 
-enum fw3_statefile_type
-{
-	FW3_TYPE_DEFAULTS = 0,
-	FW3_TYPE_ZONE     = 1,
-	FW3_TYPE_NETWORK  = 2,
-	FW3_TYPE_IPSET    = 3,
-};
-
-bool fw3_read_statefile(void *state);
 void fw3_write_statefile(void *state);
-
-void fw3_set_running(void *object, struct list_head *dest);
 
 void fw3_free_object(void *obj, const void *opts);
 

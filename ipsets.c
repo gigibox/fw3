@@ -353,8 +353,6 @@ create_ipset(struct fw3_ipset *ipset, struct fw3_state *state)
 		fw3_pr(" hashsize %u", ipset->hashsize);
 
 	fw3_pr("\n");
-
-	fw3_set_running(ipset, &state->running_ipsets);
 }
 
 void
@@ -378,7 +376,7 @@ fw3_destroy_ipsets(struct fw3_state *state, enum fw3_family family)
 {
 	struct fw3_ipset *s, *tmp;
 
-	list_for_each_entry_safe(s, tmp, &state->running_ipsets, running_list)
+	list_for_each_entry_safe(s, tmp, &state->ipsets, list)
 	{
 		del(s->flags, family, family);
 
@@ -388,8 +386,6 @@ fw3_destroy_ipsets(struct fw3_state *state, enum fw3_family family)
 
 			fw3_pr("flush %s\n", s->name);
 			fw3_pr("destroy %s\n", s->name);
-
-			fw3_set_running(s, NULL);
 		}
 	}
 }
@@ -407,10 +403,7 @@ fw3_lookup_ipset(struct fw3_state *state, const char *name, bool running)
 		if (strcmp(s->name, name))
 			continue;
 
-		if (!running || s->running_list.next)
-			return s;
-
-		break;
+		return s;
 	}
 
 	return NULL;

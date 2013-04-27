@@ -348,122 +348,166 @@ fw3_unlock(void)
 }
 
 
-bool
-fw3_read_statefile(void *state)
+static void
+write_defaults_uci(struct uci_context *ctx, struct fw3_defaults *d,
+                   struct uci_package *dest)
 {
-	FILE *sf;
+	char buf[8];
+	struct uci_ptr ptr = { .p = dest };
 
-	int type;
-	char line[128];
-	const char *p, *name;
+	uci_add_section(ctx, dest, "defaults", &ptr.s);
 
-	uint32_t flags[2];
+	sprintf(buf, "%u", d->flags[0]);
+	ptr.o      = NULL;
+	ptr.option = "__flags_v4";
+	ptr.value  = buf;
+	uci_set(ctx, &ptr);
 
-	struct fw3_state *s = state;
-	struct fw3_zone *zone;
-	struct fw3_ipset *ipset;
-	struct fw3_device *net, *dev;
+	sprintf(buf, "%u", d->flags[1]);
+	ptr.o      = NULL;
+	ptr.option = "__flags_v6";
+	ptr.value  = buf;
+	uci_set(ctx, &ptr);
+}
 
-	sf = fopen(FW3_STATEFILE, "r");
+static void
+write_zone_uci(struct uci_context *ctx, struct fw3_zone *z,
+               struct uci_package *dest)
+{
+	struct fw3_device *dev;
+	struct fw3_address *sub;
+	enum fw3_family fam = FW3_FAMILY_ANY;
 
-	if (!sf)
-		return false;
+	char addr[INET6_ADDRSTRLEN];
+	char buf[INET6_ADDRSTRLEN * 2 + 2];
+	char *p;
 
-	while (fgets(line, sizeof(line), sf))
+	struct uci_ptr ptr = { .p = dest };
+
+	if (!z->enabled)
+		return;
+
+	if (fw3_no_table(z->flags[0]) && !fw3_no_table(z->flags[1]))
+		fam = FW3_FAMILY_V6;
+	else if (!fw3_no_table(z->flags[0]) && fw3_no_table(z->flags[1]))
+		fam = FW3_FAMILY_V4;
+	else if (fw3_no_table(z->flags[0]) && fw3_no_table(z->flags[1]))
+		return;
+
+	uci_add_section(ctx, dest, "zone", &ptr.s);
+
+	ptr.o      = NULL;
+	ptr.option = "name";
+	ptr.value  = z->name;
+	uci_set(ctx, &ptr);
+
+	ptr.o      = NULL;
+	ptr.option = "input";
+	ptr.value  = fw3_flag_names[z->policy_input];
+	uci_set(ctx, &ptr);
+
+	ptr.o      = NULL;
+	ptr.option = "output";
+	ptr.value  = fw3_flag_names[z->policy_output];
+	uci_set(ctx, &ptr);
+
+	ptr.o      = NULL;
+	ptr.option = "forward";
+	ptr.value  = fw3_flag_names[z->policy_forward];
+	uci_set(ctx, &ptr);
+
+	ptr.o      = NULL;
+	ptr.option = "masq";
+	ptr.value  = z->masq ? "1" : "0";
+	uci_set(ctx, &ptr);
+
+	ptr.o      = NULL;
+	ptr.option = "conntrack";
+	ptr.value  = z->conntrack ? "1" : "0";
+	uci_set(ctx, &ptr);
+
+	ptr.o      = NULL;
+	ptr.option = "mtu_fix";
+	ptr.value  = z->mtu_fix ? "1" : "0";
+	uci_set(ctx, &ptr);
+
+	ptr.o      = NULL;
+	ptr.option = "custom_chains";
+	ptr.value  = z->custom_chains ? "1" : "0";
+	uci_set(ctx, &ptr);
+
+	if (fam != FW3_FAMILY_ANY)
 	{
-		p = strtok(line, " \t\n");
-
-		if (!p)
-			continue;
-
-		type = strtoul(p, NULL, 16);
-		name = strtok(NULL, " \t\n");
-
-		if (!name)
-			continue;
-
-		if (!(p = strtok(NULL, " \t\n")))
-			continue;
-
-		flags[0] = strtoul(p, NULL, 16);
-
-		if (!(p = strtok(NULL, " \t\n")))
-			continue;
-
-		flags[1] = strtoul(p, NULL, 16);
-
-		switch (type)
-		{
-		case FW3_TYPE_DEFAULTS:
-			s->defaults.flags[0] = flags[0];
-			s->defaults.flags[1] = flags[1];
-			break;
-
-		case FW3_TYPE_ZONE:
-			if (!(zone = fw3_lookup_zone(state, name, false)))
-			{
-				zone = fw3_alloc_zone();
-
-				if (!zone)
-					continue;
-
-				zone->name = strdup(name);
-				list_add_tail(&zone->list, &s->zones);
-
-				setbit(flags[0], FW3_FLAG_DELETED);
-			}
-
-			zone->flags[0] = flags[0];
-			zone->flags[1] = flags[1];
-			list_add_tail(&zone->running_list, &s->running_zones);
-			break;
-
-		case FW3_TYPE_IPSET:
-			if (!(ipset = fw3_lookup_ipset(state, name, false)))
-			{
-				ipset = fw3_alloc_ipset();
-
-				if (!ipset)
-					continue;
-
-				ipset->name = strdup(name);
-				list_add_tail(&ipset->list, &s->ipsets);
-
-				setbit(flags[0], FW3_FLAG_DELETED);
-			}
-
-			ipset->flags[0] = flags[0];
-			ipset->flags[1] = flags[1];
-			list_add_tail(&ipset->running_list, &s->running_ipsets);
-			break;
-
-		case FW3_TYPE_NETWORK:
-			if (!(zone = fw3_lookup_zone(state, name, false)))
-				continue;
-
-			if (!(p = strtok(NULL, " \t\n")) || !(name = strtok(NULL, " \t\n")))
-				continue;
-
-			if (!(net = malloc(sizeof(*net))))
-				continue;
-
-			memset(net, 0, sizeof(*net));
-			snprintf(net->name, sizeof(net->name), "%s", p);
-			list_add_tail(&net->list, &zone->running_networks);
-
-			if (!(dev = malloc(sizeof(*dev))))
-				continue;
-
-			memset(dev, 0, sizeof(*dev));
-			dev->network = net;
-			snprintf(dev->name, sizeof(dev->name), "%s", name);
-			list_add_tail(&dev->list, &zone->running_devices);
-		}
+		ptr.o      = NULL;
+		ptr.option = "family";
+		ptr.value  = fw3_flag_names[fam];
+		uci_set(ctx, &ptr);
 	}
 
-	fclose(sf);
+	ptr.o      = NULL;
+	ptr.option = "device";
 
-	return true;
+	fw3_foreach(dev, &z->devices)
+	{
+		if (!dev)
+			continue;
+
+		p = buf;
+
+		if (dev->invert)
+			p += sprintf(p, "!");
+
+		p += sprintf(p, "%s", dev->name);
+
+		ptr.value = buf;
+		uci_add_list(ctx, &ptr);
+	}
+
+	ptr.o      = NULL;
+	ptr.option = "subnet";
+
+	fw3_foreach(sub, &z->subnets)
+	{
+		if (!sub)
+			continue;
+
+		p = buf;
+
+		if (sub->invert)
+			p += sprintf(p, "!");
+
+		inet_ntop(sub->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
+				  &sub->address.v4, addr, sizeof(addr));
+
+		p += sprintf(p, "%s", addr);
+
+		if (sub->range)
+		{
+			inet_ntop(sub->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
+			          &sub->address2.v4, addr, sizeof(addr));
+
+			p += sprintf(p, "-%s", addr);
+		}
+		else
+		{
+			p += sprintf(p, "/%u", sub->mask);
+		}
+
+		ptr.value = buf;
+		uci_add_list(ctx, &ptr);
+	}
+
+	sprintf(buf, "%u", z->flags[0]);
+	ptr.o      = NULL;
+	ptr.option = "__flags_v4";
+	ptr.value  = buf;
+	uci_set(ctx, &ptr);
+
+	sprintf(buf, "%u", z->flags[1]);
+	ptr.o      = NULL;
+	ptr.option = "__flags_v6";
+	ptr.value  = buf;
+	uci_set(ctx, &ptr);
 }
 
 void
@@ -471,84 +515,45 @@ fw3_write_statefile(void *state)
 {
 	FILE *sf;
 	struct fw3_state *s = state;
-	struct fw3_defaults *defs = &s->defaults;
 	struct fw3_zone *z;
-	struct fw3_ipset *i;
-	struct fw3_device *d;
 
-	if (fw3_no_table(defs->flags[0]) && fw3_no_table(defs->flags[1]))
+	struct uci_package *p;
+
+	if (fw3_no_family(s->defaults.flags[0]) &&
+	    fw3_no_family(s->defaults.flags[1]))
 	{
-		if (unlink(FW3_STATEFILE))
-			warn("Unable to remove state %s: %s",
-			     FW3_STATEFILE, strerror(errno));
-
-		return;
+		unlink(FW3_STATEFILE);
 	}
-
-	sf = fopen(FW3_STATEFILE, "w");
-
-	if (!sf)
+	else
 	{
-		warn("Cannot create state %s: %s", FW3_STATEFILE, strerror(errno));
-		return;
-	}
+		sf = fopen(FW3_STATEFILE, "w+");
 
-	fprintf(sf, "%x - %x %x\n",
-	        FW3_TYPE_DEFAULTS, defs->flags[0], defs->flags[1]);
-
-	list_for_each_entry(z, &s->running_zones, running_list)
-	{
-		if (hasbit(z->flags[0], FW3_FLAG_DELETED))
-			continue;
-
-		if (fw3_no_table(z->flags[0]) && fw3_no_table(z->flags[1]))
-			continue;
-
-		fprintf(sf, "%x %s %x %x\n",
-		        FW3_TYPE_ZONE, z->name, z->flags[0], z->flags[1]);
-
-		list_for_each_entry(d, &z->devices, list)
+		if (!sf)
 		{
-			if (!d->network)
-				continue;
-
-			fprintf(sf, "%x %s 0 0 %s %s\n",
-			        FW3_TYPE_NETWORK, z->name, d->network->name, d->name);
+			warn("Cannot create state %s: %s", FW3_STATEFILE, strerror(errno));
+			return;
 		}
-	}
 
-	list_for_each_entry(i, &s->running_ipsets, running_list)
-	{
-		if (hasbit(z->flags[0], FW3_FLAG_DELETED))
-			continue;
+		if ((p = uci_lookup_package(s->uci, "fw3_state")) != NULL)
+			uci_unload(s->uci, p);
 
-		if (!fw3_no_family(i->flags[0]) || !fw3_no_family(i->flags[1]))
+		uci_import(s->uci, sf, "fw3_state", NULL, true);
+
+		if ((p = uci_lookup_package(s->uci, "fw3_state")) != NULL)
 		{
-			fprintf(sf, "%x %s %x %x\n",
-					FW3_TYPE_IPSET, i->name, i->flags[0], i->flags[1]);
-		}
-	}
+			write_defaults_uci(s->uci, &s->defaults, p);
 
-	fclose(sf);
+			list_for_each_entry(z, &s->zones, list)
+				write_zone_uci(s->uci, z, p);
+
+			uci_export(s->uci, sf, p, true);
+			uci_unload(s->uci, p);
+		}
+
+		fclose(sf);
+	}
 }
 
-
-struct object_list_heads
-{
-	struct list_head list;
-	struct list_head running_list;
-};
-
-void
-fw3_set_running(void *object, struct list_head *dest)
-{
-	struct object_list_heads *o = object;
-
-	if (dest && !o->running_list.next)
-		list_add_tail(&o->running_list, dest);
-	else if (!dest && o->running_list.next)
-		list_del(&o->running_list);
-}
 
 void
 fw3_free_object(void *obj, const void *opts)

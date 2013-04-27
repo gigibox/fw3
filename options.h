@@ -261,7 +261,6 @@ struct fw3_defaults
 struct fw3_zone
 {
 	struct list_head list;
-	struct list_head running_list;
 
 	bool enabled;
 	const char *name;
@@ -275,9 +274,6 @@ struct fw3_zone
 	struct list_head networks;
 	struct list_head devices;
 	struct list_head subnets;
-
-	struct list_head running_networks;
-	struct list_head running_devices;
 
 	const char *extra_src;
 	const char *extra_dest;
@@ -397,7 +393,6 @@ struct fw3_forward
 struct fw3_ipset
 {
 	struct list_head list;
-	struct list_head running_list;
 
 	bool enabled;
 	const char *name;
@@ -423,7 +418,6 @@ struct fw3_ipset
 struct fw3_include
 {
 	struct list_head list;
-	struct list_head running_list;
 
 	bool enabled;
 	const char *name;
@@ -445,9 +439,6 @@ struct fw3_state
 	struct list_head forwards;
 	struct list_head ipsets;
 	struct list_head includes;
-
-	struct list_head running_zones;
-	struct list_head running_ipsets;
 
 	bool disable_ipsets;
 	bool statefile;
