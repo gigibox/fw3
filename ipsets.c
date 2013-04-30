@@ -216,6 +216,8 @@ fw3_alloc_ipset(void)
 
 	INIT_LIST_HEAD(&ipset->datatypes);
 
+	ipset->enabled = true;
+
 	return ipset;
 }
 
@@ -359,6 +361,8 @@ fw3_destroy_ipsets(struct fw3_state *state)
 		fw3_pr("flush %s\n", s->name);
 		fw3_pr("destroy %s\n", s->name);
 	}
+
+	fw3_pr("quit\n");
 }
 
 struct fw3_ipset *
