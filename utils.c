@@ -352,18 +352,18 @@ static void
 write_defaults_uci(struct uci_context *ctx, struct fw3_defaults *d,
                    struct uci_package *dest)
 {
-	char buf[8];
+	char buf[sizeof("0xffffffff\0")];
 	struct uci_ptr ptr = { .p = dest };
 
 	uci_add_section(ctx, dest, "defaults", &ptr.s);
 
-	sprintf(buf, "%u", d->flags[0]);
+	sprintf(buf, "0x%x", d->flags[0]);
 	ptr.o      = NULL;
 	ptr.option = "__flags_v4";
 	ptr.value  = buf;
 	uci_set(ctx, &ptr);
 
-	sprintf(buf, "%u", d->flags[1]);
+	sprintf(buf, "0x%x", d->flags[1]);
 	ptr.o      = NULL;
 	ptr.option = "__flags_v6";
 	ptr.value  = buf;
@@ -473,13 +473,13 @@ write_zone_uci(struct uci_context *ctx, struct fw3_zone *z,
 		uci_add_list(ctx, &ptr);
 	}
 
-	sprintf(buf, "%u", z->flags[0]);
+	sprintf(buf, "0x%x", z->flags[0]);
 	ptr.o      = NULL;
 	ptr.option = "__flags_v4";
 	ptr.value  = buf;
 	uci_set(ctx, &ptr);
 
-	sprintf(buf, "%u", z->flags[1]);
+	sprintf(buf, "0x%x", z->flags[1]);
 	ptr.o      = NULL;
 	ptr.option = "__flags_v6";
 	ptr.value  = buf;
