@@ -565,26 +565,32 @@ fw3_parse_ipset_method(void *ptr, const char *val, bool is_list)
 bool
 fw3_parse_ipset_datatype(void *ptr, const char *val, bool is_list)
 {
-	struct fw3_ipset_datatype *type = ptr;
+	struct fw3_ipset_datatype type = { };
 
 	if (!strncmp(val, "dest_", 5))
 	{
 		val += 5;
-		type->dest = true;
+		type.dest = true;
 	}
 	else if (!strncmp(val, "dst_", 4))
 	{
 		val += 4;
-		type->dest = true;
+		type.dest = true;
 	}
 	else if (!strncmp(val, "src_", 4))
 	{
 		val += 4;
-		type->dest = false;
+		type.dest = false;
 	}
 
-	return parse_enum(&type->type, val, ipset_types,
-	                  FW3_IPSET_TYPE_IP, FW3_IPSET_TYPE_SET);
+	if (parse_enum(&type.type, val, ipset_types,
+	               FW3_IPSET_TYPE_IP, FW3_IPSET_TYPE_SET))
+	{
+		put_value(ptr, &type, sizeof(type), is_list);
+		return true;
+	}
+
+	return false;
 }
 
 bool
