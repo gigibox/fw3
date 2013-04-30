@@ -114,14 +114,14 @@ fw3_load_rules(struct fw3_state *state, struct uci_package *p)
 			continue;
 		}
 		else if (rule->src.set && !rule->src.any &&
-		         !(rule->_src = fw3_lookup_zone(state, rule->src.name, false)))
+		         !(rule->_src = fw3_lookup_zone(state, rule->src.name)))
 		{
 			warn_elem(e, "refers to not existing zone '%s'", rule->src.name);
 			fw3_free_rule(rule);
 			continue;
 		}
 		else if (rule->dest.set && !rule->dest.any &&
-		         !(rule->_dest = fw3_lookup_zone(state, rule->dest.name, false)))
+		         !(rule->_dest = fw3_lookup_zone(state, rule->dest.name)))
 		{
 			warn_elem(e, "refers to not existing zone '%s'", rule->dest.name);
 			fw3_free_rule(rule);

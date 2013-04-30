@@ -157,14 +157,14 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 			continue;
 		}
 		else if (redir->src.set && !redir->src.any &&
-		         !(redir->_src = fw3_lookup_zone(state, redir->src.name, false)))
+		         !(redir->_src = fw3_lookup_zone(state, redir->src.name)))
 		{
 			warn_elem(e, "refers to not existing zone '%s'", redir->src.name);
 			fw3_free_redirect(redir);
 			continue;
 		}
 		else if (redir->dest.set && !redir->dest.any &&
-		         !(redir->_dest = fw3_lookup_zone(state, redir->dest.name, false)))
+		         !(redir->_dest = fw3_lookup_zone(state, redir->dest.name)))
 		{
 			warn_elem(e, "refers to not existing zone '%s'", redir->dest.name);
 			fw3_free_redirect(redir);

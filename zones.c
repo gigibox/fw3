@@ -561,7 +561,7 @@ fw3_hotplug_zones(struct fw3_state *state, bool add)
 }
 
 struct fw3_zone *
-fw3_lookup_zone(struct fw3_state *state, const char *name, bool running)
+fw3_lookup_zone(struct fw3_state *state, const char *name)
 {
 	struct fw3_zone *z;
 

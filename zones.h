@@ -38,8 +38,7 @@ void fw3_flush_zones(struct fw3_state *state, enum fw3_family family,
 
 void fw3_hotplug_zones(struct fw3_state *state, bool add);
 
-struct fw3_zone * fw3_lookup_zone(struct fw3_state *state, const char *name,
-                                  bool running);
+struct fw3_zone * fw3_lookup_zone(struct fw3_state *state, const char *name);
 
 void fw3_free_zone(struct fw3_zone *zone);
 
