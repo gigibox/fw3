@@ -365,8 +365,7 @@ fw3_create_ipsets(struct fw3_state *state)
 
 	list_for_each_entry(ipset, &state->ipsets, list)
 		if (!hasbit(ipset->flags[0], FW3_FLAG_DELETED))
-			if (!fw3_lookup_ipset(state, ipset->name, true))
-				create_ipset(ipset, state);
+			create_ipset(ipset, state);
 
 	fw3_pr("quit\n");
 }
@@ -391,7 +390,7 @@ fw3_destroy_ipsets(struct fw3_state *state, enum fw3_family family)
 }
 
 struct fw3_ipset *
-fw3_lookup_ipset(struct fw3_state *state, const char *name, bool running)
+fw3_lookup_ipset(struct fw3_state *state, const char *name)
 {
 	struct fw3_ipset *s;
 

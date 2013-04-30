@@ -134,7 +134,7 @@ fw3_load_rules(struct fw3_state *state, struct uci_package *p)
 			continue;
 		}
 		else if (rule->ipset.set && !rule->ipset.any &&
-		         !(rule->_ipset = fw3_lookup_ipset(state, rule->ipset.name, false)))
+		         !(rule->_ipset = fw3_lookup_ipset(state, rule->ipset.name)))
 		{
 			warn_elem(e, "refers to unknown ipset '%s'", rule->ipset.name);
 			fw3_free_rule(rule);

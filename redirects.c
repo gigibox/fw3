@@ -177,7 +177,7 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 			continue;
 		}
 		else if (redir->ipset.set && !redir->ipset.any &&
-		         !(redir->_ipset = fw3_lookup_ipset(state, redir->ipset.name, false)))
+		         !(redir->_ipset = fw3_lookup_ipset(state, redir->ipset.name)))
 		{
 			warn_elem(e, "refers to unknown ipset '%s'", redir->ipset.name);
 			fw3_free_redirect(redir);
