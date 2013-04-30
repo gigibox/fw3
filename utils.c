@@ -357,6 +357,21 @@ write_defaults_uci(struct uci_context *ctx, struct fw3_defaults *d,
 
 	uci_add_section(ctx, dest, "defaults", &ptr.s);
 
+	ptr.o      = NULL;
+	ptr.option = "input";
+	ptr.value  = fw3_flag_names[d->policy_input];
+	uci_set(ctx, &ptr);
+
+	ptr.o      = NULL;
+	ptr.option = "output";
+	ptr.value  = fw3_flag_names[d->policy_output];
+	uci_set(ctx, &ptr);
+
+	ptr.o      = NULL;
+	ptr.option = "forward";
+	ptr.value  = fw3_flag_names[d->policy_forward];
+	uci_set(ctx, &ptr);
+
 	sprintf(buf, "0x%x", d->flags[0]);
 	ptr.o      = NULL;
 	ptr.option = "__flags_v4";
