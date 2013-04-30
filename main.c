@@ -233,20 +233,19 @@ stop(bool complete, bool reload)
 		}
 
 		fw3_command_close();
-
-		if (!reload && run_state)
-		{
-			if (fw3_command_pipe(false, "ipset", "-exist", "-"))
-			{
-				fw3_destroy_ipsets(run_state, family);
-				fw3_command_close();
-			}
-
-			family_set(run_state, family, false);
-			family_set(cfg_state, family, false);
-		}
+		family_set(run_state, family, false);
+		family_set(cfg_state, family, false);
 
 		rv = 0;
+	}
+
+	if (!reload && run_state)
+	{
+		if (fw3_command_pipe(false, "ipset", "-exist", "-"))
+		{
+			fw3_destroy_ipsets(run_state);
+			fw3_command_close();
+		}
 	}
 
 	if (complete && (ct = fopen("/proc/net/nf_conntrack", "w")) != NULL)

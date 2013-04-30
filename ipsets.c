@@ -348,21 +348,16 @@ fw3_create_ipsets(struct fw3_state *state)
 }
 
 void
-fw3_destroy_ipsets(struct fw3_state *state, enum fw3_family family)
+fw3_destroy_ipsets(struct fw3_state *state)
 {
-	struct fw3_ipset *s, *tmp;
+	struct fw3_ipset *s;
 
-	list_for_each_entry_safe(s, tmp, &state->ipsets, list)
+	list_for_each_entry(s, &state->ipsets, list)
 	{
-		del(s->flags, family, family);
+		info(" * Deleting ipset %s", s->name);
 
-		if (fw3_no_family(s->flags[family == FW3_FAMILY_V6]))
-		{
-			info(" * Deleting ipset %s", s->name);
-
-			fw3_pr("flush %s\n", s->name);
-			fw3_pr("destroy %s\n", s->name);
-		}
+		fw3_pr("flush %s\n", s->name);
+		fw3_pr("destroy %s\n", s->name);
 	}
 }
 

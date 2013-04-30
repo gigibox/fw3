@@ -27,7 +27,7 @@ extern const struct fw3_option fw3_ipset_opts[];
 struct fw3_ipset * fw3_alloc_ipset(void);
 void fw3_load_ipsets(struct fw3_state *state, struct uci_package *p);
 void fw3_create_ipsets(struct fw3_state *state);
-void fw3_destroy_ipsets(struct fw3_state *state, enum fw3_family family);
+void fw3_destroy_ipsets(struct fw3_state *state);
 
 struct fw3_ipset * fw3_lookup_ipset(struct fw3_state *state, const char *name);
 

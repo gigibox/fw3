@@ -490,20 +490,11 @@ static void
 write_ipset_uci(struct uci_context *ctx, struct fw3_ipset *s,
                 struct uci_package *dest)
 {
-	enum fw3_family fam = FW3_FAMILY_ANY;
-
 	char buf[sizeof("0xffffffff\0")];
 
 	struct uci_ptr ptr = { .p = dest };
 
 	if (!s->enabled || (s->external && *s->external))
-		return;
-
-	if (fw3_no_family(s->flags[0]) && !fw3_no_family(s->flags[1]))
-		fam = FW3_FAMILY_V6;
-	else if (!fw3_no_family(s->flags[0]) && fw3_no_family(s->flags[1]))
-		fam = FW3_FAMILY_V4;
-	else if (fw3_no_family(s->flags[0]) && fw3_no_family(s->flags[1]))
 		return;
 
 	uci_add_section(ctx, dest, "ipset", &ptr.s);
@@ -512,14 +503,6 @@ write_ipset_uci(struct uci_context *ctx, struct fw3_ipset *s,
 	ptr.option = "name";
 	ptr.value  = s->name;
 	uci_set(ctx, &ptr);
-
-	if (fam != FW3_FAMILY_ANY)
-	{
-		ptr.o      = NULL;
-		ptr.option = "family";
-		ptr.value  = fw3_flag_names[fam];
-		uci_set(ctx, &ptr);
-	}
 
 	sprintf(buf, "0x%x", s->flags[0]);
 	ptr.o      = NULL;
