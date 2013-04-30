@@ -272,10 +272,8 @@ static void
 create_ipset(struct fw3_ipset *ipset, struct fw3_state *state)
 {
 	bool first = true;
-	char s[INET6_ADDRSTRLEN];
 
 	struct fw3_ipset_datatype *type;
-	struct fw3_address *a;
 
 	const char *methods[] = {
 		"(bug)",
@@ -309,27 +307,7 @@ create_ipset(struct fw3_ipset *ipset, struct fw3_state *state)
 
 	if (ipset->iprange.set)
 	{
-		a = &ipset->iprange;
-
-		if (!a->range)
-		{
-			inet_ntop(a->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
-			          &a->address.v6, s, sizeof(s));
-
-			fw3_pr(" range %s/%u", s, a->mask);
-		}
-		else
-		{
-			inet_ntop(a->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
-			          &a->address.v6, s, sizeof(s));
-
-			fw3_pr(" range %s", s);
-
-			inet_ntop(a->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
-			          &a->address2.v6, s, sizeof(s));
-
-			fw3_pr("-%s", s);
-		}
+		fw3_pr(" range %s", fw3_address_to_string(&ipset->iprange, false));
 	}
 	else if (ipset->portrange.set)
 	{

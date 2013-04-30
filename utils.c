@@ -378,9 +378,7 @@ write_zone_uci(struct uci_context *ctx, struct fw3_zone *z,
 	struct fw3_address *sub;
 	enum fw3_family fam = FW3_FAMILY_ANY;
 
-	char addr[INET6_ADDRSTRLEN];
-	char buf[INET6_ADDRSTRLEN * 2 + 2];
-	char *p;
+	char *p, buf[34];
 
 	struct uci_ptr ptr = { .p = dest };
 
@@ -471,29 +469,7 @@ write_zone_uci(struct uci_context *ctx, struct fw3_zone *z,
 		if (!sub)
 			continue;
 
-		p = buf;
-
-		if (sub->invert)
-			p += sprintf(p, "!");
-
-		inet_ntop(sub->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
-				  &sub->address.v4, addr, sizeof(addr));
-
-		p += sprintf(p, "%s", addr);
-
-		if (sub->range)
-		{
-			inet_ntop(sub->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
-			          &sub->address2.v4, addr, sizeof(addr));
-
-			p += sprintf(p, "-%s", addr);
-		}
-		else
-		{
-			p += sprintf(p, "/%u", sub->mask);
-		}
-
-		ptr.value = buf;
+		ptr.value = fw3_address_to_string(sub, true);
 		uci_add_list(ctx, &ptr);
 	}
 

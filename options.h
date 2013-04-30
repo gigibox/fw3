@@ -488,6 +488,9 @@ bool fw3_parse_mark(void *ptr, const char *val, bool is_list);
 void fw3_parse_options(void *s, const struct fw3_option *opts,
                        struct uci_section *section);
 
+const char * fw3_address_to_string(struct fw3_address *address,
+                                   bool allow_invert);
+
 void fw3_format_in_out(struct fw3_device *in, struct fw3_device *out);
 void fw3_format_src_dest(struct fw3_address *src, struct fw3_address *dest);
 void fw3_format_sport_dport(struct fw3_port *sp, struct fw3_port *dp);

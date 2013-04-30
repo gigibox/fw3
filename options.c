@@ -888,58 +888,55 @@ fw3_format_in_out(struct fw3_device *in, struct fw3_device *out)
 		fw3_pr(" %s-o %s", out->invert ? "! " : "", out->name);
 }
 
+const char *
+fw3_address_to_string(struct fw3_address *address, bool allow_invert)
+{
+	char *p, ip[INET6_ADDRSTRLEN];
+	static char buf[INET6_ADDRSTRLEN * 2 + 2];
+
+	p = buf;
+
+	if (address->invert && allow_invert)
+		p += sprintf(p, "!");
+
+	inet_ntop(address->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
+	          &address->address.v4, ip, sizeof(ip));
+
+	p += sprintf(p, "%s", ip);
+
+	if (address->range)
+	{
+		inet_ntop(address->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
+		          &address->address2.v4, ip, sizeof(ip));
+
+		p += sprintf(p, "-%s", ip);
+	}
+	else
+	{
+		p += sprintf(p, "/%u", address->mask);
+	}
+
+	return buf;
+}
+
 void
 fw3_format_src_dest(struct fw3_address *src, struct fw3_address *dest)
 {
-	char s[INET6_ADDRSTRLEN];
-
 	if ((src && src->range) || (dest && dest->range))
 		fw3_pr(" -m iprange");
 
 	if (src && src->set)
 	{
-		if (src->range)
-		{
-			inet_ntop(src->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
-					  &src->address.v4, s, sizeof(s));
-
-			fw3_pr(" %s--src-range %s", src->invert ? "! " : "", s);
-
-			inet_ntop(src->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
-					  &src->address2.v4, s, sizeof(s));
-
-			fw3_pr("-%s", s);
-		}
-		else
-		{
-			inet_ntop(src->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
-					  &src->address.v4, s, sizeof(s));
-
-			fw3_pr(" %s-s %s/%u", src->invert ? "! " : "", s, src->mask);
-		}
+		fw3_pr(" %s%s %s", src->invert ? "! " : "",
+		                   src->range ? "--src-range" : "-s",
+		                   fw3_address_to_string(src, false));
 	}
 
 	if (dest && dest->set)
 	{
-		if (dest->range)
-		{
-			inet_ntop(dest->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
-					  &dest->address.v4, s, sizeof(s));
-
-			fw3_pr(" %s--dst-range %s", dest->invert ? "! " : "", s);
-
-			inet_ntop(dest->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
-					  &dest->address2.v4, s, sizeof(s));
-
-			fw3_pr("-%s", s);
-		}
-		else
-		{
-			inet_ntop(dest->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
-					  &dest->address.v4, s, sizeof(s));
-
-			fw3_pr(" %s-d %s/%u", dest->invert ? "! " : "", s, dest->mask);
-		}
+		fw3_pr(" %s%s %s", dest->invert ? "! " : "",
+		                   dest->range ? "--dst-range" : "-d",
+		                   fw3_address_to_string(dest, false));
 	}
 }
 
