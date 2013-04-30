@@ -140,7 +140,7 @@ fw3_parse_bool(void *ptr, const char *val, bool is_list)
 bool
 fw3_parse_int(void *ptr, const char *val, bool is_list)
 {
-	int n = strtol(val, NULL, 10);
+	int n = strtol(val, NULL, 0);
 
 	if (errno == ERANGE || errno == EINVAL)
 		return false;
