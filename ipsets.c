@@ -91,15 +91,6 @@ check_types(struct uci_element *e, struct fw3_ipset *ipset)
 	uint32_t typelist = 0;
 	struct fw3_ipset_datatype *type;
 
-	const char *methods[] = {
-		"(bug)",
-		"bitmap",
-		"hash",
-		"list",
-	};
-
-	typelist = 0;
-
 	list_for_each_entry(type, &ipset->datatypes, list)
 	{
 		if (i >= 3)
@@ -121,7 +112,7 @@ check_types(struct uci_element *e, struct fw3_ipset *ipset)
 				ipset->method = ipset_types[i].method;
 
 				warn_elem(e, "defines no storage method, assuming '%s'",
-				          methods[ipset->method]);
+				          fw3_ipset_method_names[ipset->method]);
 
 				break;
 			}
@@ -277,33 +268,17 @@ create_ipset(struct fw3_ipset *ipset, struct fw3_state *state)
 
 	struct fw3_ipset_datatype *type;
 
-	const char *methods[] = {
-		"(bug)",
-		"bitmap",
-		"hash",
-		"list",
-	};
-
-	const char *types[] = {
-		"(bug)",
-		"ip",
-		"port",
-		"mac",
-		"net",
-		"set",
-	};
-
 	if (ipset->external && *ipset->external)
 		return;
 
 	info(" * Creating ipset %s", ipset->name);
 
 	first = true;
-	fw3_pr("create %s %s", ipset->name, methods[ipset->method]);
+	fw3_pr("create %s %s", ipset->name, fw3_ipset_method_names[ipset->method]);
 
 	list_for_each_entry(type, &ipset->datatypes, list)
 	{
-		fw3_pr("%c%s", first ? ':' : ',', types[type->type]);
+		fw3_pr("%c%s", first ? ':' : ',', fw3_ipset_type_names[type->type]);
 		first = false;
 	}
 

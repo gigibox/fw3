@@ -91,13 +91,15 @@ static const char *limit_units[] = {
 	"day",
 };
 
-static const char *ipset_methods[] = {
+const char *fw3_ipset_method_names[__FW3_IPSET_METHOD_MAX] = {
+	"(bug)",
 	"bitmap",
 	"hash",
 	"list",
 };
 
-static const char *ipset_types[] = {
+const char *fw3_ipset_type_names[__FW3_IPSET_TYPE_MAX] = {
+	"(bug)",
 	"ip",
 	"port",
 	"mac",
@@ -558,7 +560,7 @@ fw3_parse_protocol(void *ptr, const char *val, bool is_list)
 bool
 fw3_parse_ipset_method(void *ptr, const char *val, bool is_list)
 {
-	return parse_enum(ptr, val, ipset_methods,
+	return parse_enum(ptr, val, &fw3_ipset_method_names[FW3_IPSET_METHOD_BITMAP],
 	                  FW3_IPSET_METHOD_BITMAP, FW3_IPSET_METHOD_LIST);
 }
 
@@ -583,7 +585,7 @@ fw3_parse_ipset_datatype(void *ptr, const char *val, bool is_list)
 		type.dest = false;
 	}
 
-	if (parse_enum(&type.type, val, ipset_types,
+	if (parse_enum(&type.type, val, &fw3_ipset_type_names[FW3_IPSET_TYPE_IP],
 	               FW3_IPSET_TYPE_IP, FW3_IPSET_TYPE_SET))
 	{
 		put_value(ptr, &type, sizeof(type), is_list);

@@ -490,7 +490,9 @@ static void
 write_ipset_uci(struct uci_context *ctx, struct fw3_ipset *s,
                 struct uci_package *dest)
 {
-	char buf[sizeof("0xffffffff\0")];
+	struct fw3_ipset_datatype *type;
+
+	char buf[sizeof("65535-65535\0")];
 
 	struct uci_ptr ptr = { .p = dest };
 
@@ -504,17 +506,38 @@ write_ipset_uci(struct uci_context *ctx, struct fw3_ipset *s,
 	ptr.value  = s->name;
 	uci_set(ctx, &ptr);
 
-	sprintf(buf, "0x%x", s->flags[0]);
 	ptr.o      = NULL;
-	ptr.option = "__flags_v4";
-	ptr.value  = buf;
+	ptr.option = "storage";
+	ptr.value  = fw3_ipset_method_names[s->method];
 	uci_set(ctx, &ptr);
 
-	sprintf(buf, "0x%x", s->flags[1]);
-	ptr.o      = NULL;
-	ptr.option = "__flags_v6";
-	ptr.value  = buf;
-	uci_set(ctx, &ptr);
+	list_for_each_entry(type, &s->datatypes, list)
+	{
+		sprintf(buf, "%s_%s", type->dest ? "dst" : "src",
+		                      fw3_ipset_type_names[type->type]);
+
+		ptr.o      = NULL;
+		ptr.option = "match";
+		ptr.value  = buf;
+		uci_add_list(ctx, &ptr);
+	}
+
+	if (s->iprange.set)
+	{
+		ptr.o      = NULL;
+		ptr.option = "iprange";
+		ptr.value  = fw3_address_to_string(&s->iprange, false);
+		uci_set(ctx, &ptr);
+	}
+
+	if (s->portrange.set)
+	{
+		sprintf(buf, "%u-%u", s->portrange.port_min, s->portrange.port_max);
+		ptr.o      = NULL;
+		ptr.option = "portrange";
+		ptr.value  = buf;
+		uci_set(ctx, &ptr);
+	}
 }
 
 void

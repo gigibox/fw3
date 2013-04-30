@@ -100,6 +100,8 @@ enum fw3_ipset_method
 	FW3_IPSET_METHOD_BITMAP = 1,
 	FW3_IPSET_METHOD_HASH   = 2,
 	FW3_IPSET_METHOD_LIST   = 3,
+
+	__FW3_IPSET_METHOD_MAX
 };
 
 enum fw3_ipset_type
@@ -110,7 +112,13 @@ enum fw3_ipset_type
 	FW3_IPSET_TYPE_MAC    = 3,
 	FW3_IPSET_TYPE_NET    = 4,
 	FW3_IPSET_TYPE_SET    = 5,
+
+	__FW3_IPSET_TYPE_MAX
 };
+
+extern const char *fw3_ipset_method_names[__FW3_IPSET_METHOD_MAX];
+extern const char *fw3_ipset_type_names[__FW3_IPSET_TYPE_MAX];
+
 
 enum fw3_include_type
 {
