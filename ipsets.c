@@ -358,3 +358,40 @@ fw3_lookup_ipset(struct fw3_state *state, const char *name)
 
 	return NULL;
 }
+
+bool
+fw3_check_ipset(struct fw3_ipset *set)
+{
+	bool rv = false;
+
+	socklen_t sz;
+	int s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+	struct ip_set_req_version req_ver;
+	struct ip_set_req_get_set req_name;
+
+	if (s < 0 || fcntl(s, F_SETFD, FD_CLOEXEC))
+		goto out;
+
+	sz = sizeof(req_ver);
+	req_ver.op = IP_SET_OP_VERSION;
+
+	if (getsockopt(s, SOL_IP, SO_IP_SET, &req_ver, &sz))
+		goto out;
+
+	sz = sizeof(req_name);
+	req_name.op = IP_SET_OP_GET_BYNAME;
+	req_name.version = req_ver.version;
+	snprintf(req_name.set.name, IPSET_MAXNAMELEN - 1, "%s",
+	         (set->external && *set->external) ? set->external : set->name);
+
+	if (getsockopt(s, SOL_IP, SO_IP_SET, &req_name, &sz))
+		goto out;
+
+	rv = ((sz == sizeof(req_name)) && (req_name.set.index != IPSET_INVALID_ID));
+
+out:
+	if (s >= 0)
+		close(s);
+
+	return rv;
+}

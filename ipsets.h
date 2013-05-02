@@ -19,8 +19,11 @@
 #ifndef __FW3_IPSETS_H
 #define __FW3_IPSETS_H
 
+#include <linux/netfilter/ipset/ip_set.h>
+
 #include "options.h"
 #include "utils.h"
+
 
 extern const struct fw3_option fw3_ipset_opts[];
 
@@ -30,6 +33,8 @@ void fw3_create_ipsets(struct fw3_state *state);
 void fw3_destroy_ipsets(struct fw3_state *state);
 
 struct fw3_ipset * fw3_lookup_ipset(struct fw3_state *state, const char *name);
+
+bool fw3_check_ipset(struct fw3_ipset *set);
 
 #define fw3_free_ipset(ipset) \
 	fw3_free_object(ipset, fw3_ipset_opts)
