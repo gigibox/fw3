@@ -132,7 +132,7 @@ resolve_networks(struct uci_element *e, struct fw3_zone *zone)
 			continue;
 		}
 
-		tmp->network = net;
+		snprintf(tmp->network, sizeof(tmp->network), "%s", net->name);
 		list_add_tail(&tmp->list, &zone->devices);
 	}
 }
@@ -530,30 +530,17 @@ fw3_hotplug_zones(struct fw3_state *state, bool add)
 	struct fw3_zone *z;
 	struct fw3_device *d;
 
-	if (add)
+	list_for_each_entry(z, &state->zones, list)
 	{
-		list_for_each_entry(z, &state->zones, list)
+		if (add != hasbit(z->flags[0], FW3_FLAG_HOTPLUG))
 		{
-			if (!hasbit(z->flags[0], FW3_FLAG_HOTPLUG))
-			{
-				list_for_each_entry(d, &z->devices, list)
-					fw3_hotplug(add, z, d);
+			list_for_each_entry(d, &z->devices, list)
+				fw3_hotplug(add, z, d);
 
+			if (add)
 				setbit(z->flags[0], FW3_FLAG_HOTPLUG);
-			}
-		}
-	}
-	else
-	{
-		list_for_each_entry(z, &state->zones, list)
-		{
-			if (hasbit(z->flags[0], FW3_FLAG_HOTPLUG))
-			{
-				list_for_each_entry(d, &z->devices, list)
-					fw3_hotplug(add, z, d);
-
+			else
 				delbit(z->flags[0], FW3_FLAG_HOTPLUG);
-			}
 		}
 	}
 }

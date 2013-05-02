@@ -147,7 +147,7 @@ struct fw3_device
 	bool any;
 	bool invert;
 	char name[32];
-	struct fw3_device *network;
+	char network[32];
 };
 
 struct fw3_address

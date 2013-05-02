@@ -203,6 +203,7 @@ fw3_parse_limit(void *ptr, const char *val, bool is_list)
 bool
 fw3_parse_device(void *ptr, const char *val, bool is_list)
 {
+	char *p;
 	struct fw3_device dev = { };
 
 	if (*val == '*')
@@ -217,6 +218,12 @@ fw3_parse_device(void *ptr, const char *val, bool is_list)
 	{
 		dev.invert = true;
 		while (isspace(*++val));
+	}
+
+	if ((p = strchr(val, '@')) != NULL)
+	{
+		*p++ = 0;
+		snprintf(dev.network, sizeof(dev.network), "%s", p);
 	}
 
 	if (*val)

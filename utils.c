@@ -470,7 +470,10 @@ write_zone_uci(struct uci_context *ctx, struct fw3_zone *z,
 		if (dev->invert)
 			p += sprintf(p, "!");
 
-		p += sprintf(p, "%s", dev->name);
+		if (*dev->network)
+			p += sprintf(p, "%s@%s", dev->name, dev->network);
+		else
+			p += sprintf(p, "%s", dev->name);
 
 		ptr.value = buf;
 		uci_add_list(ctx, &ptr);
@@ -670,7 +673,7 @@ fw3_hotplug(bool add, void *zone, void *device)
 	struct fw3_zone *z = zone;
 	struct fw3_device *d = device;
 
-	if (!d->network)
+	if (!*d->network)
 		return false;
 
 	switch (fork())
@@ -694,7 +697,7 @@ fw3_hotplug(bool add, void *zone, void *device)
 	clearenv();
 	setenv("ACTION",    add ? "add" : "remove", 1);
 	setenv("ZONE",      z->name,                1);
-	setenv("INTERFACE", d->network->name,       1);
+	setenv("INTERFACE", d->network,             1);
 	setenv("DEVICE",    d->name,                1);
 
 	execl(FW3_HOTPLUG, FW3_HOTPLUG, "firewall", NULL);
