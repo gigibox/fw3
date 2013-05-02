@@ -514,7 +514,7 @@ write_ipset_uci(struct uci_context *ctx, struct fw3_ipset *s,
 
 	struct uci_ptr ptr = { .p = dest };
 
-	if (!s->enabled || (s->external && *s->external))
+	if (!s->enabled || s->external)
 		return;
 
 	uci_add_section(ctx, dest, "ipset", &ptr.s);

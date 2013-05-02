@@ -375,7 +375,7 @@ print_redirect(struct fw3_state *state, enum fw3_family family,
 		if (!fw3_check_ipset(redir->_ipset))
 		{
 			info("     ! Skipping due to missing ipset '%s'",
-			     (redir->_ipset->external && *redir->_ipset->external) ?
+			     redir->_ipset->external ?
 					redir->_ipset->external : redir->_ipset->name);
 			return;
 		}

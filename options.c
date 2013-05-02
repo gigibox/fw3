@@ -1057,10 +1057,7 @@ fw3_format_ipset(struct fw3_ipset *ipset, bool invert)
 	if (!ipset)
 		return;
 
-	if (ipset->external && *ipset->external)
-		name = ipset->external;
-	else
-		name = ipset->name;
+	name = ipset->external ? ipset->external : ipset->name;
 
 	fw3_pr(" -m set %s--match-set %s", invert ? "! " : "", name);
 

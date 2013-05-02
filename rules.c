@@ -368,8 +368,8 @@ expand_rule(struct fw3_state *state, enum fw3_family family,
 		if (!fw3_check_ipset(rule->_ipset))
 		{
 			info("     ! Skipping due to missing ipset '%s'",
-			     (rule->_ipset->external && *rule->_ipset->external) ?
-					rule->_ipset->external : rule->_ipset->name);
+			     rule->_ipset->external
+					? rule->_ipset->external : rule->_ipset->name);
 			return;
 		}
 

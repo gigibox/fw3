@@ -126,7 +126,7 @@ check_types(struct uci_element *e, struct fw3_ipset *ipset)
 		if (ipset_types[i].method == ipset->method &&
 		    ipset_types[i].types == typelist)
 		{
-			if (!ipset->external || !*ipset->external)
+			if (!ipset->external)
 			{
 				if ((ipset_types[i].required & OPT_IPRANGE) &&
 					!ipset->iprange.set)
@@ -238,6 +238,14 @@ fw3_load_ipsets(struct fw3_state *state, struct uci_package *p)
 
 		fw3_parse_options(ipset, fw3_ipset_opts, s);
 
+		if (ipset->external)
+		{
+			if (!*ipset->external)
+				ipset->external = NULL;
+			else if (!ipset->name)
+				ipset->name = ipset->external;
+		}
+
 		if (!ipset->name || !*ipset->name)
 		{
 			warn_elem(e, "must have a name assigned");
@@ -268,7 +276,7 @@ create_ipset(struct fw3_ipset *ipset, struct fw3_state *state)
 
 	struct fw3_ipset_datatype *type;
 
-	if (ipset->external && *ipset->external)
+	if (ipset->external)
 		return;
 
 	info(" * Creating ipset %s", ipset->name);
@@ -382,7 +390,7 @@ fw3_check_ipset(struct fw3_ipset *set)
 	req_name.op = IP_SET_OP_GET_BYNAME;
 	req_name.version = req_ver.version;
 	snprintf(req_name.set.name, IPSET_MAXNAMELEN - 1, "%s",
-	         (set->external && *set->external) ? set->external : set->name);
+	         set->external ? set->external : set->name);
 
 	if (getsockopt(s, SOL_IP, SO_IP_SET, &req_name, &sz))
 		goto out;
