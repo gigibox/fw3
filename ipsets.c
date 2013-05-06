@@ -178,10 +178,10 @@ check_types(struct uci_element *e, struct fw3_ipset *ipset)
 				}
 
 				if (!(ipset_types[i].optional & OPT_FAMILY) &&
-				    ipset->family != FW3_FAMILY_ANY)
+				    ipset->family != FW3_FAMILY_V4)
 				{
 					warn_elem(e, "family ignored");
-					ipset->family = FW3_FAMILY_ANY;
+					ipset->family = FW3_FAMILY_V4;
 				}
 			}
 
@@ -208,6 +208,7 @@ fw3_alloc_ipset(void)
 	INIT_LIST_HEAD(&ipset->datatypes);
 
 	ipset->enabled = true;
+	ipset->family  = FW3_FAMILY_V4;
 
 	return ipset;
 }
@@ -254,6 +255,10 @@ fw3_load_ipsets(struct fw3_state *state, struct uci_package *p)
 		//{
 		//	warn_elem(e, "has duplicated set name '%s'", ipset->name);
 		//}
+		else if (ipset->family == FW3_FAMILY_ANY)
+		{
+			warn_elem(e, "must not have family 'any'");
+		}
 		else if (list_empty(&ipset->datatypes))
 		{
 			warn_elem(e, "has no datatypes assigned");
@@ -300,8 +305,7 @@ create_ipset(struct fw3_ipset *ipset, struct fw3_state *state)
 		       ipset->portrange.port_min, ipset->portrange.port_max);
 	}
 
-	if (ipset->family != FW3_FAMILY_ANY)
-		fw3_pr(" family inet%s", (ipset->family == FW3_FAMILY_V4) ? "" : "6");
+	fw3_pr(" family inet%s", (ipset->family == FW3_FAMILY_V4) ? "" : "6");
 
 	if (ipset->timeout > 0)
 		fw3_pr(" timeout %u", ipset->timeout);
