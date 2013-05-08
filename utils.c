@@ -602,6 +602,7 @@ fw3_write_statefile(void *state)
 			uci_unload(s->uci, p);
 		}
 
+		fsync(fileno(sf));
 		fclose(sf);
 	}
 }
