@@ -176,7 +176,7 @@ family_set(struct fw3_state *state, enum fw3_family family, bool set)
 }
 
 static int
-stop(bool complete, bool reload)
+stop(bool complete)
 {
 	FILE *ct;
 
@@ -186,9 +186,8 @@ stop(bool complete, bool reload)
 
 	if (!complete && !run_state)
 	{
-		if (!reload)
-			warn("The firewall appears to be stopped. "
-				 "Use the 'flush' command to forcefully purge all rules.");
+		warn("The firewall appears to be stopped. "
+			 "Use the 'flush' command to forcefully purge all rules.");
 
 		return rv;
 	}
@@ -221,12 +220,12 @@ stop(bool complete, bool reload)
 			else if (run_state)
 			{
 				/* pass 1 */
-				fw3_flush_rules(run_state, family, table, reload, false);
-				fw3_flush_zones(run_state, family, table, reload, false);
+				fw3_flush_rules(run_state, family, table, false, false);
+				fw3_flush_zones(run_state, family, table, false, false);
 
 				/* pass 2 */
-				fw3_flush_rules(run_state, family, table, reload, true);
-				fw3_flush_zones(run_state, family, table, reload, true);
+				fw3_flush_rules(run_state, family, table, false, true);
+				fw3_flush_zones(run_state, family, table, false, true);
 			}
 
 			fw3_pr("COMMIT\n");
@@ -239,7 +238,7 @@ stop(bool complete, bool reload)
 		rv = 0;
 	}
 
-	if (!reload && run_state)
+	if (run_state)
 	{
 		if (fw3_command_pipe(false, "ipset", "-exist", "-"))
 		{
@@ -263,13 +262,13 @@ stop(bool complete, bool reload)
 }
 
 static int
-start(bool reload)
+start(void)
 {
 	int rv = 1;
 	enum fw3_family family;
 	enum fw3_table table;
 
-	if (!print_rules && !reload)
+	if (!print_rules)
 	{
 		if (fw3_command_pipe(false, "ipset", "-exist", "-"))
 		{
@@ -283,7 +282,7 @@ start(bool reload)
 		if (family == FW3_FAMILY_V6 && cfg_state->defaults.disable_ipv6)
 			continue;
 
-		if (!print_rules && !reload && family_running(family))
+		if (!print_rules && family_running(family))
 		{
 			warn("The %s firewall appears to be started already. "
 			     "If it is indeed empty, remove the %s file and retry.",
@@ -304,18 +303,18 @@ start(bool reload)
 			     fw3_flag_names[family], fw3_flag_names[table]);
 
 			fw3_pr("*%s\n", fw3_flag_names[table]);
-			fw3_print_default_chains(cfg_state, family, table, reload);
-			fw3_print_zone_chains(cfg_state, family, table, reload);
-			fw3_print_default_head_rules(cfg_state, family, table, reload);
+			fw3_print_default_chains(cfg_state, family, table, false);
+			fw3_print_zone_chains(cfg_state, family, table, false);
+			fw3_print_default_head_rules(cfg_state, family, table, false);
 			fw3_print_rules(cfg_state, family, table);
 			fw3_print_redirects(cfg_state, family, table);
 			fw3_print_forwards(cfg_state, family, table);
-			fw3_print_zone_rules(cfg_state, family, table, reload);
-			fw3_print_default_tail_rules(cfg_state, family, table, reload);
+			fw3_print_zone_rules(cfg_state, family, table, false);
+			fw3_print_default_tail_rules(cfg_state, family, table, false);
 			fw3_pr("COMMIT\n");
 		}
 
-		fw3_print_includes(cfg_state, family, reload);
+		fw3_print_includes(cfg_state, family, false);
 
 		fw3_command_close();
 		family_set(run_state, family, true);
@@ -330,7 +329,103 @@ start(bool reload)
 
 		if (!print_rules)
 		{
-			fw3_run_includes(cfg_state, reload);
+			fw3_run_includes(cfg_state, false);
+			fw3_hotplug_zones(cfg_state, true);
+			fw3_write_statefile(cfg_state);
+		}
+	}
+
+	return rv;
+}
+
+
+static int
+reload(void)
+{
+	int rv = 1;
+	enum fw3_family family;
+	enum fw3_table table;
+
+	if (!print_rules && run_state)
+		fw3_hotplug_zones(run_state, false);
+
+	for (family = FW3_FAMILY_V4; family <= FW3_FAMILY_V6; family++)
+	{
+		if (!restore_pipe(family, true))
+			continue;
+
+		if (!family_running(family))
+			goto start;
+
+		for (table = FW3_TABLE_FILTER; table <= FW3_TABLE_RAW; table++)
+		{
+			if (!fw3_has_table(family == FW3_FAMILY_V6, fw3_flag_names[table]))
+				continue;
+
+			info(" * Clearing %s %s table",
+			     fw3_flag_names[family], fw3_flag_names[table]);
+
+			fw3_pr("*%s\n", fw3_flag_names[table]);
+
+			if (run_state)
+			{
+				/* pass 1 */
+				fw3_flush_rules(run_state, family, table, true, false);
+				fw3_flush_zones(run_state, family, table, true, false);
+
+				/* pass 2 */
+				fw3_flush_rules(run_state, family, table, true, true);
+				fw3_flush_zones(run_state, family, table, true, true);
+			}
+
+			fw3_pr("COMMIT\n");
+		}
+
+		family_set(run_state, family, false);
+		family_set(cfg_state, family, false);
+
+start:
+		if (family == FW3_FAMILY_V6 && cfg_state->defaults.disable_ipv6)
+			goto skip;
+
+		for (table = FW3_TABLE_FILTER; table <= FW3_TABLE_RAW; table++)
+		{
+			if (!fw3_has_table(family == FW3_FAMILY_V6, fw3_flag_names[table]))
+				continue;
+
+			info(" * Populating %s %s table",
+			     fw3_flag_names[family], fw3_flag_names[table]);
+
+			fw3_pr("*%s\n", fw3_flag_names[table]);
+			fw3_print_default_chains(cfg_state, family, table, true);
+			fw3_print_zone_chains(cfg_state, family, table, true);
+			fw3_print_default_head_rules(cfg_state, family, table, true);
+			fw3_print_rules(cfg_state, family, table);
+			fw3_print_redirects(cfg_state, family, table);
+			fw3_print_forwards(cfg_state, family, table);
+			fw3_print_zone_rules(cfg_state, family, table, true);
+			fw3_print_default_tail_rules(cfg_state, family, table, true);
+			fw3_pr("COMMIT\n");
+		}
+
+		fw3_print_includes(cfg_state, family, true);
+
+		family_set(run_state, family, true);
+		family_set(cfg_state, family, true);
+
+		rv = 0;
+
+skip:
+		fw3_command_close();
+	}
+
+	if (!rv)
+	{
+		fw3_set_defaults(cfg_state);
+
+		if (!print_rules)
+		{
+			fw3_run_includes(cfg_state, true);
 			fw3_hotplug_zones(cfg_state, true);
 			fw3_write_statefile(cfg_state);
 		}
@@ -447,13 +542,13 @@ int main(int argc, char **argv)
 		cfg_state->disable_ipsets = true;
 		print_rules = true;
 
-		rv = start(false);
+		rv = start();
 	}
 	else if (!strcmp(argv[optind], "start"))
 	{
 		if (fw3_lock())
 		{
-			rv = start(false);
+			rv = start();
 			fw3_unlock();
 		}
 	}
@@ -461,7 +556,7 @@ int main(int argc, char **argv)
 	{
 		if (fw3_lock())
 		{
-			rv = stop(false, false);
+			rv = stop(false);
 			fw3_unlock();
 		}
 	}
@@ -469,7 +564,7 @@ int main(int argc, char **argv)
 	{
 		if (fw3_lock())
 		{
-			rv = stop(true, false);
+			rv = stop(true);
 			fw3_unlock();
 		}
 	}
@@ -477,9 +572,8 @@ int main(int argc, char **argv)
 	{
 		if (fw3_lock())
 		{
-			stop(true, false);
-			rv = start(false);
-
+			stop(true);
+			rv = start();
 			fw3_unlock();
 		}
 	}
@@ -487,9 +581,7 @@ int main(int argc, char **argv)
 	{
 		if (fw3_lock())
 		{
-			rv = stop(false, true);
-			rv = start(!rv);
-
+			rv = reload();
 			fw3_unlock();
 		}
 	}
