@@ -501,26 +501,36 @@ fw3_print_zone_rules(struct fw3_state *state, enum fw3_family family,
 }
 
 void
-fw3_flush_zones(struct fw3_state *state, enum fw3_family family,
-                enum fw3_table table, bool reload, bool pass2)
+fw3_flush_zones(struct fw3_ipt_handle *handle, struct fw3_state *state,
+                bool reload)
 {
 	struct fw3_zone *z, *tmp;
-	uint32_t custom_mask = ~0;
-
-	/* don't touch user chains on selective stop */
-	if (reload)
-		delbit(custom_mask, FW3_FLAG_CUSTOM_CHAINS);
+	const struct fw3_rule_spec *c;
+	char chain[32];
 
 	list_for_each_entry_safe(z, tmp, &state->zones, list)
 	{
-		if (!has(z->flags, family, table))
+		if (!has(z->flags, handle->family, handle->table))
 			continue;
 
-		fw3_pr_rulespec(table, family, z->flags, custom_mask, zone_chains,
-		                pass2 ? "-X %s\n" : "-F %s\n", z->name);
+		for (c = zone_chains; c->format; c++)
+		{
+			/* don't touch user chains on selective stop */
+			if (reload && hasbit(c->flag, FW3_FLAG_CUSTOM_CHAINS))
+				continue;
 
-		if (pass2)
-			del(z->flags, family, table);
+			if (!fw3_is_family(c, handle->family))
+				continue;
+
+			if (c->table != handle->table)
+				continue;
+
+			snprintf(chain, sizeof(chain), c->format, z->name);
+			fw3_ipt_delete_rules(handle, chain);
+			fw3_ipt_delete_chain(handle, chain);
+		}
+
+		del(z->flags, handle->family, handle->table);
 	}
 }
 

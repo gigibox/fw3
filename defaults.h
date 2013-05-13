@@ -20,6 +20,7 @@
 #define __FW3_DEFAULTS_H
 
 #include "options.h"
+#include "iptables.h"
 
 extern const struct fw3_option fw3_flag_opts[];
 
@@ -38,9 +39,9 @@ void fw3_print_default_tail_rules(struct fw3_state *state,
 
 void fw3_set_defaults(struct fw3_state *state);
 
-void fw3_flush_rules(struct fw3_state *state, enum fw3_family family,
-                     enum fw3_table table, bool reload, bool pass2);
+void fw3_flush_rules(struct fw3_ipt_handle *handle, struct fw3_state *state,
+                     bool reload);
 
-void fw3_flush_all(enum fw3_table table);
+void fw3_flush_all(struct fw3_ipt_handle *handle);
 
 #endif

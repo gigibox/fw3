@@ -28,6 +28,7 @@
 #include "ipsets.h"
 #include "includes.h"
 #include "ubus.h"
+#include "iptables.h"
 
 
 static bool print_rules = false;
@@ -183,6 +184,7 @@ stop(bool complete)
 	int rv = 1;
 	enum fw3_family family;
 	enum fw3_table table;
+	struct fw3_ipt_handle *handle;
 
 	if (!complete && !run_state)
 	{
@@ -200,38 +202,30 @@ stop(bool complete)
 		if (!complete && !family_running(family))
 			continue;
 
-		if (!restore_pipe(family, true))
-			continue;
-
 		for (table = FW3_TABLE_FILTER; table <= FW3_TABLE_RAW; table++)
 		{
 			if (!fw3_has_table(family == FW3_FAMILY_V6, fw3_flag_names[table]))
 				continue;
 
+			if (!(handle = fw3_ipt_open(family, table)))
+				continue;
+
 			info(" * %sing %s %s table", complete ? "Flush" : "Clear",
 			     fw3_flag_names[family], fw3_flag_names[table]);
 
-			fw3_pr("*%s\n", fw3_flag_names[table]);
-
 			if (complete)
 			{
-				fw3_flush_all(table);
+				fw3_flush_all(handle);
 			}
 			else if (run_state)
 			{
-				/* pass 1 */
-				fw3_flush_rules(run_state, family, table, false, false);
-				fw3_flush_zones(run_state, family, table, false, false);
-
-				/* pass 2 */
-				fw3_flush_rules(run_state, family, table, false, true);
-				fw3_flush_zones(run_state, family, table, false, true);
+				fw3_flush_rules(handle, run_state, false);
+				fw3_flush_zones(handle, run_state, false);
 			}
 
-			fw3_pr("COMMIT\n");
+			fw3_ipt_commit(handle);
 		}
 
-		fw3_command_close();
 		family_set(run_state, family, false);
 		family_set(cfg_state, family, false);
 
@@ -345,15 +339,13 @@ reload(void)
 	int rv = 1;
 	enum fw3_family family;
 	enum fw3_table table;
+	struct fw3_ipt_handle *handle;
 
 	if (!print_rules && run_state)
 		fw3_hotplug_zones(run_state, false);
 
 	for (family = FW3_FAMILY_V4; family <= FW3_FAMILY_V6; family++)
 	{
-		if (!restore_pipe(family, true))
-			continue;
-
 		if (!family_running(family))
 			goto start;
 
@@ -362,29 +354,28 @@ reload(void)
 			if (!fw3_has_table(family == FW3_FAMILY_V6, fw3_flag_names[table]))
 				continue;
 
+			if (!(handle = fw3_ipt_open(family, table)))
+				continue;
+
 			info(" * Clearing %s %s table",
 			     fw3_flag_names[family], fw3_flag_names[table]);
 
-			fw3_pr("*%s\n", fw3_flag_names[table]);
-
 			if (run_state)
 			{
-				/* pass 1 */
-				fw3_flush_rules(run_state, family, table, true, false);
-				fw3_flush_zones(run_state, family, table, true, false);
-
-				/* pass 2 */
-				fw3_flush_rules(run_state, family, table, true, true);
-				fw3_flush_zones(run_state, family, table, true, true);
+				fw3_flush_rules(handle, run_state, true);
+				fw3_flush_zones(handle, run_state, true);
 			}
 
-			fw3_pr("COMMIT\n");
+			fw3_ipt_commit(handle);
 		}
 
 		family_set(run_state, family, false);
 		family_set(cfg_state, family, false);
 
 start:
+		if (!restore_pipe(family, true))
+			continue;
+
 		if (family == FW3_FAMILY_V6 && cfg_state->defaults.disable_ipv6)
 			goto skip;
 

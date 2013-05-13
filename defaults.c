@@ -301,55 +301,39 @@ fw3_set_defaults(struct fw3_state *state)
 	set_default("window_scaling", state->defaults.tcp_window_scaling);
 }
 
-static void
-reset_policy(enum fw3_table table, enum fw3_flag policy)
-{
-	if (table != FW3_TABLE_FILTER)
-		return;
-
-	fw3_pr(":INPUT %s [0:0]\n", fw3_flag_names[policy]);
-	fw3_pr(":OUTPUT %s [0:0]\n", fw3_flag_names[policy]);
-	fw3_pr(":FORWARD %s [0:0]\n", fw3_flag_names[policy]);
-}
-
 void
-fw3_flush_rules(struct fw3_state *state, enum fw3_family family,
-                enum fw3_table table, bool reload, bool pass2)
+fw3_flush_rules(struct fw3_ipt_handle *handle, struct fw3_state *state,
+                bool reload)
 {
 	struct fw3_defaults *defs = &state->defaults;
-	uint32_t custom_mask = ~0;
+	const struct fw3_rule_spec *c;
 
-	if (!has(defs->flags, family, table))
+	if (!has(defs->flags, handle->family, handle->table))
 		return;
 
-	/* don't touch user chains on selective stop */
-	if (reload)
-		delbit(custom_mask, FW3_FLAG_CUSTOM_CHAINS);
-
-	if (!pass2)
+	for (c = default_chains; c->format; c++)
 	{
-		reset_policy(table, reload ? FW3_FLAG_DROP : FW3_FLAG_ACCEPT);
+		/* don't touch user chains on selective stop */
+		if (reload && hasbit(c->flag, FW3_FLAG_CUSTOM_CHAINS))
+			continue;
 
-		fw3_pr_rulespec(table, family, defs->flags, custom_mask,
-		                toplevel_rules, "-D %s\n");
+		if (!fw3_is_family(c, handle->family))
+			continue;
 
-		fw3_pr_rulespec(table, family, defs->flags, custom_mask,
-		                default_chains, "-F %s\n");
+		if (c->table != handle->table)
+			continue;
+
+		fw3_ipt_set_policy(handle, reload ? FW3_FLAG_DROP : FW3_FLAG_ACCEPT);
+		fw3_ipt_delete_rules(handle, c->format);
+		fw3_ipt_delete_chain(handle, c->format);
 	}
-	else
-	{
-		fw3_pr_rulespec(table, family, defs->flags, custom_mask,
-		                default_chains, "-X %s\n");
 
-		del(defs->flags, family, table);
-	}
+	del(defs->flags, handle->family, handle->table);
 }
 
 void
-fw3_flush_all(enum fw3_table table)
+fw3_flush_all(struct fw3_ipt_handle *handle)
 {
-	reset_policy(table, FW3_FLAG_ACCEPT);
-
-	fw3_pr("-F\n");
-	fw3_pr("-X\n");
+	fw3_ipt_set_policy(handle, FW3_FLAG_ACCEPT);
+	fw3_ipt_flush(handle);
 }

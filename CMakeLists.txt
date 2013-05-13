@@ -10,8 +10,8 @@ IF(APPLE)
   LINK_DIRECTORIES(/opt/local/lib)
 ENDIF()
 
-ADD_EXECUTABLE(firewall3 main.c options.c defaults.c zones.c forwards.c rules.c redirects.c utils.c ubus.c ipsets.c includes.c)
-TARGET_LINK_LIBRARIES(firewall3 uci ubox ubus)
+ADD_EXECUTABLE(firewall3 main.c options.c defaults.c zones.c forwards.c rules.c redirects.c utils.c ubus.c ipsets.c includes.c iptables.c)
+TARGET_LINK_LIBRARIES(firewall3 uci ubox ubus ip4tc ip6tc)
 
 SET(CMAKE_INSTALL_PREFIX /usr)
 

@@ -20,6 +20,7 @@
 #define __FW3_ZONES_H
 
 #include "options.h"
+#include "iptables.h"
 
 extern const struct fw3_option fw3_zone_opts[];
 
@@ -33,8 +34,8 @@ void fw3_print_zone_chains(struct fw3_state *state, enum fw3_family family,
 void fw3_print_zone_rules(struct fw3_state *state, enum fw3_family family,
                           enum fw3_table table, bool reload);
 
-void fw3_flush_zones(struct fw3_state *state, enum fw3_family family,
-                     enum fw3_table table, bool reload, bool pass2);
+void fw3_flush_zones(struct fw3_ipt_handle *handle, struct fw3_state *state,
+                     bool reload);
 
 void fw3_hotplug_zones(struct fw3_state *state, bool add);
 
