@@ -208,19 +208,19 @@ fw3_load_rules(struct fw3_state *state, struct uci_package *p)
 
 
 static void
-print_chain(struct fw3_rule *rule)
+append_chain(struct fw3_ipt_rule *r, struct fw3_rule *rule)
 {
-	char chain[256];
+	char chain[32];
 
-	sprintf(chain, "delegate_output");
+	snprintf(chain, sizeof(chain), "delegate_output");
 
 	if (rule->target == FW3_FLAG_NOTRACK)
 	{
-		sprintf(chain, "zone_%s_notrack", rule->src.name);
+		snprintf(chain, sizeof(chain), "zone_%s_notrack", rule->src.name);
 	}
 	else if (rule->target == FW3_FLAG_MARK)
 	{
-		sprintf(chain, "fwmark");
+		snprintf(chain, sizeof(chain), "fwmark");
 	}
 	else
 	{
@@ -229,98 +229,103 @@ print_chain(struct fw3_rule *rule)
 			if (!rule->src.any)
 			{
 				if (rule->dest.set)
-					sprintf(chain, "zone_%s_forward", rule->src.name);
+					snprintf(chain, sizeof(chain), "zone_%s_forward",
+					         rule->src.name);
 				else
-					sprintf(chain, "zone_%s_input", rule->src.name);
+					snprintf(chain, sizeof(chain), "zone_%s_input",
+					         rule->src.name);
 			}
 			else
 			{
 				if (rule->dest.set)
-					sprintf(chain, "delegate_forward");
+					snprintf(chain, sizeof(chain), "delegate_forward");
 				else
-					sprintf(chain, "delegate_input");
+					snprintf(chain, sizeof(chain), "delegate_input");
 			}
 		}
 
 		if (rule->dest.set && !rule->src.set)
-			sprintf(chain, "zone_%s_output", rule->dest.name);
+			snprintf(chain, sizeof(chain), "zone_%s_output", rule->dest.name);
 	}
 
-	fw3_pr("-A %s", chain);
+	fw3_ipt_rule_append(r, chain);
 }
 
-static void print_target(struct fw3_rule *rule)
+static void set_target(struct fw3_ipt_rule *r, struct fw3_rule *rule)
 {
-	const char *target;
+	const char *name;
+	struct fw3_mark *mark;
+	char buf[sizeof("0xFFFFFFFF/0xFFFFFFFF\0")];
 
 	switch(rule->target)
 	{
 	case FW3_FLAG_MARK:
-		if (rule->set_mark.set)
-			fw3_pr(" -j MARK --set-mark 0x%x/0x%x\n",
-			       rule->set_mark.mark, rule->set_mark.mask);
-		else
-			fw3_pr(" -j MARK --set-xmark 0x%x/0x%x\n",
-			       rule->set_xmark.mark, rule->set_xmark.mask);
+		name = rule->set_mark.set ? "--set-mark" : "--set-xmark";
+		mark = rule->set_mark.set ? &rule->set_mark : &rule->set_xmark;
+		sprintf(buf, "0x%x/0x%x", mark->mark, mark->mask);
+
+		fw3_ipt_rule_target(r, "MARK");
+		fw3_ipt_rule_addarg(r, false, name, buf);
 		return;
 
 	case FW3_FLAG_ACCEPT:
 	case FW3_FLAG_DROP:
 	case FW3_FLAG_NOTRACK:
-		target = fw3_flag_names[rule->target];
+		name = fw3_flag_names[rule->target];
 		break;
 
 	default:
-		target = fw3_flag_names[FW3_FLAG_REJECT];
+		name = fw3_flag_names[FW3_FLAG_REJECT];
 		break;
 	}
 
 	if (rule->dest.set && !rule->dest.any)
-		fw3_pr(" -j zone_%s_dest_%s\n", rule->dest.name, target);
+		fw3_ipt_rule_target(r, "zone_%s_dest_%s", rule->dest.name, name);
 	else if (rule->target == FW3_FLAG_REJECT)
-		fw3_pr(" -j reject\n");
+		fw3_ipt_rule_target(r, "reject");
 	else
-		fw3_pr(" -j %s\n", target);
+		fw3_ipt_rule_target(r, name);
 }
 
 static void
-print_rule(struct fw3_state *state, enum fw3_family family,
-           enum fw3_table table, struct fw3_rule *rule,
-           struct fw3_protocol *proto,
+print_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
+           struct fw3_rule *rule, struct fw3_protocol *proto,
            struct fw3_address *sip, struct fw3_address *dip,
            struct fw3_port *sport, struct fw3_port *dport,
            struct fw3_mac *mac, struct fw3_icmptype *icmptype)
 {
-	if (!fw3_is_family(sip, family) || !fw3_is_family(dip, family))
+	struct fw3_ipt_rule *r;
+
+	if (!fw3_is_family(sip, handle->family) ||
+	    !fw3_is_family(dip, handle->family))
 	{
 		info("     ! Skipping due to different family of ip address");
 		return;
 	}
 
-	if (proto->protocol == 58 && family == FW3_FAMILY_V4)
+	if (proto->protocol == 58 && handle->family == FW3_FAMILY_V4)
 	{
 		info("     ! Skipping due to different family of protocol");
 		return;
 	}
 
-	print_chain(rule);
-	fw3_format_ipset(rule->_ipset, rule->ipset.invert);
-	fw3_format_protocol(proto, family);
-	fw3_format_src_dest(sip, dip);
-	fw3_format_sport_dport(sport, dport);
-	fw3_format_icmptype(icmptype, family);
-	fw3_format_mac(mac);
-	fw3_format_limit(&rule->limit);
-	fw3_format_time(&rule->time);
-	fw3_format_mark(&rule->mark);
-	fw3_format_extra(rule->extra);
-	fw3_format_comment(rule->name);
-	print_target(rule);
+	r = fw3_ipt_rule_create(handle, proto, NULL, NULL, sip, dip);
+	fw3_ipt_rule_sport_dport(r, sport, dport);
+	fw3_ipt_rule_icmptype(r, icmptype);
+	fw3_ipt_rule_mac(r, mac);
+	fw3_ipt_rule_ipset(r, rule->_ipset, rule->ipset.invert);
+	fw3_ipt_rule_limit(r, &rule->limit);
+	fw3_ipt_rule_time(r, &rule->time);
+	fw3_ipt_rule_mark(r, &rule->mark);
+	set_target(r, rule);
+	fw3_ipt_rule_extra(r, rule->extra);
+	fw3_ipt_rule_comment(r, rule->name);
+	append_chain(r, rule);
 }
 
 static void
-expand_rule(struct fw3_state *state, enum fw3_family family,
-            enum fw3_table table, struct fw3_rule *rule, int num)
+expand_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
+            struct fw3_rule *rule, int num)
 {
 	struct fw3_protocol *proto;
 	struct fw3_address *sip;
@@ -337,12 +342,12 @@ expand_rule(struct fw3_state *state, enum fw3_family family,
 	struct list_head empty;
 	INIT_LIST_HEAD(&empty);
 
-	if (!fw3_is_family(rule, family))
+	if (!fw3_is_family(rule, handle->family))
 		return;
 
-	if ((rule->target == FW3_FLAG_NOTRACK && table != FW3_TABLE_RAW) ||
-	    (rule->target == FW3_FLAG_MARK && table != FW3_TABLE_MANGLE) ||
-		(rule->target < FW3_FLAG_NOTRACK && table != FW3_TABLE_FILTER))
+	if ((rule->target == FW3_FLAG_NOTRACK && handle->table != FW3_TABLE_RAW) ||
+	    (rule->target == FW3_FLAG_MARK && handle->table != FW3_TABLE_MANGLE) ||
+		(rule->target < FW3_FLAG_NOTRACK && handle->table != FW3_TABLE_FILTER))
 		return;
 
 	if (rule->name)
@@ -350,8 +355,8 @@ expand_rule(struct fw3_state *state, enum fw3_family family,
 	else
 		info("   * Rule #%u", num);
 
-	if (!fw3_is_family(rule->_src, family) ||
-	    !fw3_is_family(rule->_dest, family))
+	if (!fw3_is_family(rule->_src, handle->family) ||
+	    !fw3_is_family(rule->_dest, handle->family))
 	{
 		info("     ! Skipping due to different family of zone");
 		return;
@@ -359,7 +364,7 @@ expand_rule(struct fw3_state *state, enum fw3_family family,
 
 	if (rule->_ipset)
 	{
-		if (!fw3_is_family(rule->_ipset, family))
+		if (!fw3_is_family(rule->_ipset, handle->family))
 		{
 			info("     ! Skipping due to different family in ipset");
 			return;
@@ -373,7 +378,7 @@ expand_rule(struct fw3_state *state, enum fw3_family family,
 			return;
 		}
 
-		set(rule->_ipset->flags, family, family);
+		set(rule->_ipset->flags, handle->family, handle->family);
 	}
 
 	list_for_each_entry(proto, &rule->proto, list)
@@ -398,18 +403,17 @@ expand_rule(struct fw3_state *state, enum fw3_family family,
 		fw3_foreach(dport, dports)
 		fw3_foreach(mac, &rule->mac_src)
 		fw3_foreach(icmptype, icmptypes)
-			print_rule(state, family, table, rule, proto, sip, dip,
+			print_rule(handle, state, rule, proto, sip, dip,
 			           sport, dport, mac, icmptype);
 	}
 }
 
 void
-fw3_print_rules(struct fw3_state *state, enum fw3_family family,
-                enum fw3_table table)
+fw3_print_rules(struct fw3_ipt_handle *handle, struct fw3_state *state)
 {
 	int num = 0;
 	struct fw3_rule *rule;
 
 	list_for_each_entry(rule, &state->rules, list)
-		expand_rule(state, family, table, rule, num++);
+		expand_rule(handle, state, rule, num++);
 }

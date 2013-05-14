@@ -22,12 +22,12 @@
 #include "options.h"
 #include "zones.h"
 #include "utils.h"
+#include "iptables.h"
 
 extern const struct fw3_option fw3_forward_opts[];
 
 void fw3_load_forwards(struct fw3_state *state, struct uci_package *p);
-void fw3_print_forwards(struct fw3_state *state, enum fw3_family family,
-                        enum fw3_table table);
+void fw3_print_forwards(struct fw3_ipt_handle *handle, struct fw3_state *state);
 
 #define fw3_free_forward(forward) \
 	fw3_free_object(forward, fw3_forward_opts)

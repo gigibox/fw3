@@ -69,6 +69,9 @@ void info(const char *format, ...);
                 (1<<FW3_TABLE_MANGLE)|(1<<FW3_TABLE_RAW))))
 
 
+void * fw3_alloc(size_t size);
+char * fw3_strdup(const char *s);
+
 const char * fw3_find_command(const char *cmd);
 
 bool fw3_stdout_pipe(void);

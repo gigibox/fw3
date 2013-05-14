@@ -84,7 +84,7 @@ const char *fw3_flag_names[__FW3_FLAG_MAX] = {
 	"DROP",
 };
 
-static const char *limit_units[] = {
+const char *fw3_limit_units[__FW3_LIMIT_UNIT_MAX] = {
 	"second",
 	"minute",
 	"hour",
@@ -191,7 +191,7 @@ fw3_parse_limit(void *ptr, const char *val, bool is_list)
 	if (!strlen(e))
 		return false;
 
-	if (!parse_enum(&u, e, limit_units, 0, FW3_LIMIT_UNIT_DAY))
+	if (!parse_enum(&u, e, fw3_limit_units, 0, FW3_LIMIT_UNIT_DAY))
 		return false;
 
 	limit->rate = n;
@@ -893,16 +893,6 @@ fw3_parse_options(void *s, const struct fw3_option *opts,
 }
 
 
-void
-fw3_format_in_out(struct fw3_device *in, struct fw3_device *out)
-{
-	if (in && !in->any)
-		fw3_pr(" %s-i %s", in->invert ? "! " : "", in->name);
-
-	if (out && !out->any)
-		fw3_pr(" %s-o %s", out->invert ? "! " : "", out->name);
-}
-
 const char *
 fw3_address_to_string(struct fw3_address *address, bool allow_invert)
 {
@@ -1040,7 +1030,7 @@ fw3_format_limit(struct fw3_limit *limit)
 	{
 		fw3_pr(" -m limit %s--limit %u/%s",
 		       limit->invert ? "! " : "",
-		       limit->rate, limit_units[limit->unit]);
+		       limit->rate, fw3_limit_units[limit->unit]);
 
 		if (limit->burst > 0)
 			fw3_pr(" --limit-burst %u", limit->burst);

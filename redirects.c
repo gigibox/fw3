@@ -259,84 +259,207 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 }
 
 static void
-print_chain_nat(struct fw3_redirect *redir)
+append_chain_nat(struct fw3_ipt_rule *r, struct fw3_redirect *redir)
 {
 	if (redir->target == FW3_FLAG_DNAT)
-		fw3_pr("-A zone_%s_prerouting", redir->src.name);
+		fw3_ipt_rule_append(r, "zone_%s_prerouting", redir->src.name);
 	else
-		fw3_pr("-A zone_%s_postrouting", redir->dest.name);
+		fw3_ipt_rule_append(r, "zone_%s_postrouting", redir->dest.name);
 }
 
 static void
-print_snat_dnat(enum fw3_flag target,
-                struct fw3_address *addr, struct fw3_port *port)
+set_snat_dnat(struct fw3_ipt_rule *r, enum fw3_flag target,
+              struct fw3_address *addr, struct fw3_port *port)
 {
-	char s[sizeof("255.255.255.255 ")];
+	char buf[sizeof("255.255.255.255:65535-65535\0")];
 
-	if (target == FW3_FLAG_DNAT)
-		fw3_pr(" -j DNAT --to-destination ");
-	else
-		fw3_pr(" -j SNAT --to-source ");
+	buf[0] = '\0';
 
 	if (addr && addr->set)
 	{
-		inet_ntop(AF_INET, &addr->address.v4, s, sizeof(s));
-		fw3_pr(s);
+		inet_ntop(AF_INET, &addr->address.v4, buf, sizeof(buf));
 	}
 
 	if (port && port->set)
 	{
 		if (port->port_min == port->port_max)
-			fw3_pr(":%u", port->port_min);
+			sprintf(buf + strlen(buf), ":%u", port->port_min);
 		else
-			fw3_pr(":%u-%u", port->port_min, port->port_max);
+			sprintf(buf + strlen(buf), ":%u-%u",
+			        port->port_min, port->port_max);
 	}
 
-	fw3_pr("\n");
+	if (target == FW3_FLAG_DNAT)
+	{
+		fw3_ipt_rule_target(r, "DNAT");
+		fw3_ipt_rule_addarg(r, false, "--to-destination", buf);
+	}
+	else
+	{
+		fw3_ipt_rule_target(r, "SNAT");
+		fw3_ipt_rule_addarg(r, false, "--to-source", buf);
+	}
 }
 
 static void
-print_target_nat(struct fw3_redirect *redir)
+set_target_nat(struct fw3_ipt_rule *r, struct fw3_redirect *redir)
 {
 	if (redir->target == FW3_FLAG_DNAT)
-		print_snat_dnat(redir->target, &redir->ip_redir, &redir->port_redir);
+		set_snat_dnat(r, redir->target, &redir->ip_redir, &redir->port_redir);
 	else
-		print_snat_dnat(redir->target, &redir->ip_dest, &redir->port_dest);
+		set_snat_dnat(r, redir->target, &redir->ip_dest, &redir->port_dest);
 }
 
 static void
-print_chain_filter(struct fw3_redirect *redir)
+append_chain_filter(struct fw3_ipt_rule *r, struct fw3_redirect *redir)
 {
 	if (redir->target == FW3_FLAG_DNAT)
 	{
 		/* XXX: check for local ip */
 		if (!redir->ip_redir.set)
-			fw3_pr("-A zone_%s_input", redir->src.name);
+			fw3_ipt_rule_append(r, "zone_%s_input", redir->src.name);
 		else
-			fw3_pr("-A zone_%s_forward", redir->src.name);
+			fw3_ipt_rule_append(r, "zone_%s_forward", redir->src.name);
 	}
 	else
 	{
 		if (redir->src.set && !redir->src.any)
-			fw3_pr("-A zone_%s_forward", redir->src.name);
+			fw3_ipt_rule_append(r, "zone_%s_forward", redir->src.name);
 		else
-			fw3_pr("-A delegate_forward");
+			fw3_ipt_rule_append(r, "delegate_forward");
 	}
 }
 
 static void
-print_target_filter(struct fw3_redirect *redir)
+set_target_filter(struct fw3_ipt_rule *r, struct fw3_redirect *redir)
 {
 	/* XXX: check for local ip */
 	if (redir->target == FW3_FLAG_DNAT && !redir->ip_redir.set)
-		fw3_pr(" -m conntrack --ctstate DNAT -j ACCEPT\n");
-	else
-		fw3_pr(" -j ACCEPT\n");
+		fw3_ipt_rule_extra(r, "-m conntrack --ctstate DNAT");
+
+	fw3_ipt_rule_target(r, "ACCEPT");
 }
 
 static void
-print_redirect(struct fw3_state *state, enum fw3_family family,
-               enum fw3_table table, struct fw3_redirect *redir, int num)
+set_comment(struct fw3_ipt_rule *r, const char *name, int num, bool ref)
+{
+	if (name)
+	{
+		if (ref)
+			fw3_ipt_rule_comment(r, "%s (reflection)", name);
+		else
+			fw3_ipt_rule_comment(r, name);
+	}
+	else
+	{
+		if (ref)
+			fw3_ipt_rule_comment(r, "@redirect[%u] (reflection)", num);
+		else
+			fw3_ipt_rule_comment(r, "@redirect[%u]", num);
+	}
+}
+
+static void
+print_redirect(struct fw3_ipt_handle *h, struct fw3_state *state,
+               struct fw3_redirect *redir, int num,
+               struct fw3_protocol *proto, struct fw3_mac *mac)
+{
+	struct fw3_ipt_rule *r;
+	struct fw3_address *src, *dst;
+	struct fw3_port *spt, *dpt;
+
+	switch (h->table)
+	{
+	case FW3_TABLE_NAT:
+		src = &redir->ip_src;
+		dst = &redir->ip_dest;
+		spt = &redir->port_src;
+		dpt = &redir->port_dest;
+
+		if (redir->target == FW3_FLAG_SNAT)
+		{
+			dst = &redir->ip_redir;
+			dpt = &redir->port_redir;
+		}
+
+		r = fw3_ipt_rule_create(h, proto, NULL, NULL, src, dst);
+		fw3_ipt_rule_sport_dport(r, spt, dpt);
+		fw3_ipt_rule_mac(r, mac);
+		fw3_ipt_rule_ipset(r, redir->_ipset, redir->ipset.invert);
+		fw3_ipt_rule_time(r, &redir->time);
+		fw3_ipt_rule_mark(r, &redir->mark);
+		set_target_nat(r, redir);
+		fw3_ipt_rule_extra(r, redir->extra);
+		set_comment(r, redir->name, num, false);
+		append_chain_nat(r, redir);
+		break;
+
+	case FW3_TABLE_FILTER:
+		src = &redir->ip_src;
+		dst = &redir->ip_redir;
+		spt = &redir->port_src;
+		dpt = &redir->port_redir;
+
+		r = fw3_ipt_rule_create(h, proto, NULL, NULL, src, dst);
+		fw3_ipt_rule_sport_dport(r, spt, dpt);
+		fw3_ipt_rule_mac(r, mac);
+		fw3_ipt_rule_ipset(r, redir->_ipset, redir->ipset.invert);
+		fw3_ipt_rule_time(r, &redir->time);
+		fw3_ipt_rule_mark(r, &redir->mark);
+		set_target_filter(r, redir);
+		fw3_ipt_rule_extra(r, redir->extra);
+		set_comment(r, redir->name, num, false);
+		append_chain_filter(r, redir);
+		break;
+
+	default:
+		break;
+	}
+}
+
+static void
+print_reflection(struct fw3_ipt_handle *h, struct fw3_state *state,
+                 struct fw3_redirect *redir, int num,
+                 struct fw3_protocol *proto, struct fw3_address *ra,
+                 struct fw3_address *ia, struct fw3_address *ea)
+{
+	struct fw3_ipt_rule *r;
+
+	switch (h->table)
+	{
+	case FW3_TABLE_NAT:
+		r = fw3_ipt_rule_create(h, proto, NULL, NULL, ia, ea);
+		fw3_ipt_rule_sport_dport(r, NULL, &redir->port_dest);
+		fw3_ipt_rule_time(r, &redir->time);
+		set_comment(r, redir->name, num, true);
+		set_snat_dnat(r, FW3_FLAG_DNAT, &redir->ip_redir, &redir->port_redir);
+		fw3_ipt_rule_append(r, "zone_%s_prerouting", redir->dest.name);
+
+		r = fw3_ipt_rule_create(h, proto, NULL, NULL, ia, &redir->ip_redir);
+		fw3_ipt_rule_sport_dport(r, NULL, &redir->port_redir);
+		fw3_ipt_rule_time(r, &redir->time);
+		set_comment(r, redir->name, num, true);
+		set_snat_dnat(r, FW3_FLAG_SNAT, ra, NULL);
+		fw3_ipt_rule_append(r, "zone_%s_postrouting", redir->dest.name);
+		break;
+
+	case FW3_TABLE_FILTER:
+		r = fw3_ipt_rule_create(h, proto, NULL, NULL, ia, &redir->ip_redir);
+		fw3_ipt_rule_sport_dport(r, NULL, &redir->port_redir);
+		fw3_ipt_rule_time(r, &redir->time);
+		set_comment(r, redir->name, num, true);
+		fw3_ipt_rule_target(r, "zone_%s_dest_ACCEPT", redir->dest.name);
+		fw3_ipt_rule_append(r, "zone_%s_forward", redir->dest.name);
+		break;
+
+	default:
+		break;
+	}
+}
+
+static void
+expand_redirect(struct fw3_ipt_handle *handle, struct fw3_state *state,
+                struct fw3_redirect *redir, int num)
 {
 	struct list_head *ext_addrs, *int_addrs;
 	struct fw3_address *ext_addr, *int_addr, ref_addr;
@@ -349,16 +472,16 @@ print_redirect(struct fw3_state *state, enum fw3_family family,
 	else
 		info("   * Redirect #%u", num);
 
-	if (!fw3_is_family(redir->_src, family) ||
-		!fw3_is_family(redir->_dest, family))
+	if (!fw3_is_family(redir->_src, handle->family) ||
+		!fw3_is_family(redir->_dest, handle->family))
 	{
 		info("     ! Skipping due to different family of zone");
 		return;
 	}
 
-	if (!fw3_is_family(&redir->ip_src, family) ||
-	    !fw3_is_family(&redir->ip_dest, family) ||
-		!fw3_is_family(&redir->ip_redir, family))
+	if (!fw3_is_family(&redir->ip_src, handle->family) ||
+	    !fw3_is_family(&redir->ip_dest, handle->family) ||
+		!fw3_is_family(&redir->ip_redir, handle->family))
 	{
 		info("     ! Skipping due to different family of ip address");
 		return;
@@ -366,7 +489,7 @@ print_redirect(struct fw3_state *state, enum fw3_family family,
 
 	if (redir->_ipset)
 	{
-		if (!fw3_is_family(redir->_ipset, family))
+		if (!fw3_is_family(redir->_ipset, handle->family))
 		{
 			info("     ! Skipping due to different family in ipset");
 			return;
@@ -380,51 +503,12 @@ print_redirect(struct fw3_state *state, enum fw3_family family,
 			return;
 		}
 
-		set(redir->_ipset->flags, family, family);
+		set(redir->_ipset->flags, handle->family, handle->family);
 	}
 
 	fw3_foreach(proto, &redir->proto)
 	fw3_foreach(mac, &redir->mac_src)
-	{
-		if (table == FW3_TABLE_NAT)
-		{
-			print_chain_nat(redir);
-			fw3_format_ipset(redir->_ipset, redir->ipset.invert);
-			fw3_format_protocol(proto, family);
-
-			if (redir->target == FW3_FLAG_DNAT)
-			{
-				fw3_format_src_dest(&redir->ip_src, &redir->ip_dest);
-				fw3_format_sport_dport(&redir->port_src, &redir->port_dest);
-			}
-			else
-			{
-				fw3_format_src_dest(&redir->ip_src, &redir->ip_redir);
-				fw3_format_sport_dport(&redir->port_src, &redir->port_redir);
-			}
-
-			fw3_format_mac(mac);
-			fw3_format_time(&redir->time);
-			fw3_format_mark(&redir->mark);
-			fw3_format_extra(redir->extra);
-			fw3_format_comment(redir->name);
-			print_target_nat(redir);
-		}
-		else if (table == FW3_TABLE_FILTER)
-		{
-			print_chain_filter(redir);
-			fw3_format_ipset(redir->_ipset, redir->ipset.invert);
-			fw3_format_protocol(proto, family);
-			fw3_format_src_dest(&redir->ip_src, &redir->ip_redir);
-			fw3_format_sport_dport(&redir->port_src, &redir->port_redir);
-			fw3_format_mac(mac);
-			fw3_format_time(&redir->time);
-			fw3_format_mark(&redir->mark);
-			fw3_format_extra(redir->extra);
-			fw3_format_comment(redir->name);
-			print_target_filter(redir);
-		}
-	}
+		print_redirect(handle, state, redir, num, proto, mac);
 
 	/* reflection rules */
 	if (redir->target != FW3_FLAG_DNAT || !redir->reflection)
@@ -451,8 +535,8 @@ print_redirect(struct fw3_state *state, enum fw3_family family,
 			fw3_foreach(int_addr, int_addrs)
 			fw3_foreach(proto, &redir->proto)
 			{
-				if (!fw3_is_family(int_addr, family) ||
-				    !fw3_is_family(ext_addr, family))
+				if (!fw3_is_family(int_addr, handle->family) ||
+				    !fw3_is_family(ext_addr, handle->family))
 					continue;
 
 				if (!proto || (proto->protocol != 6 && proto->protocol != 17))
@@ -466,35 +550,8 @@ print_redirect(struct fw3_state *state, enum fw3_family family,
 				ref_addr.mask = 32;
 				ext_addr->mask = 32;
 
-				if (table == FW3_TABLE_NAT)
-				{
-					fw3_pr("-A zone_%s_prerouting", redir->dest.name);
-					fw3_format_protocol(proto, family);
-					fw3_format_src_dest(int_addr, ext_addr);
-					fw3_format_sport_dport(NULL, &redir->port_dest);
-					fw3_format_time(&redir->time);
-					fw3_format_comment(redir->name, " (reflection)");
-					print_snat_dnat(FW3_FLAG_DNAT,
-					                &redir->ip_redir, &redir->port_redir);
-
-					fw3_pr("-A zone_%s_postrouting", redir->dest.name);
-					fw3_format_protocol(proto, family);
-					fw3_format_src_dest(int_addr, &redir->ip_redir);
-					fw3_format_sport_dport(NULL, &redir->port_redir);
-					fw3_format_time(&redir->time);
-					fw3_format_comment(redir->name, " (reflection)");
-					print_snat_dnat(FW3_FLAG_SNAT, &ref_addr, NULL);
-				}
-				else if (table == FW3_TABLE_FILTER)
-				{
-					fw3_pr("-A zone_%s_forward", redir->dest.name);
-					fw3_format_protocol(proto, family);
-					fw3_format_src_dest(int_addr, &redir->ip_redir);
-					fw3_format_sport_dport(NULL, &redir->port_redir);
-					fw3_format_time(&redir->time);
-					fw3_format_comment(redir->name, " (reflection)");
-					fw3_pr(" -j zone_%s_dest_ACCEPT\n", redir->dest.name);
-				}
+				print_reflection(handle, state, redir, num, proto,
+								 &ref_addr, int_addr, ext_addr);
 			}
 
 			fw3_ubus_address_free(int_addrs);
@@ -505,18 +562,17 @@ print_redirect(struct fw3_state *state, enum fw3_family family,
 }
 
 void
-fw3_print_redirects(struct fw3_state *state, enum fw3_family family,
-                    enum fw3_table table)
+fw3_print_redirects(struct fw3_ipt_handle *handle, struct fw3_state *state)
 {
 	int num = 0;
 	struct fw3_redirect *redir;
 
-	if (family == FW3_FAMILY_V6)
+	if (handle->family == FW3_FAMILY_V6)
 		return;
 
-	if (table != FW3_TABLE_FILTER && table != FW3_TABLE_NAT)
+	if (handle->table != FW3_TABLE_FILTER && handle->table != FW3_TABLE_NAT)
 		return;
 
 	list_for_each_entry(redir, &state->redirects, list)
-		print_redirect(state, family, table, redir, num++);
+		expand_redirect(handle, state, redir, num++);
 }

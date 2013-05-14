@@ -24,43 +24,27 @@
 	{ FW3_FAMILY_##f, FW3_TABLE_##tbl, FW3_FLAG_##tgt, fmt }
 
 static const struct fw3_rule_spec zone_chains[] = {
-	C(ANY, FILTER, UNSPEC,        "zone_%1$s_input"),
-	C(ANY, FILTER, UNSPEC,        "zone_%1$s_output"),
-	C(ANY, FILTER, UNSPEC,        "zone_%1$s_forward"),
+	C(ANY, FILTER, UNSPEC,        "zone_%s_input"),
+	C(ANY, FILTER, UNSPEC,        "zone_%s_output"),
+	C(ANY, FILTER, UNSPEC,        "zone_%s_forward"),
 
-	C(ANY, FILTER, SRC_ACCEPT,    "zone_%1$s_src_ACCEPT"),
-	C(ANY, FILTER, SRC_REJECT,    "zone_%1$s_src_REJECT"),
-	C(ANY, FILTER, SRC_DROP,      "zone_%1$s_src_DROP"),
+	C(ANY, FILTER, SRC_ACCEPT,    "zone_%s_src_ACCEPT"),
+	C(ANY, FILTER, SRC_REJECT,    "zone_%s_src_REJECT"),
+	C(ANY, FILTER, SRC_DROP,      "zone_%s_src_DROP"),
 
-	C(ANY, FILTER, ACCEPT,        "zone_%1$s_dest_ACCEPT"),
-	C(ANY, FILTER, REJECT,        "zone_%1$s_dest_REJECT"),
-	C(ANY, FILTER, DROP,          "zone_%1$s_dest_DROP"),
+	C(ANY, FILTER, ACCEPT,        "zone_%s_dest_ACCEPT"),
+	C(ANY, FILTER, REJECT,        "zone_%s_dest_REJECT"),
+	C(ANY, FILTER, DROP,          "zone_%s_dest_DROP"),
 
-	C(V4,  NAT,    SNAT,          "zone_%1$s_postrouting"),
-	C(V4,  NAT,    DNAT,          "zone_%1$s_prerouting"),
+	C(V4,  NAT,    SNAT,          "zone_%s_postrouting"),
+	C(V4,  NAT,    DNAT,          "zone_%s_prerouting"),
 
-	C(ANY, FILTER, CUSTOM_CHAINS, "input_%1$s_rule"),
-	C(ANY, FILTER, CUSTOM_CHAINS, "output_%1$s_rule"),
-	C(ANY, FILTER, CUSTOM_CHAINS, "forwarding_%1$s_rule"),
+	C(ANY, FILTER, CUSTOM_CHAINS, "input_%s_rule"),
+	C(ANY, FILTER, CUSTOM_CHAINS, "output_%s_rule"),
+	C(ANY, FILTER, CUSTOM_CHAINS, "forwarding_%s_rule"),
 
-	C(V4,  NAT,    CUSTOM_CHAINS, "prerouting_%1$s_rule"),
-	C(V4,  NAT,    CUSTOM_CHAINS, "postrouting_%1$s_rule"),
-
-	{ }
-};
-
-
-#define R(dir1, dir2) \
-	"zone_%1$s_" #dir1 " -m comment --comment \"user chain for %1$s " \
-	#dir2 "\" -j " #dir2 "_%1$s_rule"
-
-static const struct fw3_rule_spec zone_rules[] = {
-	C(ANY, FILTER, CUSTOM_CHAINS, R(input, input)),
-	C(ANY, FILTER, CUSTOM_CHAINS, R(output, output)),
-	C(ANY, FILTER, CUSTOM_CHAINS, R(forward, forwarding)),
-
-	C(V4,  NAT,    CUSTOM_CHAINS, R(prerouting, prerouting)),
-	C(V4,  NAT,    CUSTOM_CHAINS, R(postrouting, postrouting)),
+	C(V4,  NAT,    CUSTOM_CHAINS, "prerouting_%s_rule"),
+	C(V4,  NAT,    CUSTOM_CHAINS, "postrouting_%s_rule"),
 
 	{ }
 };
@@ -243,154 +227,207 @@ fw3_load_zones(struct fw3_state *state, struct uci_package *p)
 
 
 static void
-print_zone_chain(struct fw3_state *state, enum fw3_family family,
-                 enum fw3_table table, bool reload, struct fw3_zone *zone)
+print_zone_chain(struct fw3_ipt_handle *handle, struct fw3_state *state,
+                 bool reload, struct fw3_zone *zone)
 {
-	bool c, r;
-	uint32_t custom_mask = ~0;
+	int i;
+	struct fw3_ipt_rule *r;
+	const struct fw3_rule_spec *c;
 
-	if (!fw3_is_family(zone, family))
+	const char *flt_chains[] = {
+		"input",   "input",
+		"output",  "output",
+		"forward", "forwarding",
+	};
+
+	const char *nat_chains[] = {
+		"prerouting",  "prerouting",
+		"postrouting", "postrouting",
+	};
+
+	if (!fw3_is_family(zone, handle->family))
 		return;
 
-	set(zone->flags, family, table);
+	info("   * Zone '%s'", zone->name);
 
-	/* Don't touch user chains on reload */
-	if (reload)
-		delbit(custom_mask, FW3_FLAG_CUSTOM_CHAINS);
+	set(zone->flags, handle->family, handle->table);
 
 	if (zone->custom_chains)
-		set(zone->flags, family, FW3_FLAG_CUSTOM_CHAINS);
+		set(zone->flags, handle->family, FW3_FLAG_CUSTOM_CHAINS);
 
 	if (!zone->conntrack && !state->defaults.drop_invalid)
-		set(zone->flags, family, FW3_FLAG_NOTRACK);
+		set(zone->flags, handle->family, FW3_FLAG_NOTRACK);
 
-	c = fw3_pr_rulespec(table, family, zone->flags, custom_mask, zone_chains,
-	                    ":%s - [0:0]\n", zone->name);
-
-	r = fw3_pr_rulespec(table, family, zone->flags, 0, zone_rules,
-	                    "-A %s\n", zone->name);
-
-	if (c || r)
+	for (c = zone_chains; c->format; c++)
 	{
-		info("   * Zone '%s'", zone->name);
+		/* don't touch user chains on selective stop */
+		if (reload && c->flag == FW3_FLAG_CUSTOM_CHAINS)
+			continue;
 
-		set(zone->flags, family, table);
+		if (!fw3_is_family(c, handle->family))
+			continue;
+
+		if (c->table != handle->table)
+			continue;
+
+		if (c->flag &&
+		    !hasbit(zone->flags[handle->family == FW3_FAMILY_V6], c->flag))
+			continue;
+
+		fw3_ipt_create_chain(handle, c->format, zone->name);
 	}
+
+	if (zone->custom_chains)
+	{
+		if (handle->table == FW3_TABLE_FILTER)
+		{
+			for (i = 0; i < sizeof(flt_chains)/sizeof(flt_chains[0]); i += 2)
+			{
+				r = fw3_ipt_rule_new(handle);
+				fw3_ipt_rule_comment(r, "user chain for %s", flt_chains[i+1]);
+				fw3_ipt_rule_target(r, "%s_%s_rule", flt_chains[i+1], zone->name);
+				fw3_ipt_rule_append(r, "zone_%s_%s", zone->name, flt_chains[i]);
+			}
+		}
+		else if (handle->table == FW3_TABLE_NAT)
+		{
+			for (i = 0; i < sizeof(nat_chains)/sizeof(nat_chains[0]); i += 2)
+			{
+				r = fw3_ipt_rule_new(handle);
+				fw3_ipt_rule_comment(r, "user chain for %s", nat_chains[i+1]);
+				fw3_ipt_rule_target(r, "%s_%s_rule", nat_chains[i+1], zone->name);
+				fw3_ipt_rule_append(r, "zone_%s_%s", zone->name, nat_chains[i]);
+			}
+		}
+	}
+
+	set(zone->flags, handle->family, handle->table);
 }
 
 static void
-print_interface_rule(struct fw3_state *state, enum fw3_family family,
-                     enum fw3_table table, bool reload, struct fw3_zone *zone,
+print_interface_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
+					 bool reload, struct fw3_zone *zone,
                      struct fw3_device *dev, struct fw3_address *sub)
 {
 	bool disable_notrack = state->defaults.drop_invalid;
-
+	struct fw3_protocol tcp = { .protocol = 6 };
+	struct fw3_ipt_rule *r;
 	enum fw3_flag t;
+
+	char buf[32];
+
+	int i;
+
+	const char *chains[] = {
+		"input",
+		"output",
+		"forward",
+	};
 
 #define jump_target(t) \
 	((t == FW3_FLAG_REJECT) ? "reject" : fw3_flag_names[t])
 
-	if (table == FW3_TABLE_FILTER)
+	if (handle->table == FW3_TABLE_FILTER)
 	{
 		for (t = FW3_FLAG_ACCEPT; t <= FW3_FLAG_DROP; t++)
 		{
-			if (has(zone->flags, family, fw3_to_src_target(t)))
+			if (has(zone->flags, handle->family, fw3_to_src_target(t)))
 			{
-				fw3_pr("-A zone_%s_src_%s", zone->name, fw3_flag_names[t]);
-				fw3_format_in_out(dev, NULL);
-				fw3_format_src_dest(sub, NULL);
-				fw3_format_extra(zone->extra_src);
-				fw3_pr(" -j %s\n", jump_target(t));
+				r = fw3_ipt_rule_create(handle, NULL, dev, NULL, sub, NULL);
+				fw3_ipt_rule_target(r, jump_target(t));
+				fw3_ipt_rule_extra(r, zone->extra_src);
+				fw3_ipt_rule_append(r, "zone_%s_src_%s", zone->name,
+				                    fw3_flag_names[t]);
 			}
 
-			if (has(zone->flags, family, t))
+			if (has(zone->flags, handle->family, t))
 			{
-				fw3_pr("-A zone_%s_dest_%s", zone->name, fw3_flag_names[t]);
-				fw3_format_in_out(NULL, dev);
-				fw3_format_src_dest(NULL, sub);
-				fw3_format_extra(zone->extra_dest);
-				fw3_pr(" -j %s\n", jump_target(t));
+				r = fw3_ipt_rule_create(handle, NULL, NULL, dev, NULL, sub);
+				fw3_ipt_rule_target(r, jump_target(t));
+				fw3_ipt_rule_extra(r, zone->extra_dest);
+				fw3_ipt_rule_append(r, "zone_%s_dest_%s", zone->name,
+				                    fw3_flag_names[t]);
 			}
 		}
 
-		fw3_pr("-A delegate_input");
-		fw3_format_in_out(dev, NULL);
-		fw3_format_src_dest(sub, NULL);
-		fw3_format_extra(zone->extra_src);
-		fw3_pr(" -j zone_%s_input\n", zone->name);
+		for (i = 0; i < sizeof(chains)/sizeof(chains[0]); i++)
+		{
+			if (*chains[i] == 'o')
+				r = fw3_ipt_rule_create(handle, NULL, NULL, dev, NULL, sub);
+			else
+				r = fw3_ipt_rule_create(handle, NULL, dev, NULL, sub, NULL);
 
-		fw3_pr("-A delegate_forward");
-		fw3_format_in_out(dev, NULL);
-		fw3_format_src_dest(sub, NULL);
-		fw3_format_extra(zone->extra_src);
-		fw3_pr(" -j zone_%s_forward\n", zone->name);
+			fw3_ipt_rule_target(r, "zone_%s_%s", zone->name, chains[i]);
 
-		fw3_pr("-A delegate_output");
-		fw3_format_in_out(NULL, dev);
-		fw3_format_src_dest(NULL, sub);
-		fw3_format_extra(zone->extra_dest);
-		fw3_pr(" -j zone_%s_output\n", zone->name);
+			if (*chains[i] == 'o')
+				fw3_ipt_rule_extra(r, zone->extra_dest);
+			else
+				fw3_ipt_rule_extra(r, zone->extra_src);
+
+			fw3_ipt_rule_append(r, "delegate_%s", chains[i]);
+		}
 	}
-	else if (table == FW3_TABLE_NAT)
+	else if (handle->table == FW3_TABLE_NAT)
 	{
-		if (has(zone->flags, family, FW3_FLAG_DNAT))
+		if (has(zone->flags, handle->family, FW3_FLAG_DNAT))
 		{
-			fw3_pr("-A delegate_prerouting");
-			fw3_format_in_out(dev, NULL);
-			fw3_format_src_dest(sub, NULL);
-			fw3_format_extra(zone->extra_src);
-			fw3_pr(" -j zone_%s_prerouting\n", zone->name);
+			r = fw3_ipt_rule_create(handle, NULL, dev, NULL, sub, NULL);
+			fw3_ipt_rule_target(r, "zone_%s_prerouting", zone->name);
+			fw3_ipt_rule_extra(r, zone->extra_src);
+			fw3_ipt_rule_append(r, "delegate_prerouting");
 		}
 
-		if (has(zone->flags, family, FW3_FLAG_SNAT))
+		if (has(zone->flags, handle->family, FW3_FLAG_SNAT))
 		{
-			fw3_pr("-A delegate_postrouting");
-			fw3_format_in_out(NULL, dev);
-			fw3_format_src_dest(NULL, sub);
-			fw3_format_extra(zone->extra_dest);
-			fw3_pr(" -j zone_%s_postrouting\n", zone->name);
+			r = fw3_ipt_rule_create(handle, NULL, NULL, dev, NULL, sub);
+			fw3_ipt_rule_target(r, "zone_%s_postrouting", zone->name);
+			fw3_ipt_rule_extra(r, zone->extra_dest);
+			fw3_ipt_rule_append(r, "delegate_postrouting");
 		}
 	}
-	else if (table == FW3_TABLE_MANGLE)
+	else if (handle->table == FW3_TABLE_MANGLE)
 	{
 		if (zone->mtu_fix)
 		{
 			if (zone->log)
 			{
-				fw3_pr("-A mssfix");
-				fw3_format_in_out(NULL, dev);
-				fw3_format_src_dest(NULL, sub);
-				fw3_pr(" -p tcp --tcp-flags SYN,RST SYN");
-				fw3_format_limit(&zone->log_limit);
-				fw3_format_comment(zone->name, " (mtu_fix logging)");
-				fw3_pr(" -j LOG --log-prefix \"MSSFIX(%s): \"\n", zone->name);
+				snprintf(buf, sizeof(buf) - 1, "MSSFIX(%s): ", zone->name);
+
+				r = fw3_ipt_rule_create(handle, &tcp, NULL, dev, NULL, sub);
+				fw3_ipt_rule_addarg(r, false, "--tcp-flags", "SYN,RST");
+				fw3_ipt_rule_addarg(r, false, "SYN", NULL);
+				fw3_ipt_rule_limit(r, &zone->log_limit);
+				fw3_ipt_rule_comment(r, "%s (mtu_fix logging)", zone->name);
+				fw3_ipt_rule_target(r, "LOG");
+				fw3_ipt_rule_addarg(r, false, "--log-prefix", buf);
+				fw3_ipt_rule_append(r, "mssfix");
 			}
 
-			fw3_pr("-A mssfix");
-			fw3_format_in_out(NULL, dev);
-			fw3_format_src_dest(NULL, sub);
-			fw3_pr(" -p tcp --tcp-flags SYN,RST SYN");
-			fw3_format_comment(zone->name, " (mtu_fix)");
-			fw3_pr(" -j TCPMSS --clamp-mss-to-pmtu\n");
+			r = fw3_ipt_rule_create(handle, &tcp, NULL, dev, NULL, sub);
+			fw3_ipt_rule_addarg(r, false, "--tcp-flags", "SYN,RST");
+			fw3_ipt_rule_addarg(r, false, "SYN", NULL);
+			fw3_ipt_rule_comment(r, "%s (mtu_fix)", zone->name);
+			fw3_ipt_rule_target(r, "TCPMSS");
+			fw3_ipt_rule_addarg(r, false, "--clamp-mss-to-pmtu", NULL);
+			fw3_ipt_rule_append(r, "mssfix");
 		}
 	}
-	else if (table == FW3_TABLE_RAW)
+	else if (handle->table == FW3_TABLE_RAW)
 	{
 		if (!zone->conntrack && !disable_notrack)
 		{
-			fw3_pr("-A notrack");
-			fw3_format_in_out(dev, NULL);
-			fw3_format_src_dest(sub, NULL);
-			fw3_format_extra(zone->extra_src);
-			fw3_format_comment(zone->name, " (notrack)");
-			fw3_pr(" -j CT --notrack\n", zone->name);
+			r = fw3_ipt_rule_create(handle, NULL, dev, NULL, sub, NULL);
+			fw3_ipt_rule_target(r, "CT");
+			fw3_ipt_rule_addarg(r, false, "--notrack", NULL);
+			fw3_ipt_rule_extra(r, zone->extra_src);
+			fw3_ipt_rule_append(r, "notrack");
 		}
 	}
 }
 
 static void
-print_interface_rules(struct fw3_state *state, enum fw3_family family,
-                      enum fw3_table table, bool reload, struct fw3_zone *zone)
+print_interface_rules(struct fw3_ipt_handle *handle, struct fw3_state *state,
+                      bool reload, struct fw3_zone *zone)
 {
 	struct fw3_device *dev;
 	struct fw3_address *sub;
@@ -398,76 +435,97 @@ print_interface_rules(struct fw3_state *state, enum fw3_family family,
 	fw3_foreach(dev, &zone->devices)
 	fw3_foreach(sub, &zone->subnets)
 	{
-		if (!fw3_is_family(sub, family))
+		if (!fw3_is_family(sub, handle->family))
 			continue;
 
 		if (!dev && !sub)
 			continue;
 
-		print_interface_rule(state, family, table, reload, zone, dev, sub);
+		print_interface_rule(handle, state, reload, zone, dev, sub);
 	}
 }
 
 static void
-print_zone_rule(struct fw3_state *state, enum fw3_family family,
-                enum fw3_table table, bool reload, struct fw3_zone *zone)
+print_zone_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
+                bool reload, struct fw3_zone *zone)
 {
 	struct fw3_address *msrc;
 	struct fw3_address *mdest;
+	struct fw3_ipt_rule *r;
 
 	enum fw3_flag t;
+	char buf[32];
 
-	if (!fw3_is_family(zone, family))
+	if (!fw3_is_family(zone, handle->family))
 		return;
 
-	switch (table)
+	switch (handle->table)
 	{
 	case FW3_TABLE_FILTER:
-		fw3_pr("-A zone_%s_input -j zone_%s_src_%s\n",
-			   zone->name, zone->name, fw3_flag_names[zone->policy_input]);
+		r = fw3_ipt_rule_new(handle);
+		fw3_ipt_rule_target(r, "zone_%s_src_%s", zone->name,
+		                     fw3_flag_names[zone->policy_input]);
+		fw3_ipt_rule_append(r, "zone_%s_input", zone->name);
 
-		fw3_pr("-A zone_%s_forward -j zone_%s_dest_%s\n",
-			   zone->name, zone->name, fw3_flag_names[zone->policy_forward]);
+		r = fw3_ipt_rule_new(handle);
+		fw3_ipt_rule_target(r, "zone_%s_dest_%s", zone->name,
+		                     fw3_flag_names[zone->policy_forward]);
+		fw3_ipt_rule_append(r, "zone_%s_forward", zone->name);
 
-		fw3_pr("-A zone_%s_output -j zone_%s_dest_%s\n",
-			   zone->name, zone->name, fw3_flag_names[zone->policy_output]);
+		r = fw3_ipt_rule_new(handle);
+		fw3_ipt_rule_target(r, "zone_%s_dest_%s", zone->name,
+		                     fw3_flag_names[zone->policy_output]);
+		fw3_ipt_rule_append(r, "zone_%s_output", zone->name);
 
 		if (zone->log)
 		{
 			for (t = FW3_FLAG_REJECT; t <= FW3_FLAG_DROP; t++)
 			{
-				if (has(zone->flags, family, fw3_to_src_target(t)))
+				if (has(zone->flags, handle->family, fw3_to_src_target(t)))
 				{
-					fw3_pr("-A zone_%s_src_%s", zone->name, fw3_flag_names[t]);
-					fw3_format_limit(&zone->log_limit);
-					fw3_pr(" -j LOG --log-prefix \"%s(src %s)\"\n",
-						   fw3_flag_names[t], zone->name);
+					r = fw3_ipt_rule_new(handle);
+
+					snprintf(buf, sizeof(buf) - 1, "%s(src %s)",
+					         fw3_flag_names[t], zone->name);
+
+					fw3_ipt_rule_limit(r, &zone->log_limit);
+					fw3_ipt_rule_target(r, "LOG");
+					fw3_ipt_rule_addarg(r, false, "--log-prefix", buf);
+					fw3_ipt_rule_append(r, "zone_%s_src_%s",
+					                    zone->name, fw3_flag_names[t]);
 				}
 
-				if (has(zone->flags, family, t))
+				if (has(zone->flags, handle->family, t))
 				{
-					fw3_pr("-A zone_%s_dest_%s", zone->name, fw3_flag_names[t]);
-					fw3_format_limit(&zone->log_limit);
-					fw3_pr(" -j LOG --log-prefix \"%s(dest %s)\"\n",
-						   fw3_flag_names[t], zone->name);
+					r = fw3_ipt_rule_new(handle);
+
+					snprintf(buf, sizeof(buf) - 1, "%s(dest %s)",
+					         fw3_flag_names[t], zone->name);
+
+					fw3_ipt_rule_limit(r, &zone->log_limit);
+					fw3_ipt_rule_target(r, "LOG");
+					fw3_ipt_rule_addarg(r, false, "--log-prefix", buf);
+					fw3_ipt_rule_append(r, "zone_%s_dest_%s",
+					                    zone->name, fw3_flag_names[t]);
 				}
 			}
 		}
 		break;
 
 	case FW3_TABLE_NAT:
-		if (zone->masq && family == FW3_FAMILY_V4)
+		if (zone->masq && handle->family == FW3_FAMILY_V4)
 		{
 			fw3_foreach(msrc, &zone->masq_src)
 			fw3_foreach(mdest, &zone->masq_dest)
 			{
-				if (!fw3_is_family(msrc, family) ||
-				    !fw3_is_family(mdest, family))
+				if (!fw3_is_family(msrc, handle->family) ||
+				    !fw3_is_family(mdest, handle->family))
 					continue;
 
-				fw3_pr("-A zone_%s_postrouting", zone->name);
-				fw3_format_src_dest(msrc, mdest);
-				fw3_pr(" -j MASQUERADE\n");
+				r = fw3_ipt_rule_new(handle);
+				fw3_ipt_rule_src_dest(r, msrc, mdest);
+				fw3_ipt_rule_target(r, "MASQUERADE");
+				fw3_ipt_rule_append(r, "zone_%s_postrouting", zone->name);
 			}
 		}
 		break;
@@ -477,27 +535,27 @@ print_zone_rule(struct fw3_state *state, enum fw3_family family,
 		break;
 	}
 
-	print_interface_rules(state, family, table, reload, zone);
+	print_interface_rules(handle, state, reload, zone);
 }
 
 void
-fw3_print_zone_chains(struct fw3_state *state, enum fw3_family family,
-                      enum fw3_table table, bool reload)
+fw3_print_zone_chains(struct fw3_ipt_handle *handle, struct fw3_state *state,
+                      bool reload)
 {
 	struct fw3_zone *zone;
 
 	list_for_each_entry(zone, &state->zones, list)
-		print_zone_chain(state, family, table, reload, zone);
+		print_zone_chain(handle, state, reload, zone);
 }
 
 void
-fw3_print_zone_rules(struct fw3_state *state, enum fw3_family family,
-                     enum fw3_table table, bool reload)
+fw3_print_zone_rules(struct fw3_ipt_handle *handle, struct fw3_state *state,
+                     bool reload)
 {
 	struct fw3_zone *zone;
 
 	list_for_each_entry(zone, &state->zones, list)
-		print_zone_rule(state, family, table, reload, zone);
+		print_zone_rule(handle, state, reload, zone);
 }
 
 void

@@ -140,25 +140,6 @@ free_state(struct fw3_state *state)
 
 
 static bool
-restore_pipe(enum fw3_family family, bool silent)
-{
-	const char *cmd;
-
-	cmd = (family == FW3_FAMILY_V4) ? "iptables-restore" : "ip6tables-restore";
-
-	if (print_rules)
-		return fw3_stdout_pipe();
-
-	if (!fw3_command_pipe(silent, cmd, "--lenient", "--noflush"))
-	{
-		warn("Unable to execute %s", cmd);
-		return false;
-	}
-
-	return true;
-}
-
-static bool
 family_running(enum fw3_family family)
 {
 	return (run_state && has(run_state->defaults.flags, family, family));
@@ -261,6 +242,7 @@ start(void)
 	int rv = 1;
 	enum fw3_family family;
 	enum fw3_table table;
+	struct fw3_ipt_handle *handle;
 
 	if (!print_rules)
 	{
@@ -285,32 +267,31 @@ start(void)
 			continue;
 		}
 
-		if (!restore_pipe(family, false))
-			continue;
-
 		for (table = FW3_TABLE_FILTER; table <= FW3_TABLE_RAW; table++)
 		{
 			if (!fw3_has_table(family == FW3_FAMILY_V6, fw3_flag_names[table]))
 				continue;
 
+			if (!(handle = fw3_ipt_open(family, table)))
+				continue;
+
 			info(" * Populating %s %s table",
 			     fw3_flag_names[family], fw3_flag_names[table]);
 
-			fw3_pr("*%s\n", fw3_flag_names[table]);
-			fw3_print_default_chains(cfg_state, family, table, false);
-			fw3_print_zone_chains(cfg_state, family, table, false);
-			fw3_print_default_head_rules(cfg_state, family, table, false);
-			fw3_print_rules(cfg_state, family, table);
-			fw3_print_redirects(cfg_state, family, table);
-			fw3_print_forwards(cfg_state, family, table);
-			fw3_print_zone_rules(cfg_state, family, table, false);
-			fw3_print_default_tail_rules(cfg_state, family, table, false);
-			fw3_pr("COMMIT\n");
+			fw3_print_default_chains(handle, cfg_state, false);
+			fw3_print_zone_chains(handle, cfg_state, false);
+			fw3_print_default_head_rules(handle, cfg_state, false);
+			fw3_print_rules(handle, cfg_state);
+			fw3_print_redirects(handle, cfg_state);
+			fw3_print_forwards(handle, cfg_state);
+			fw3_print_zone_rules(handle, cfg_state, false);
+			fw3_print_default_tail_rules(handle, cfg_state, false);
+
+			fw3_ipt_commit(handle);
 		}
 
-		fw3_print_includes(cfg_state, family, false);
+		//fw3_print_includes(cfg_state, family, false);
 
-		fw3_command_close();
 		family_set(run_state, family, true);
 		family_set(cfg_state, family, true);
 
@@ -373,41 +354,38 @@ reload(void)
 		family_set(cfg_state, family, false);
 
 start:
-		if (!restore_pipe(family, true))
-			continue;
-
 		if (family == FW3_FAMILY_V6 && cfg_state->defaults.disable_ipv6)
-			goto skip;
+			continue;
 
 		for (table = FW3_TABLE_FILTER; table <= FW3_TABLE_RAW; table++)
 		{
 			if (!fw3_has_table(family == FW3_FAMILY_V6, fw3_flag_names[table]))
 				continue;
 
+			if (!(handle = fw3_ipt_open(family, table)))
+				continue;
+
 			info(" * Populating %s %s table",
 			     fw3_flag_names[family], fw3_flag_names[table]);
 
-			fw3_pr("*%s\n", fw3_flag_names[table]);
-			fw3_print_default_chains(cfg_state, family, table, true);
-			fw3_print_zone_chains(cfg_state, family, table, true);
-			fw3_print_default_head_rules(cfg_state, family, table, true);
-			fw3_print_rules(cfg_state, family, table);
-			fw3_print_redirects(cfg_state, family, table);
-			fw3_print_forwards(cfg_state, family, table);
-			fw3_print_zone_rules(cfg_state, family, table, true);
-			fw3_print_default_tail_rules(cfg_state, family, table, true);
-			fw3_pr("COMMIT\n");
+			fw3_print_default_chains(handle, cfg_state, true);
+			fw3_print_zone_chains(handle, cfg_state, true);
+			fw3_print_default_head_rules(handle, cfg_state, true);
+			fw3_print_rules(handle, cfg_state);
+			fw3_print_redirects(handle, cfg_state);
+			fw3_print_forwards(handle, cfg_state);
+			fw3_print_zone_rules(handle, cfg_state, true);
+			fw3_print_default_tail_rules(handle, cfg_state, true);
+
+			fw3_ipt_commit(handle);
 		}
 
-		fw3_print_includes(cfg_state, family, true);
+		//fw3_print_includes(cfg_state, family, true);
 
 		family_set(run_state, family, true);
 		family_set(cfg_state, family, true);
 
 		rv = 0;
-
-skip:
-		fw3_command_close();
 	}
 
 	if (!rv)

@@ -11,7 +11,7 @@ IF(APPLE)
 ENDIF()
 
 ADD_EXECUTABLE(firewall3 main.c options.c defaults.c zones.c forwards.c rules.c redirects.c utils.c ubus.c ipsets.c includes.c iptables.c)
-TARGET_LINK_LIBRARIES(firewall3 uci ubox ubus ip4tc ip6tc)
+TARGET_LINK_LIBRARIES(firewall3 uci ubox ubus ip4tc ip6tc xtables m ${CMAKE_SOURCE_DIR}/libext.a ${CMAKE_SOURCE_DIR}/libext4.a ${CMAKE_SOURCE_DIR}/libext6.a)
 
 SET(CMAKE_INSTALL_PREFIX /usr)
 

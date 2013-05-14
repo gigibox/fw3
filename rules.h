@@ -23,12 +23,12 @@
 #include "zones.h"
 #include "ipsets.h"
 #include "utils.h"
+#include "iptables.h"
 
 extern const struct fw3_option fw3_rule_opts[];
 
 void fw3_load_rules(struct fw3_state *state, struct uci_package *p);
-void fw3_print_rules(struct fw3_state *state, enum fw3_family family,
-                     enum fw3_table table);
+void fw3_print_rules(struct fw3_ipt_handle *handle, struct fw3_state *state);
 
 #define fw3_free_rule(rule) \
 	fw3_free_object(rule, fw3_rule_opts)

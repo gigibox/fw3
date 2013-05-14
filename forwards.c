@@ -106,32 +106,32 @@ fw3_load_forwards(struct fw3_state *state, struct uci_package *p)
 
 
 static void
-print_chain(struct fw3_forward *forward)
+append_chain(struct fw3_ipt_rule *r, struct fw3_forward *forward)
 {
 	if (forward->src.any || !forward->src.set)
-		fw3_pr("-A delegate_forward");
+		fw3_ipt_rule_append(r, "delegate_forward");
 	else
-		fw3_pr("-A zone_%s_forward", forward->src.name);
+		fw3_ipt_rule_append(r, "zone_%s_forward", forward->src.name);
 }
 
-static void print_target(struct fw3_forward *forward)
+static void set_target(struct fw3_ipt_rule *r, struct fw3_forward *forward)
 {
 	if (forward->dest.any || !forward->dest.set)
-		fw3_pr(" -j ACCEPT\n");
+		fw3_ipt_rule_target(r, "ACCEPT");
 	else
-		fw3_pr(" -j zone_%s_dest_ACCEPT\n", forward->dest.name);
+		fw3_ipt_rule_target(r, "zone_%s_dest_ACCEPT", forward->dest.name);
 }
 
 static void
-print_forward(struct fw3_forward *forward, enum fw3_family family,
-              enum fw3_table table)
+print_forward(struct fw3_ipt_handle *handle, struct fw3_forward *forward)
 {
 	const char *s, *d;
+	struct fw3_ipt_rule *r;
 
-	if (table != FW3_TABLE_FILTER)
+	if (handle->table != FW3_TABLE_FILTER)
 		return;
 
-	if (!fw3_is_family(forward, family))
+	if (!fw3_is_family(forward, handle->family))
 		return;
 
 	s = forward->_src  ? forward->_src->name  : "*";
@@ -139,24 +139,24 @@ print_forward(struct fw3_forward *forward, enum fw3_family family,
 
 	info("   * Forward '%s' -> '%s'", s, d);
 
-	if (!fw3_is_family(forward->_src, family) ||
-	    !fw3_is_family(forward->_dest, family))
+	if (!fw3_is_family(forward->_src, handle->family) ||
+	    !fw3_is_family(forward->_dest, handle->family))
 	{
 		info("     ! Skipping due to different family of zone");
 		return;
 	}
 
-	print_chain(forward);
-	fw3_format_comment("forwarding ", s, "->", d);
-	print_target(forward);
+	r = fw3_ipt_rule_new(handle);
+	fw3_ipt_rule_comment(r, "forwarding %s -> %s", s, d);
+	set_target(r, forward);
+	append_chain(r, forward);
 }
 
 void
-fw3_print_forwards(struct fw3_state *state, enum fw3_family family,
-                   enum fw3_table table)
+fw3_print_forwards(struct fw3_ipt_handle *handle, struct fw3_state *state)
 {
 	struct fw3_forward *forward;
 
 	list_for_each_entry(forward, &state->forwards, list)
-		print_forward(forward, family, table);
+		print_forward(handle, forward);
 }

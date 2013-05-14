@@ -45,22 +45,6 @@ static const struct fw3_rule_spec default_chains[] = {
 	{ }
 };
 
-static const struct fw3_rule_spec toplevel_rules[] = {
-	C(ANY, FILTER, UNSPEC,        "INPUT -j delegate_input"),
-	C(ANY, FILTER, UNSPEC,        "OUTPUT -j delegate_output"),
-	C(ANY, FILTER, UNSPEC,        "FORWARD -j delegate_forward"),
-
-	C(V4,  NAT,    UNSPEC,        "PREROUTING -j delegate_prerouting"),
-	C(V4,  NAT,    UNSPEC,        "POSTROUTING -j delegate_postrouting"),
-
-	C(ANY, MANGLE, UNSPEC,        "FORWARD -j mssfix"),
-	C(ANY, MANGLE, UNSPEC,        "PREROUTING -j fwmark"),
-
-	C(ANY, RAW,    UNSPEC,        "PREROUTING -j notrack"),
-
-	{ }
-};
-
 const struct fw3_option fw3_flag_opts[] = {
 	FW3_OPT("input",               target,   defaults, policy_input),
 	FW3_OPT("forward",             target,   defaults, policy_forward),
@@ -142,110 +126,186 @@ fw3_load_defaults(struct fw3_state *state, struct uci_package *p)
 }
 
 void
-fw3_print_default_chains(struct fw3_state *state, enum fw3_family family,
-                         enum fw3_table table, bool reload)
+fw3_print_default_chains(struct fw3_ipt_handle *handle, struct fw3_state *state,
+                         bool reload)
 {
-	bool rv;
 	struct fw3_defaults *defs = &state->defaults;
-	uint32_t custom_mask = ~0;
+	const struct fw3_rule_spec *c;
 
 #define policy(t) \
-	((t == FW3_FLAG_REJECT) ? "DROP" : fw3_flag_names[t])
+	((t == FW3_FLAG_REJECT) ? FW3_FLAG_DROP : t)
 
-	if (family == FW3_FAMILY_V6 && defs->disable_ipv6)
+	if (handle->family == FW3_FAMILY_V6 && defs->disable_ipv6)
 		return;
 
-	if (table == FW3_TABLE_FILTER)
+	if (handle->table == FW3_TABLE_FILTER)
 	{
-		fw3_pr(":INPUT %s [0:0]\n", policy(defs->policy_input));
-		fw3_pr(":FORWARD %s [0:0]\n", policy(defs->policy_forward));
-		fw3_pr(":OUTPUT %s [0:0]\n", policy(defs->policy_output));
+		fw3_ipt_set_policy(handle, "INPUT",   policy(defs->policy_input));
+		fw3_ipt_set_policy(handle, "OUTPUT",  policy(defs->policy_output));
+		fw3_ipt_set_policy(handle, "FORWARD", policy(defs->policy_forward));
 	}
 
-	/* Don't touch user chains on reload */
-	if (reload)
-		delbit(custom_mask, FW3_FLAG_CUSTOM_CHAINS);
-
 	if (defs->custom_chains)
-		set(defs->flags, family, FW3_FLAG_CUSTOM_CHAINS);
+		set(defs->flags, handle->family, FW3_FLAG_CUSTOM_CHAINS);
 
 	if (defs->syn_flood)
-		set(defs->flags, family, FW3_FLAG_SYN_FLOOD);
+		set(defs->flags, handle->family, FW3_FLAG_SYN_FLOOD);
 
-	rv = fw3_pr_rulespec(table, family, defs->flags, custom_mask,
-	                     default_chains, ":%s - [0:0]\n");
+	for (c = default_chains; c->format; c++)
+	{
+		/* don't touch user chains on selective stop */
+		if (reload && c->flag == FW3_FLAG_CUSTOM_CHAINS)
+			continue;
 
-	if (rv)
-		set(defs->flags, family, table);
+		if (!fw3_is_family(c, handle->family))
+			continue;
+
+		if (c->table != handle->table)
+			continue;
+
+		if (c->flag &&
+		    !hasbit(defs->flags[handle->family == FW3_FAMILY_V6], c->flag))
+			continue;
+
+		fw3_ipt_create_chain(handle, c->format);
+	}
+
+	set(defs->flags, handle->family, handle->table);
 }
 
+
+struct toplevel_rule {
+	enum fw3_table table;
+	const char *chain;
+	const char *target;
+};
+
 void
-fw3_print_default_head_rules(struct fw3_state *state, enum fw3_family family,
-                             enum fw3_table table, bool reload)
+fw3_print_default_head_rules(struct fw3_ipt_handle *handle,
+                             struct fw3_state *state, bool reload)
 {
 	int i;
 	struct fw3_defaults *defs = &state->defaults;
+	struct fw3_device lodev = { .set = true };
+	struct fw3_protocol tcp = { .protocol = 6 };
+	struct fw3_ipt_rule *r;
+	struct toplevel_rule *tr;
+
 	const char *chains[] = {
-		"input", "input",
-		"output", "output",
-		"forward", "forwarding",
+		"delegate_input", "input",
+		"delegate_output", "output",
+		"delegate_forward", "forwarding",
 	};
 
-	fw3_pr_rulespec(table, family, NULL, 0, toplevel_rules, "-A %s\n");
+	struct toplevel_rule rules[] = {
+		{ FW3_TABLE_FILTER, "INPUT",       "delegate_input" },
+		{ FW3_TABLE_FILTER, "OUTPUT",      "delegate_output" },
+		{ FW3_TABLE_FILTER, "FORWARD",     "delegate_forward" },
 
-	switch (table)
+		{ FW3_TABLE_NAT,    "PREROUTING",  "delegate_prerouting" },
+		{ FW3_TABLE_NAT,    "POSTROUTING", "delegate_postrouting" },
+
+		{ FW3_TABLE_MANGLE, "FORWARD",     "mssfix" },
+		{ FW3_TABLE_MANGLE, "PREROUTING",  "fwmark" },
+
+		{ FW3_TABLE_RAW,    "PREROUTING",  "notrack" },
+
+		{ 0, NULL },
+	};
+
+	for (tr = rules; tr->chain; tr++)
+	{
+		if (tr->table != handle->table)
+			continue;
+
+		r = fw3_ipt_rule_new(handle);
+		fw3_ipt_rule_target(r, tr->target);
+		fw3_ipt_rule_append(r, tr->chain);
+	}
+
+	switch (handle->table)
 	{
 	case FW3_TABLE_FILTER:
-		fw3_pr("-A delegate_input -i lo -j ACCEPT\n");
-		fw3_pr("-A delegate_output -o lo -j ACCEPT\n");
+
+		sprintf(lodev.name, "lo");
+
+		r = fw3_ipt_rule_create(handle, NULL, &lodev, NULL, NULL, NULL);
+		fw3_ipt_rule_target(r, "ACCEPT");
+		fw3_ipt_rule_append(r, "delegate_input");
+
+		r = fw3_ipt_rule_create(handle, NULL, NULL, &lodev, NULL, NULL);
+		fw3_ipt_rule_target(r, "ACCEPT");
+		fw3_ipt_rule_append(r, "delegate_output");
 
 		if (defs->custom_chains)
 		{
 			for (i = 0; i < ARRAY_SIZE(chains); i += 2)
 			{
-				fw3_pr("-A delegate_%s -m comment "
-				       "--comment \"user chain for %s\" -j %s_rule\n",
-					   chains[i], chains[i+1], chains[i+1]);
+				r = fw3_ipt_rule_new(handle);
+				fw3_ipt_rule_comment(r, "user chain for %s", chains[i+1]);
+				fw3_ipt_rule_target(r, chains[i+1]);
+				fw3_ipt_rule_append(r, chains[i]);
 			}
 		}
 
 		for (i = 0; i < ARRAY_SIZE(chains); i += 2)
 		{
-			fw3_pr("-A delegate_%s -m conntrack --ctstate RELATED,ESTABLISHED "
-			       "-j ACCEPT\n", chains[i]);
+			r = fw3_ipt_rule_new(handle);
+			fw3_ipt_rule_extra(r, "-m conntrack --ctstate RELATED,ESTABLISHED");
+			fw3_ipt_rule_target(r, "ACCEPT");
+			fw3_ipt_rule_append(r, chains[i]);
 
 			if (defs->drop_invalid)
 			{
-				fw3_pr("-A delegate_%s -m conntrack --ctstate INVALID -j DROP\n",
-				       chains[i]);
+				r = fw3_ipt_rule_new(handle);
+				fw3_ipt_rule_extra(r, "-m conntrack --ctstate INVALID");
+				fw3_ipt_rule_target(r, "DROP");
+				fw3_ipt_rule_append(r, chains[i]);
 			}
 		}
 
 		if (defs->syn_flood)
 		{
-			fw3_pr("-A syn_flood -p tcp --syn");
-			fw3_format_limit(&defs->syn_flood_rate);
-			fw3_pr(" -j RETURN\n");
+			r = fw3_ipt_rule_create(handle, &tcp, NULL, NULL, NULL, NULL);
+			fw3_ipt_rule_extra(r, "--syn");
+			fw3_ipt_rule_limit(r, &defs->syn_flood_rate);
+			fw3_ipt_rule_target(r, "RETURN");
+			fw3_ipt_rule_append(r, "syn_flood");
 
-			fw3_pr("-A syn_flood -j DROP\n");
-			fw3_pr("-A delegate_input -p tcp --syn -j syn_flood\n");
+			r = fw3_ipt_rule_new(handle);
+			fw3_ipt_rule_target(r, "DROP");
+			fw3_ipt_rule_append(r, "syn_flood");
+
+			r = fw3_ipt_rule_create(handle, &tcp, NULL, NULL, NULL, NULL);
+			fw3_ipt_rule_extra(r, "--syn");
+			fw3_ipt_rule_target(r, "syn_flood");
+			fw3_ipt_rule_append(r, "delegate_input");
 		}
 
-		fw3_pr("-A reject -p tcp -j REJECT --reject-with tcp-reset\n");
-		fw3_pr("-A reject -j REJECT --reject-with port-unreach\n");
+		r = fw3_ipt_rule_create(handle, &tcp, NULL, NULL, NULL, NULL);
+		fw3_ipt_rule_target(r, "REJECT");
+		fw3_ipt_rule_addarg(r, false, "--reject-with", "tcp-reset");
+		fw3_ipt_rule_append(r, "reject");
+
+		r = fw3_ipt_rule_new(handle);
+		fw3_ipt_rule_target(r, "REJECT");
+		fw3_ipt_rule_addarg(r, false, "--reject-with", "port-unreach");
+		fw3_ipt_rule_append(r, "reject");
 
 		break;
 
 	case FW3_TABLE_NAT:
 		if (defs->custom_chains)
 		{
-			fw3_pr("-A delegate_prerouting "
-			       "-m comment --comment \"user chain for prerouting\" "
-			       "-j prerouting_rule\n");
+			r = fw3_ipt_rule_new(handle);
+			fw3_ipt_rule_comment(r, "user chain for prerouting");
+			fw3_ipt_rule_target(r, "prerouting_rule");
+			fw3_ipt_rule_append(r, "delegate_prerouting");
 
-			fw3_pr("-A delegate_postrouting "
-			       "-m comment --comment \"user chain for postrouting\" "
-			       "-j postrouting_rule\n");
+			r = fw3_ipt_rule_new(handle);
+			fw3_ipt_rule_comment(r, "user chain for postrouting");
+			fw3_ipt_rule_target(r, "postrouting_rule");
+			fw3_ipt_rule_append(r, "delegate_postrouting");
 		}
 		break;
 
@@ -255,22 +315,47 @@ fw3_print_default_head_rules(struct fw3_state *state, enum fw3_family family,
 }
 
 void
-fw3_print_default_tail_rules(struct fw3_state *state, enum fw3_family family,
-                             enum fw3_table table, bool reload)
+fw3_print_default_tail_rules(struct fw3_ipt_handle *handle,
+                             struct fw3_state *state, bool reload)
 {
 	struct fw3_defaults *defs = &state->defaults;
+	struct fw3_ipt_rule *r;
 
-	if (table != FW3_TABLE_FILTER)
+	if (handle->table != FW3_TABLE_FILTER)
 		return;
 
 	if (defs->policy_input == FW3_FLAG_REJECT)
-		fw3_pr("-A delegate_input -j reject\n");
+	{
+		r = fw3_ipt_rule_new(handle);
+
+		if (!r)
+			return;
+
+		fw3_ipt_rule_target(r, "reject");
+		fw3_ipt_rule_append(r, "delegate_input");
+	}
 
 	if (defs->policy_output == FW3_FLAG_REJECT)
-		fw3_pr("-A delegate_output -j reject\n");
+	{
+		r = fw3_ipt_rule_new(handle);
+
+		if (!r)
+			return;
+
+		fw3_ipt_rule_target(r, "reject");
+		fw3_ipt_rule_append(r, "delegate_output");
+	}
 
 	if (defs->policy_forward == FW3_FLAG_REJECT)
-		fw3_pr("-A delegate_forward -j reject\n");
+	{
+		r = fw3_ipt_rule_new(handle);
+
+		if (!r)
+			return;
+
+		fw3_ipt_rule_target(r, "reject");
+		fw3_ipt_rule_append(r, "delegate_forward");
+	}
 }
 
 static void
@@ -305,16 +390,24 @@ void
 fw3_flush_rules(struct fw3_ipt_handle *handle, struct fw3_state *state,
                 bool reload)
 {
+	enum fw3_flag policy = reload ? FW3_FLAG_DROP : FW3_FLAG_ACCEPT;
 	struct fw3_defaults *defs = &state->defaults;
 	const struct fw3_rule_spec *c;
 
 	if (!has(defs->flags, handle->family, handle->table))
 		return;
 
+	if (handle->table == FW3_TABLE_FILTER)
+	{
+		fw3_ipt_set_policy(handle, "INPUT",   policy);
+		fw3_ipt_set_policy(handle, "OUTPUT",  policy);
+		fw3_ipt_set_policy(handle, "FORWARD", policy);
+	}
+
 	for (c = default_chains; c->format; c++)
 	{
 		/* don't touch user chains on selective stop */
-		if (reload && hasbit(c->flag, FW3_FLAG_CUSTOM_CHAINS))
+		if (reload && c->flag == FW3_FLAG_CUSTOM_CHAINS)
 			continue;
 
 		if (!fw3_is_family(c, handle->family))
@@ -323,7 +416,10 @@ fw3_flush_rules(struct fw3_ipt_handle *handle, struct fw3_state *state,
 		if (c->table != handle->table)
 			continue;
 
-		fw3_ipt_set_policy(handle, reload ? FW3_FLAG_DROP : FW3_FLAG_ACCEPT);
+		if (c->flag &&
+		    !hasbit(defs->flags[handle->family == FW3_FAMILY_V6], c->flag))
+			continue;
+
 		fw3_ipt_delete_rules(handle, c->format);
 		fw3_ipt_delete_chain(handle, c->format);
 	}
@@ -334,6 +430,12 @@ fw3_flush_rules(struct fw3_ipt_handle *handle, struct fw3_state *state,
 void
 fw3_flush_all(struct fw3_ipt_handle *handle)
 {
-	fw3_ipt_set_policy(handle, FW3_FLAG_ACCEPT);
+	if (handle->table == FW3_TABLE_FILTER)
+	{
+		fw3_ipt_set_policy(handle, "INPUT",   FW3_FLAG_ACCEPT);
+		fw3_ipt_set_policy(handle, "OUTPUT",  FW3_FLAG_ACCEPT);
+		fw3_ipt_set_policy(handle, "FORWARD", FW3_FLAG_ACCEPT);
+	}
+
 	fw3_ipt_flush(handle);
 }

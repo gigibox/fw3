@@ -132,6 +132,32 @@ info(const char* format, ...)
 	fprintf(stderr, "\n");
 }
 
+void *
+fw3_alloc(size_t size)
+{
+	void *mem;
+
+	mem = calloc(1, size);
+
+	if (!mem)
+		error("Out of memory while allocating %d bytes", size);
+
+	return mem;
+}
+
+char *
+fw3_strdup(const char *s)
+{
+	char *ns;
+
+	ns = strdup(s);
+
+	if (!ns)
+		error("Out of memory while duplicating string '%s'", s);
+
+	return ns;
+}
+
 const char *
 fw3_find_command(const char *cmd)
 {

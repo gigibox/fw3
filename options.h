@@ -92,7 +92,12 @@ enum fw3_limit_unit
 	FW3_LIMIT_UNIT_MINUTE = 1,
 	FW3_LIMIT_UNIT_HOUR   = 2,
 	FW3_LIMIT_UNIT_DAY    = 3,
+
+	__FW3_LIMIT_UNIT_MAX
 };
+
+extern const char *fw3_limit_units[__FW3_LIMIT_UNIT_MAX];
+
 
 enum fw3_ipset_method
 {
