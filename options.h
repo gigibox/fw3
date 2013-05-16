@@ -456,6 +456,13 @@ struct fw3_state
 	bool statefile;
 };
 
+struct fw3_chain_spec {
+	int family;
+	int table;
+	int flag;
+	const char *format;
+};
+
 
 struct fw3_option
 {

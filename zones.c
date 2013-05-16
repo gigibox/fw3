@@ -23,7 +23,7 @@
 #define C(f, tbl, tgt, fmt) \
 	{ FW3_FAMILY_##f, FW3_TABLE_##tbl, FW3_FLAG_##tgt, fmt }
 
-static const struct fw3_rule_spec zone_chains[] = {
+static const struct fw3_chain_spec zone_chains[] = {
 	C(ANY, FILTER, UNSPEC,        "zone_%s_input"),
 	C(ANY, FILTER, UNSPEC,        "zone_%s_output"),
 	C(ANY, FILTER, UNSPEC,        "zone_%s_forward"),
@@ -232,7 +232,7 @@ print_zone_chain(struct fw3_ipt_handle *handle, struct fw3_state *state,
 {
 	int i;
 	struct fw3_ipt_rule *r;
-	const struct fw3_rule_spec *c;
+	const struct fw3_chain_spec *c;
 
 	const char *flt_chains[] = {
 		"input",   "input",
@@ -563,7 +563,7 @@ fw3_flush_zones(struct fw3_ipt_handle *handle, struct fw3_state *state,
                 bool reload)
 {
 	struct fw3_zone *z, *tmp;
-	const struct fw3_rule_spec *c;
+	const struct fw3_chain_spec *c;
 	char chain[32];
 
 	list_for_each_entry_safe(z, tmp, &state->zones, list)

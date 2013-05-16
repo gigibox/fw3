@@ -22,7 +22,7 @@
 #define C(f, tbl, def, fmt) \
 	{ FW3_FAMILY_##f, FW3_TABLE_##tbl, FW3_FLAG_##def, fmt }
 
-static const struct fw3_rule_spec default_chains[] = {
+static const struct fw3_chain_spec default_chains[] = {
 	C(ANY, FILTER, UNSPEC,        "delegate_input"),
 	C(ANY, FILTER, UNSPEC,        "delegate_output"),
 	C(ANY, FILTER, UNSPEC,        "delegate_forward"),
@@ -130,7 +130,7 @@ fw3_print_default_chains(struct fw3_ipt_handle *handle, struct fw3_state *state,
                          bool reload)
 {
 	struct fw3_defaults *defs = &state->defaults;
-	const struct fw3_rule_spec *c;
+	const struct fw3_chain_spec *c;
 
 #define policy(t) \
 	((t == FW3_FLAG_REJECT) ? FW3_FLAG_DROP : t)
@@ -392,7 +392,7 @@ fw3_flush_rules(struct fw3_ipt_handle *handle, struct fw3_state *state,
 {
 	enum fw3_flag policy = reload ? FW3_FLAG_DROP : FW3_FLAG_ACCEPT;
 	struct fw3_defaults *defs = &state->defaults;
-	const struct fw3_rule_spec *c;
+	const struct fw3_chain_spec *c;
 
 	if (!has(defs->flags, handle->family, handle->table))
 		return;

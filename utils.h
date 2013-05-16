@@ -91,14 +91,6 @@ void fw3_write_statefile(void *state);
 
 void fw3_free_object(void *obj, const void *opts);
 
-
-struct fw3_rule_spec {
-	int family;
-	int table;
-	int flag;
-	const char *format;
-};
-
 bool fw3_hotplug(bool add, void *zone, void *device);
 
 #endif
