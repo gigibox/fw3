@@ -31,7 +31,7 @@
 #include "iptables.h"
 
 
-static bool print_rules = false;
+static enum fw3_family print_family = FW3_FAMILY_ANY;
 
 static struct fw3_state *run_state = NULL;
 static struct fw3_state *cfg_state = NULL;
@@ -175,7 +175,7 @@ stop(bool complete)
 		return rv;
 	}
 
-	if (!print_rules && run_state)
+	if (!print_family && run_state)
 		fw3_hotplug_zones(run_state, false);
 
 	for (family = FW3_FAMILY_V4; family <= FW3_FAMILY_V6; family++)
@@ -244,7 +244,7 @@ start(void)
 	enum fw3_table table;
 	struct fw3_ipt_handle *handle;
 
-	if (!print_rules)
+	if (!print_family)
 	{
 		if (fw3_command_pipe(false, "ipset", "-exist", "-"))
 		{
@@ -258,7 +258,10 @@ start(void)
 		if (family == FW3_FAMILY_V6 && cfg_state->defaults.disable_ipv6)
 			continue;
 
-		if (!print_rules && family_running(family))
+		if (print_family && family != print_family)
+			continue;
+
+		if (!print_family && family_running(family))
 		{
 			warn("The %s firewall appears to be started already. "
 			     "If it is indeed empty, remove the %s file and retry.",
@@ -287,7 +290,7 @@ start(void)
 			fw3_print_zone_rules(handle, cfg_state, false);
 			fw3_print_default_tail_rules(handle, cfg_state, false);
 
-			if (!print_rules)
+			if (!print_family)
 				fw3_ipt_commit(handle);
 		}
 
@@ -303,7 +306,7 @@ start(void)
 	{
 		fw3_set_defaults(cfg_state);
 
-		if (!print_rules)
+		if (!print_family)
 		{
 			fw3_run_includes(cfg_state, false);
 			fw3_hotplug_zones(cfg_state, true);
@@ -323,7 +326,7 @@ reload(void)
 	enum fw3_table table;
 	struct fw3_ipt_handle *handle;
 
-	if (!print_rules && run_state)
+	if (!print_family && run_state)
 		fw3_hotplug_zones(run_state, false);
 
 	for (family = FW3_FAMILY_V4; family <= FW3_FAMILY_V6; family++)
@@ -393,7 +396,7 @@ start:
 	{
 		fw3_set_defaults(cfg_state);
 
-		if (!print_rules)
+		if (!print_family)
 		{
 			fw3_run_includes(cfg_state, true);
 			fw3_hotplug_zones(cfg_state, true);
@@ -462,18 +465,17 @@ int main(int argc, char **argv)
 {
 	int ch, rv = 1;
 	struct fw3_defaults *defs = NULL;
-	enum fw3_family use_family = FW3_FAMILY_ANY;
 
 	while ((ch = getopt(argc, argv, "46dqh")) != -1)
 	{
 		switch (ch)
 		{
 		case '4':
-			use_family = FW3_FAMILY_V4;
+			print_family = FW3_FAMILY_V4;
 			break;
 
 		case '6':
-			use_family = FW3_FAMILY_V6;
+			print_family = FW3_FAMILY_V6;
 			break;
 
 		case 'd':
@@ -502,15 +504,14 @@ int main(int argc, char **argv)
 
 	if (!strcmp(argv[optind], "print"))
 	{
-		if (use_family == FW3_FAMILY_ANY)
-			use_family = FW3_FAMILY_V4;
-		else if (use_family == FW3_FAMILY_V6 && defs->disable_ipv6)
+		if (print_family == FW3_FAMILY_ANY)
+			print_family = FW3_FAMILY_V4;
+		else if (print_family == FW3_FAMILY_V6 && defs->disable_ipv6)
 			warn("IPv6 rules globally disabled in configuration");
 
 		freopen("/dev/null", "w", stderr);
 
 		cfg_state->disable_ipsets = true;
-		print_rules = true;
 		fw3_pr_debug = true;
 
 		rv = start();
