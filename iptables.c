@@ -105,6 +105,9 @@ void
 fw3_ipt_set_policy(struct fw3_ipt_handle *h, const char *chain,
                    enum fw3_flag policy)
 {
+	if (fw3_pr_debug)
+		printf("-P %s %s\n", chain, fw3_flag_names[policy]);
+
 	if (h->family == FW3_FAMILY_V6)
 		ip6tc_set_policy(chain, fw3_flag_names[policy], NULL, h->handle);
 	else

@@ -287,7 +287,8 @@ start(void)
 			fw3_print_zone_rules(handle, cfg_state, false);
 			fw3_print_default_tail_rules(handle, cfg_state, false);
 
-			fw3_ipt_commit(handle);
+			if (!print_rules)
+				fw3_ipt_commit(handle);
 		}
 
 		//fw3_print_includes(cfg_state, family, false);
@@ -510,6 +511,7 @@ int main(int argc, char **argv)
 
 		cfg_state->disable_ipsets = true;
 		print_rules = true;
+		fw3_pr_debug = true;
 
 		rv = start();
 	}
