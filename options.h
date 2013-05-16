@@ -504,20 +504,4 @@ void fw3_parse_options(void *s, const struct fw3_option *opts,
 const char * fw3_address_to_string(struct fw3_address *address,
                                    bool allow_invert);
 
-void fw3_format_in_out(struct fw3_device *in, struct fw3_device *out);
-void fw3_format_src_dest(struct fw3_address *src, struct fw3_address *dest);
-void fw3_format_sport_dport(struct fw3_port *sp, struct fw3_port *dp);
-void fw3_format_mac(struct fw3_mac *mac);
-void fw3_format_protocol(struct fw3_protocol *proto, enum fw3_family family);
-void fw3_format_icmptype(struct fw3_icmptype *icmp, enum fw3_family family);
-void fw3_format_limit(struct fw3_limit *limit);
-void fw3_format_ipset(struct fw3_ipset *ipset, bool invert);
-void fw3_format_time(struct fw3_time *time);
-void fw3_format_mark(struct fw3_mark *mark);
-
-void __fw3_format_comment(const char *comment, ...);
-#define fw3_format_comment(...) __fw3_format_comment(__VA_ARGS__, NULL)
-
-void fw3_format_extra(const char *extra);
-
 #endif
