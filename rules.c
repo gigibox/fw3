@@ -288,8 +288,17 @@ static void set_target(struct fw3_ipt_rule *r, struct fw3_rule *rule)
 }
 
 static void
+set_comment(struct fw3_ipt_rule *r, const char *name, int num)
+{
+	if (name)
+		fw3_ipt_rule_comment(r, name);
+	else
+		fw3_ipt_rule_comment(r, "@rule[%u]", num);
+}
+
+static void
 print_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
-           struct fw3_rule *rule, struct fw3_protocol *proto,
+           struct fw3_rule *rule, int num, struct fw3_protocol *proto,
            struct fw3_address *sip, struct fw3_address *dip,
            struct fw3_port *sport, struct fw3_port *dport,
            struct fw3_mac *mac, struct fw3_icmptype *icmptype)
@@ -319,7 +328,7 @@ print_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 	fw3_ipt_rule_mark(r, &rule->mark);
 	set_target(r, rule);
 	fw3_ipt_rule_extra(r, rule->extra);
-	fw3_ipt_rule_comment(r, rule->name);
+	set_comment(r, rule->name, num);
 	append_chain(r, rule);
 }
 
@@ -403,7 +412,7 @@ expand_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 		fw3_foreach(dport, dports)
 		fw3_foreach(mac, &rule->mac_src)
 		fw3_foreach(icmptype, icmptypes)
-			print_rule(handle, state, rule, proto, sip, dip,
+			print_rule(handle, state, rule, num, proto, sip, dip,
 			           sport, dport, mac, icmptype);
 	}
 }
