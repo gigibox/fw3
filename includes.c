@@ -83,13 +83,10 @@ fw3_load_includes(struct fw3_state *state, struct uci_package *p)
 
 
 static void
-print_include(struct fw3_include *include, enum fw3_family family)
+print_include(struct fw3_include *include)
 {
 	FILE *f;
 	char line[1024];
-
-	if (!fw3_is_family(include, family))
-		return;
 
 	info(" * Loading include '%s'", include->path);
 
@@ -110,14 +107,35 @@ fw3_print_includes(struct fw3_state *state, enum fw3_family family, bool reload)
 {
 	struct fw3_include *include;
 
+	bool exec = false;
+	const char *restore = "iptables-restore";
+
+	if (family == FW3_FAMILY_V6)
+		restore = "ip6tables-restore";
+
 	list_for_each_entry(include, &state->includes, list)
 	{
 		if (reload && !include->reload)
 			continue;
 
-		if (include->type == FW3_INC_TYPE_RESTORE)
-			print_include(include, family);
+		if (include->type != FW3_INC_TYPE_RESTORE)
+			continue;
+
+		if (!fw3_is_family(include, family))
+			continue;
+
+		if (!exec)
+		{
+			exec = fw3_command_pipe(false, restore, "--noflush");
+
+			if (!exec)
+				return;
+		}
+
+		print_include(include);
 	}
+
+	fw3_command_close();
 }
 
 

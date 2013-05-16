@@ -294,7 +294,8 @@ start(void)
 				fw3_ipt_commit(handle);
 		}
 
-		//fw3_print_includes(cfg_state, family, false);
+		if (!print_family)
+			fw3_print_includes(cfg_state, family, false);
 
 		family_set(run_state, family, true);
 		family_set(cfg_state, family, true);
@@ -384,7 +385,7 @@ start:
 			fw3_ipt_commit(handle);
 		}
 
-		//fw3_print_includes(cfg_state, family, true);
+		fw3_print_includes(cfg_state, family, true);
 
 		family_set(run_state, family, true);
 		family_set(cfg_state, family, true);
