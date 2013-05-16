@@ -101,12 +101,25 @@ fw3_ipt_open(enum fw3_family family, enum fw3_table table)
 	return h;
 }
 
+static void
+debug(struct fw3_ipt_handle *h, const char *fmt, ...)
+{
+	va_list ap;
+
+	printf("%s -t %s ", (h->family == FW3_FAMILY_V6) ? "ip6tables" : "iptables",
+	                    fw3_flag_names[h->table]);
+
+	va_start(ap, fmt);
+	vprintf(fmt, ap);
+	va_end(ap);
+}
+
 void
 fw3_ipt_set_policy(struct fw3_ipt_handle *h, const char *chain,
                    enum fw3_flag policy)
 {
 	if (fw3_pr_debug)
-		printf("-P %s %s\n", chain, fw3_flag_names[policy]);
+		debug(h, "-P %s %s\n", chain, fw3_flag_names[policy]);
 
 	if (h->family == FW3_FAMILY_V6)
 		ip6tc_set_policy(chain, fw3_flag_names[policy], NULL, h->handle);
@@ -119,8 +132,8 @@ fw3_ipt_delete_chain(struct fw3_ipt_handle *h, const char *chain)
 {
 	if (fw3_pr_debug)
 	{
-		printf("-F %s\n", chain);
-		printf("-X %s\n", chain);
+		debug(h, "-F %s\n", chain);
+		debug(h, "-X %s\n", chain);
 	}
 
 	if (h->family == FW3_FAMILY_V6)
@@ -163,7 +176,7 @@ fw3_ipt_delete_rules(struct fw3_ipt_handle *h, const char *target)
 					if (*t && !strcmp(t, target))
 					{
 						if (fw3_pr_debug)
-							printf("-D %s %u\n", chain, num + 1);
+							debug(h, "-D %s %u\n", chain, num + 1);
 
 						ip6tc_delete_num_entry(chain, num, h->handle);
 						found = true;
@@ -191,7 +204,7 @@ fw3_ipt_delete_rules(struct fw3_ipt_handle *h, const char *target)
 					if (*t && !strcmp(t, target))
 					{
 						if (fw3_pr_debug)
-							printf("-D %s %u\n", chain, num + 1);
+							debug(h, "-D %s %u\n", chain, num + 1);
 
 						iptc_delete_num_entry(chain, num, h->handle);
 						found = true;
@@ -201,6 +214,22 @@ fw3_ipt_delete_rules(struct fw3_ipt_handle *h, const char *target)
 			} while (found);
 		}
 	}
+}
+
+void
+fw3_ipt_create_chain(struct fw3_ipt_handle *h, const char *fmt, ...)
+{
+	char buf[32];
+	va_list ap;
+
+	va_start(ap, fmt);
+	vsnprintf(buf, sizeof(buf) - 1, fmt, ap);
+	va_end(ap);
+
+	if (fw3_pr_debug)
+		debug(h, "-N %s\n", buf);
+
+	iptc_create_chain(buf, h->handle);
 }
 
 void
@@ -978,7 +1007,7 @@ rule_print(struct fw3_ipt_rule *r, const char *chain)
 	struct xtables_match *m;
 	struct xtables_target *t;
 
-	printf("-A %s", chain);
+	debug(r->h, "-A %s", chain);
 
 	if (r->h->family == FW3_FAMILY_V6)
 		rule_print6(&r->e6);

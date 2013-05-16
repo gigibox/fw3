@@ -75,21 +75,7 @@ void fw3_ipt_set_policy(struct fw3_ipt_handle *h, const char *chain,
 void fw3_ipt_delete_chain(struct fw3_ipt_handle *h, const char *chain);
 void fw3_ipt_delete_rules(struct fw3_ipt_handle *h, const char *target);
 
-static inline void
-fw3_ipt_create_chain(struct fw3_ipt_handle *h, const char *fmt, ...)
-{
-	char buf[32];
-	va_list ap;
-
-	va_start(ap, fmt);
-	vsnprintf(buf, sizeof(buf) - 1, fmt, ap);
-	va_end(ap);
-
-	if (fw3_pr_debug)
-		printf("-N %s\n", buf);
-
-	iptc_create_chain(buf, h->handle);
-}
+void fw3_ipt_create_chain(struct fw3_ipt_handle *h, const char *fmt, ...);
 
 void fw3_ipt_flush(struct fw3_ipt_handle *h);
 
