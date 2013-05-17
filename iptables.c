@@ -58,6 +58,7 @@ static void fw3_init_extensions(void)
 {
 	libip6t_icmp6_init();
 	libip6t_LOG_init();
+	libip6t_REJECT_init();
 	libipt_DNAT_init();
 	libipt_icmp_init();
 	libipt_LOG_init();

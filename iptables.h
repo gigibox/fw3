@@ -36,6 +36,7 @@ extern struct xtables_target *xtables_pending_targets;
 /* libext.a interface */
 void libip6t_icmp6_init(void);
 void libip6t_LOG_init(void);
+void libip6t_REJECT_init(void);
 void libipt_DNAT_init(void);
 void libipt_icmp_init(void);
 void libipt_LOG_init(void);
