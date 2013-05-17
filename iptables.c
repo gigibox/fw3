@@ -54,6 +54,33 @@ get_kernel_version(void)
 	kernel_version = LINUX_VERSION(x, y, z);
 }
 
+static void fw3_init_extensions(void)
+{
+	libip6t_icmp6_init();
+	libip6t_LOG_init();
+	libipt_DNAT_init();
+	libipt_icmp_init();
+	libipt_LOG_init();
+	libipt_MASQUERADE_init();
+	libipt_REDIRECT_init();
+	libipt_REJECT_init();
+	libipt_SNAT_init();
+	libxt_comment_init();
+	libxt_conntrack_init();
+	libxt_CT_init();
+	libxt_limit_init();
+	libxt_mac_init();
+	libxt_mark_init();
+	libxt_MARK_init();
+	libxt_set_init();
+	libxt_SET_init();
+	libxt_standard_init();
+	libxt_TCPMSS_init();
+	libxt_tcp_init();
+	libxt_time_init();
+	libxt_udp_init();
+}
+
 struct fw3_ipt_handle *
 fw3_ipt_open(enum fw3_family family, enum fw3_table table)
 {
@@ -94,9 +121,7 @@ fw3_ipt_open(enum fw3_family family, enum fw3_table table)
 	xtables_matches = NULL;
 	xtables_targets = NULL;
 
-	init_extensions();
-	init_extensions4();
-	init_extensions6();
+	fw3_init_extensions();
 
 	return h;
 }

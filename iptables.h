@@ -34,9 +34,29 @@ extern struct xtables_match *xtables_pending_matches;
 extern struct xtables_target *xtables_pending_targets;
 
 /* libext.a interface */
-void init_extensions(void);
-void init_extensions4(void);
-void init_extensions6(void);
+void libip6t_icmp6_init(void);
+void libip6t_LOG_init(void);
+void libipt_DNAT_init(void);
+void libipt_icmp_init(void);
+void libipt_LOG_init(void);
+void libipt_MASQUERADE_init(void);
+void libipt_REDIRECT_init(void);
+void libipt_REJECT_init(void);
+void libipt_SNAT_init(void);
+void libxt_comment_init(void);
+void libxt_conntrack_init(void);
+void libxt_CT_init(void);
+void libxt_limit_init(void);
+void libxt_mac_init(void);
+void libxt_mark_init(void);
+void libxt_MARK_init(void);
+void libxt_set_init(void);
+void libxt_SET_init(void);
+void libxt_standard_init(void);
+void libxt_TCPMSS_init(void);
+void libxt_tcp_init(void);
+void libxt_time_init(void);
+void libxt_udp_init(void);
 
 /* Required by certain extensions like SNAT and DNAT */
 extern int kernel_version;
