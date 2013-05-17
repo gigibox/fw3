@@ -281,9 +281,6 @@ create_ipset(struct fw3_ipset *ipset, struct fw3_state *state)
 
 	struct fw3_ipset_datatype *type;
 
-	if (ipset->external)
-		return;
-
 	info(" * Creating ipset %s", ipset->name);
 
 	first = true;
@@ -325,31 +322,80 @@ create_ipset(struct fw3_ipset *ipset, struct fw3_state *state)
 void
 fw3_create_ipsets(struct fw3_state *state)
 {
+	int tries;
+	bool exec = false;
 	struct fw3_ipset *ipset;
 
 	if (state->disable_ipsets)
 		return;
 
+	/* spawn ipsets */
 	list_for_each_entry(ipset, &state->ipsets, list)
+	{
+		if (ipset->external)
+			continue;
+
+		if (!exec)
+		{
+			exec = fw3_command_pipe(false, "ipset", "-exist", "-");
+
+			if (!exec)
+				return;
+		}
+
 		create_ipset(ipset, state);
+	}
 
 	fw3_pr("quit\n");
+	fw3_command_close();
+
+	/* wait for ipsets to appear */
+	list_for_each_entry(ipset, &state->ipsets, list)
+	{
+		if (ipset->external)
+			continue;
+
+		for (tries = 0; !fw3_check_ipset(ipset) && tries < 10; tries++)
+			usleep(50000);
+	}
 }
 
 void
 fw3_destroy_ipsets(struct fw3_state *state)
 {
-	struct fw3_ipset *s;
+	int tries;
+	bool exec = false;
+	struct fw3_ipset *ipset;
 
-	list_for_each_entry(s, &state->ipsets, list)
+	/* destroy ipsets */
+	list_for_each_entry(ipset, &state->ipsets, list)
 	{
-		info(" * Deleting ipset %s", s->name);
+		if (!exec)
+		{
+			exec = fw3_command_pipe(false, "ipset", "-exist", "-");
 
-		fw3_pr("flush %s\n", s->name);
-		fw3_pr("destroy %s\n", s->name);
+			if (!exec)
+				return;
+		}
+
+		info(" * Deleting ipset %s", ipset->name);
+
+		fw3_pr("flush %s\n", ipset->name);
+		fw3_pr("destroy %s\n", ipset->name);
 	}
 
 	fw3_pr("quit\n");
+	fw3_command_close();
+
+	/* wait for ipsets to disappear */
+	list_for_each_entry(ipset, &state->ipsets, list)
+	{
+		if (ipset->external)
+			continue;
+
+		for (tries = 0; fw3_check_ipset(ipset) && tries < 10; tries++)
+			usleep(50000);
+	}
 }
 
 struct fw3_ipset *

@@ -214,13 +214,7 @@ stop(bool complete)
 	}
 
 	if (run_state)
-	{
-		if (fw3_command_pipe(false, "ipset", "-exist", "-"))
-		{
-			fw3_destroy_ipsets(run_state);
-			fw3_command_close();
-		}
-	}
+		fw3_destroy_ipsets(run_state);
 
 	if (complete && (ct = fopen("/proc/net/nf_conntrack", "w")) != NULL)
 	{
@@ -245,13 +239,7 @@ start(void)
 	struct fw3_ipt_handle *handle;
 
 	if (!print_family)
-	{
-		if (fw3_command_pipe(false, "ipset", "-exist", "-"))
-		{
-			fw3_create_ipsets(cfg_state);
-			fw3_command_close();
-		}
-	}
+		fw3_create_ipsets(cfg_state);
 
 	for (family = FW3_FAMILY_V4; family <= FW3_FAMILY_V6; family++)
 	{
