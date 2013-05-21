@@ -243,7 +243,7 @@ fw3_print_default_head_rules(struct fw3_ipt_handle *handle,
 			{
 				r = fw3_ipt_rule_new(handle);
 				fw3_ipt_rule_comment(r, "user chain for %s", chains[i+1]);
-				fw3_ipt_rule_target(r, chains[i+1]);
+				fw3_ipt_rule_target(r, "%s_rule", chains[i+1]);
 				fw3_ipt_rule_append(r, chains[i]);
 			}
 		}
