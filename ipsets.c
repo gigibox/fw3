@@ -346,8 +346,11 @@ fw3_create_ipsets(struct fw3_state *state)
 		create_ipset(ipset, state);
 	}
 
-	fw3_pr("quit\n");
-	fw3_command_close();
+	if (exec)
+	{
+		fw3_pr("quit\n");
+		fw3_command_close();
+	}
 
 	/* wait for ipsets to appear */
 	list_for_each_entry(ipset, &state->ipsets, list)
