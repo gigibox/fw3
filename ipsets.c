@@ -384,8 +384,11 @@ fw3_destroy_ipsets(struct fw3_state *state)
 		fw3_pr("destroy %s\n", ipset->name);
 	}
 
-	fw3_pr("quit\n");
-	fw3_command_close();
+	if (exec)
+	{
+		fw3_pr("quit\n");
+		fw3_command_close();
+	}
 
 	/* wait for ipsets to disappear */
 	list_for_each_entry(ipset, &state->ipsets, list)

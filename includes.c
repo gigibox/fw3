@@ -135,7 +135,8 @@ fw3_print_includes(struct fw3_state *state, enum fw3_family family, bool reload)
 		print_include(include);
 	}
 
-	fw3_command_close();
+	if (exec)
+		fw3_command_close();
 }
 
 
