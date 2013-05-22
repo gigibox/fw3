@@ -189,6 +189,14 @@ fw3_load_zones(struct fw3_state *state, struct uci_package *p)
 			continue;
 		}
 
+		if (strlen(zone->name) > FW3_ZONE_MAXNAMELEN)
+		{
+			warn_elem(e, "must not have a name longer than %u characters",
+			             FW3_ZONE_MAXNAMELEN);
+			fw3_free_zone(zone);
+			continue;
+		}
+
 		if (list_empty(&zone->networks) && list_empty(&zone->devices) &&
 		    list_empty(&zone->subnets) && !zone->extra_src)
 		{
