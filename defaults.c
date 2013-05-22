@@ -416,8 +416,7 @@ fw3_flush_rules(struct fw3_ipt_handle *handle, struct fw3_state *state,
 		if (c->table != handle->table)
 			continue;
 
-		if (c->flag &&
-		    !hasbit(defs->flags[handle->family == FW3_FAMILY_V6], c->flag))
+		if (c->flag && !has(defs->flags, handle->family, c->flag))
 			continue;
 
 		fw3_ipt_delete_rules(handle, c->format);

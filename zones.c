@@ -574,13 +574,16 @@ fw3_flush_zones(struct fw3_ipt_handle *handle, struct fw3_state *state,
 		for (c = zone_chains; c->format; c++)
 		{
 			/* don't touch user chains on selective stop */
-			if (reload && hasbit(c->flag, FW3_FLAG_CUSTOM_CHAINS))
+			if (reload && c->flag == FW3_FLAG_CUSTOM_CHAINS)
 				continue;
 
 			if (!fw3_is_family(c, handle->family))
 				continue;
 
 			if (c->table != handle->table)
+				continue;
+
+			if (c->flag && !has(z->flags, handle->family, c->flag))
 				continue;
 
 			snprintf(chain, sizeof(chain), c->format, z->name);
