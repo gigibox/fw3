@@ -315,8 +315,10 @@ reload(void)
 	enum fw3_table table;
 	struct fw3_ipt_handle *handle;
 
-	if (!print_family && run_state)
-		fw3_hotplug_zones(run_state, false);
+	if (!run_state)
+		return start();
+
+	fw3_hotplug_zones(run_state, false);
 
 	for (family = FW3_FAMILY_V4; family <= FW3_FAMILY_V6; family++)
 	{
@@ -334,12 +336,8 @@ reload(void)
 			info(" * Clearing %s %s table",
 			     fw3_flag_names[family], fw3_flag_names[table]);
 
-			if (run_state)
-			{
-				fw3_flush_rules(handle, run_state, true);
-				fw3_flush_zones(handle, run_state, true);
-			}
-
+			fw3_flush_rules(handle, run_state, true);
+			fw3_flush_zones(handle, run_state, true);
 			fw3_ipt_commit(handle);
 		}
 
@@ -384,13 +382,9 @@ start:
 	if (!rv)
 	{
 		fw3_set_defaults(cfg_state);
-
-		if (!print_family)
-		{
-			fw3_run_includes(cfg_state, true);
-			fw3_hotplug_zones(cfg_state, true);
-			fw3_write_statefile(cfg_state);
-		}
+		fw3_run_includes(cfg_state, true);
+		fw3_hotplug_zones(cfg_state, true);
+		fw3_write_statefile(cfg_state);
 	}
 
 	return rv;
@@ -453,6 +447,7 @@ usage(void)
 int main(int argc, char **argv)
 {
 	int ch, rv = 1;
+	enum fw3_family family = FW3_FAMILY_ANY;
 	struct fw3_defaults *defs = NULL;
 
 	while ((ch = getopt(argc, argv, "46dqh")) != -1)
@@ -460,11 +455,11 @@ int main(int argc, char **argv)
 		switch (ch)
 		{
 		case '4':
-			print_family = FW3_FAMILY_V4;
+			family = FW3_FAMILY_V4;
 			break;
 
 		case '6':
-			print_family = FW3_FAMILY_V6;
+			family = FW3_FAMILY_V6;
 			break;
 
 		case 'd':
@@ -493,14 +488,15 @@ int main(int argc, char **argv)
 
 	if (!strcmp(argv[optind], "print"))
 	{
-		if (print_family == FW3_FAMILY_ANY)
-			print_family = FW3_FAMILY_V4;
-		else if (print_family == FW3_FAMILY_V6 && defs->disable_ipv6)
+		if (family == FW3_FAMILY_ANY)
+			family = FW3_FAMILY_V4;
+		else if (family == FW3_FAMILY_V6 && defs->disable_ipv6)
 			warn("IPv6 rules globally disabled in configuration");
 
 		freopen("/dev/null", "w", stderr);
 
 		cfg_state->disable_ipsets = true;
+		print_family = family;
 		fw3_pr_debug = true;
 
 		rv = start();
