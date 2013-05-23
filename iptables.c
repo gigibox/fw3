@@ -1162,7 +1162,7 @@ fw3_ipt_rule_append(struct fw3_ipt_rule *r, const char *fmt, ...)
 			if (!em)
 			{
 				fprintf(stderr, "fw3_ipt_rule_append(): Can't find match '%s'\n", optarg);
-				return;
+				goto free;
 			}
 
 			init_match(r, em, true);
@@ -1174,7 +1174,7 @@ fw3_ipt_rule_append(struct fw3_ipt_rule *r, const char *fmt, ...)
 			if (!et)
 			{
 				fprintf(stderr, "fw3_ipt_rule_append(): Can't find target '%s'\n", optarg);
-				return;
+				goto free;
 			}
 
 			break;
@@ -1263,6 +1263,7 @@ fw3_ipt_rule_append(struct fw3_ipt_rule *r, const char *fmt, ...)
 		free(e);
 	}
 
+free:
 	for (i = 1; i < r->argc; i++)
 		free(r->argv[i]);
 
