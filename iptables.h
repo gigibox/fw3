@@ -34,30 +34,38 @@ extern struct xtables_match *xtables_pending_matches;
 extern struct xtables_target *xtables_pending_targets;
 
 /* libext.a interface */
-void libip6t_icmp6_init(void);
-void libip6t_LOG_init(void);
-void libip6t_REJECT_init(void);
-void libipt_DNAT_init(void);
-void libipt_icmp_init(void);
-void libipt_LOG_init(void);
-void libipt_MASQUERADE_init(void);
-void libipt_REDIRECT_init(void);
-void libipt_REJECT_init(void);
-void libipt_SNAT_init(void);
-void libxt_comment_init(void);
-void libxt_conntrack_init(void);
-void libxt_CT_init(void);
-void libxt_limit_init(void);
-void libxt_mac_init(void);
-void libxt_mark_init(void);
-void libxt_MARK_init(void);
-void libxt_set_init(void);
-void libxt_SET_init(void);
-void libxt_standard_init(void);
-void libxt_TCPMSS_init(void);
-void libxt_tcp_init(void);
-void libxt_time_init(void);
-void libxt_udp_init(void);
+#define FW3_IPT_MODULES			\
+	__ipt_module(comment)		\
+	__ipt_module(conntrack)		\
+	__ipt_module(icmp)			\
+	__ipt_module(icmp6)			\
+	__ipt_module(limit)			\
+	__ipt_module(mac)			\
+	__ipt_module(mark)			\
+	__ipt_module(set)			\
+	__ipt_module(standard)		\
+	__ipt_module(tcp)			\
+	__ipt_module(time)			\
+	__ipt_module(udp)			\
+	__ipt_module(CT)			\
+	__ipt_module(DNAT)			\
+	__ipt_module(LOG)			\
+	__ipt_module(MARK)			\
+	__ipt_module(MASQUERADE)	\
+	__ipt_module(REDIRECT)		\
+	__ipt_module(REJECT)		\
+	__ipt_module(SET)			\
+	__ipt_module(SNAT)			\
+	__ipt_module(TCPMSS)
+
+#undef __ipt_module
+#define __ipt_module(x) \
+	extern void libxt_##x##_init(void) __attribute__((weak)); \
+	extern void libipt_##x##_init(void) __attribute__((weak)); \
+	extern void libip6t_##x##_init(void) __attribute__((weak));
+
+FW3_IPT_MODULES
+
 
 /* Required by certain extensions like SNAT and DNAT */
 extern int kernel_version;

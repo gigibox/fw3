@@ -54,32 +54,17 @@ get_kernel_version(void)
 	kernel_version = LINUX_VERSION(x, y, z);
 }
 
+#undef __ipt_module
+#define __ipt_module(x) libxt_##x##_init, libipt_##x##_init, libip6t_##x##_init,
+
 static void fw3_init_extensions(void)
 {
-	libip6t_icmp6_init();
-	libip6t_LOG_init();
-	libip6t_REJECT_init();
-	libipt_DNAT_init();
-	libipt_icmp_init();
-	libipt_LOG_init();
-	libipt_MASQUERADE_init();
-	libipt_REDIRECT_init();
-	libipt_REJECT_init();
-	libipt_SNAT_init();
-	libxt_comment_init();
-	libxt_conntrack_init();
-	libxt_CT_init();
-	libxt_limit_init();
-	libxt_mac_init();
-	libxt_mark_init();
-	libxt_MARK_init();
-	libxt_set_init();
-	libxt_SET_init();
-	libxt_standard_init();
-	libxt_TCPMSS_init();
-	libxt_tcp_init();
-	libxt_time_init();
-	libxt_udp_init();
+	int i;
+	void (*initfuncs[])(void) = { FW3_IPT_MODULES };
+
+	for (i = 0; i < sizeof(initfuncs)/sizeof(initfuncs[0]); i++)
+		if (initfuncs[i])
+			initfuncs[i]();
 }
 
 struct fw3_ipt_handle *
