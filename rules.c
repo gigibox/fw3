@@ -245,7 +245,13 @@ append_chain(struct fw3_ipt_rule *r, struct fw3_rule *rule)
 		}
 
 		if (rule->dest.set && !rule->src.set)
-			snprintf(chain, sizeof(chain), "zone_%s_output", rule->dest.name);
+		{
+			if (rule->dest.any)
+				snprintf(chain, sizeof(chain), "delegate_output");
+			else
+				snprintf(chain, sizeof(chain), "zone_%s_output",
+				         rule->dest.name);
+		}
 	}
 
 	fw3_ipt_rule_append(r, chain);
