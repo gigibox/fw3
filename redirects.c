@@ -32,14 +32,14 @@ const struct fw3_option fw3_redirect_opts[] = {
 
 	FW3_LIST("proto",              protocol,  redirect,     proto),
 
-	FW3_OPT("src_ip",              address,   redirect,     ip_src),
+	FW3_OPT("src_ip",              network,   redirect,     ip_src),
 	FW3_LIST("src_mac",            mac,       redirect,     mac_src),
 	FW3_OPT("src_port",            port,      redirect,     port_src),
 
-	FW3_OPT("src_dip",             address,   redirect,     ip_dest),
+	FW3_OPT("src_dip",             network,   redirect,     ip_dest),
 	FW3_OPT("src_dport",           port,      redirect,     port_dest),
 
-	FW3_OPT("dest_ip",             address,   redirect,     ip_redir),
+	FW3_OPT("dest_ip",             network,   redirect,     ip_redir),
 	FW3_OPT("dest_port",           port,      redirect,     port_redir),
 
 	FW3_OPT("extra",               string,    redirect,     extra),

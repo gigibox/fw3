@@ -32,11 +32,11 @@ const struct fw3_option fw3_rule_opts[] = {
 
 	FW3_LIST("proto",              protocol,  rule,     proto),
 
-	FW3_LIST("src_ip",             address,   rule,     ip_src),
+	FW3_LIST("src_ip",             network,   rule,     ip_src),
 	FW3_LIST("src_mac",            mac,       rule,     mac_src),
 	FW3_LIST("src_port",           port,      rule,     port_src),
 
-	FW3_LIST("dest_ip",            address,   rule,     ip_dest),
+	FW3_LIST("dest_ip",            network,   rule,     ip_dest),
 	FW3_LIST("dest_port",          port,      rule,     port_dest),
 
 	FW3_LIST("icmp_type",          icmptype,  rule,     icmp_type),
