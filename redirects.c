@@ -554,10 +554,10 @@ expand_redirect(struct fw3_ipt_handle *handle, struct fw3_state *state,
 								 &ref_addr, int_addr, ext_addr);
 			}
 
-			fw3_ubus_address_free(int_addrs);
+			fw3_free_list(int_addrs);
 		}
 
-		fw3_ubus_address_free(ext_addrs);
+		fw3_free_list(ext_addrs);
 	}
 }
 

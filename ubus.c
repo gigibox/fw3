@@ -182,17 +182,3 @@ fw3_ubus_address(const char *net)
 {
 	return invoke_common(net, false);
 }
-
-void
-fw3_ubus_address_free(struct list_head *list)
-{
-	struct fw3_address *addr, *tmp;
-
-	list_for_each_entry_safe(addr, tmp, list, list)
-	{
-		list_del(&addr->list);
-		free(addr);
-	}
-
-	free(list);
-}

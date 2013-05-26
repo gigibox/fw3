@@ -347,7 +347,7 @@ fw3_parse_network(void *ptr, const char *val, bool is_list)
 					break;
 			}
 
-			fw3_ubus_address_free(addr_list);
+			fw3_free_list(addr_list);
 		}
 	}
 

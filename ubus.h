@@ -31,6 +31,5 @@ void fw3_ubus_disconnect(void);
 struct fw3_device * fw3_ubus_device(const char *net);
 
 struct list_head * fw3_ubus_address(const char *net);
-void fw3_ubus_address_free(struct list_head *list);
 
 #endif
