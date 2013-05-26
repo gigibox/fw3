@@ -1271,7 +1271,9 @@ free:
 
 	xtables_rule_matches_free(&r->matches);
 
-	free(r->target->t);
+	if (r->target)
+		free(r->target->t);
+
 	free(r);
 
 	/* reset all targets and matches */
