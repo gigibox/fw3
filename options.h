@@ -162,6 +162,7 @@ struct fw3_address
 	bool set;
 	bool range;
 	bool invert;
+	bool resolved;
 	enum fw3_family family;
 	int mask;
 	union {

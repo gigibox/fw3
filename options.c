@@ -342,6 +342,7 @@ fw3_parse_network(void *ptr, const char *val, bool is_list)
 			list_for_each_entry(addr, addr_list, list)
 			{
 				addr->invert = dev.invert;
+				addr->resolved = true;
 
 				if (!put_value(ptr, addr, sizeof(*addr), is_list))
 					break;
