@@ -268,7 +268,7 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 
 			if (!redir->dest.set && resolve_dest(e, redir, state))
 			{
-				warn_elem(e, "has no destination specified, assuming zone '%s'",
+				warn_elem(e, "does not specify a destination, assuming '%s'",
 				          redir->dest.name);
 			}
 
