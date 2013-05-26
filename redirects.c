@@ -109,6 +109,58 @@ check_families(struct uci_element *e, struct fw3_redirect *r)
 	return true;
 }
 
+static bool
+compare_addr(struct fw3_address *a, struct fw3_address *b)
+{
+	uint32_t mask;
+
+	if (a->family != FW3_FAMILY_V4)
+		return false;
+
+	mask = ~((1 << (32 - a->mask)) - 1);
+
+	return ((a->address.v4.s_addr & mask) == (b->address.v4.s_addr & mask));
+}
+
+static bool
+resolve_dest(struct uci_element *e, struct fw3_redirect *redir,
+             struct fw3_state *state)
+{
+	struct fw3_zone *zone;
+	struct fw3_address *addr;
+	struct list_head *addrs;
+
+	if (!redir->ip_redir.set)
+		return false;
+
+	list_for_each_entry(zone, &state->zones, list)
+	{
+		addrs = fw3_resolve_zone_addresses(zone);
+
+		if (!addrs)
+			continue;
+
+		list_for_each_entry(addr, addrs, list)
+		{
+			if (!compare_addr(addr, &redir->ip_redir))
+				continue;
+
+			strncpy(redir->dest.name, zone->name, sizeof(redir->dest.name));
+			redir->dest.set = true;
+			redir->_dest = zone;
+
+			break;
+		}
+
+		fw3_free_list(addrs);
+
+		if (redir->_dest)
+			return true;
+	}
+
+	return false;
+}
+
 void
 fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 {
@@ -212,6 +264,12 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 				set(redir->_src->flags, FW3_FAMILY_V4, redir->target);
 				redir->_src->conntrack = true;
 				valid = true;
+			}
+
+			if (!redir->dest.set && resolve_dest(e, redir, state))
+			{
+				warn_elem(e, "has no destination specified, assuming zone '%s'",
+				          redir->dest.name);
 			}
 
 			if (redir->reflection && redir->_dest && redir->_src->masq)
@@ -463,7 +521,6 @@ expand_redirect(struct fw3_ipt_handle *handle, struct fw3_state *state,
 {
 	struct list_head *ext_addrs, *int_addrs;
 	struct fw3_address *ext_addr, *int_addr, ref_addr;
-	struct fw3_device *ext_net, *int_net;
 	struct fw3_protocol *proto;
 	struct fw3_mac *mac;
 
@@ -517,28 +574,24 @@ expand_redirect(struct fw3_ipt_handle *handle, struct fw3_state *state,
 	if (!redir->_dest || !redir->_src->masq)
 		return;
 
-	list_for_each_entry(ext_net, &redir->_src->networks, list)
-	{
-		ext_addrs = fw3_ubus_address(ext_net->name);
+	ext_addrs = fw3_resolve_zone_addresses(redir->_src);
+	int_addrs = fw3_resolve_zone_addresses(redir->_dest);
 
-		if (!ext_addrs || list_empty(ext_addrs))
+	if (!ext_addrs || !int_addrs)
+		goto out;
+
+	list_for_each_entry(ext_addr, ext_addrs, list)
+	{
+		if (!fw3_is_family(ext_addr, handle->family))
 			continue;
 
-		list_for_each_entry(int_net, &redir->_dest->networks, list)
+		list_for_each_entry(int_addr, int_addrs, list)
 		{
-			int_addrs = fw3_ubus_address(int_net->name);
-
-			if (!int_addrs || list_empty(int_addrs))
+			if (!fw3_is_family(int_addr, handle->family))
 				continue;
 
-			fw3_foreach(ext_addr, ext_addrs)
-			fw3_foreach(int_addr, int_addrs)
 			fw3_foreach(proto, &redir->proto)
 			{
-				if (!fw3_is_family(int_addr, handle->family) ||
-				    !fw3_is_family(ext_addr, handle->family))
-					continue;
-
 				if (!proto || (proto->protocol != 6 && proto->protocol != 17))
 					continue;
 
@@ -553,12 +606,12 @@ expand_redirect(struct fw3_ipt_handle *handle, struct fw3_state *state,
 				print_reflection(handle, state, redir, num, proto,
 								 &ref_addr, int_addr, ext_addr);
 			}
-
-			fw3_free_list(int_addrs);
 		}
-
-		fw3_free_list(ext_addrs);
 	}
+
+out:
+	fw3_free_list(ext_addrs);
+	fw3_free_list(int_addrs);
 }
 
 void
