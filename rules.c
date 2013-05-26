@@ -314,7 +314,9 @@ print_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 	if (!fw3_is_family(sip, handle->family) ||
 	    !fw3_is_family(dip, handle->family))
 	{
-		info("     ! Skipping due to different family of ip address");
+		if ((sip && !sip->resolved) || (dip && !dip->resolved))
+			info("     ! Skipping due to different family of ip address");
+
 		return;
 	}
 

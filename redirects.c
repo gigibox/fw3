@@ -540,7 +540,11 @@ expand_redirect(struct fw3_ipt_handle *handle, struct fw3_state *state,
 	    !fw3_is_family(&redir->ip_dest, handle->family) ||
 		!fw3_is_family(&redir->ip_redir, handle->family))
 	{
-		info("     ! Skipping due to different family of ip address");
+		if (!redir->ip_src.resolved ||
+		    !redir->ip_dest.resolved ||
+		    !redir->ip_redir.resolved)
+			info("     ! Skipping due to different family of ip address");
+
 		return;
 	}
 
