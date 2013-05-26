@@ -687,23 +687,3 @@ fw3_resolve_zone_addresses(struct fw3_zone *zone)
 
 	return all;
 }
-
-void
-fw3_free_zone(struct fw3_zone *zone)
-{
-	struct fw3_device *dev, *tmp;
-
-	list_for_each_entry_safe(dev, tmp, &zone->devices, list)
-	{
-		list_del(&dev->list);
-		free(dev);
-	}
-
-	list_for_each_entry_safe(dev, tmp, &zone->networks, list)
-	{
-		list_del(&dev->list);
-		free(dev);
-	}
-
-	fw3_free_object(zone, fw3_zone_opts);
-}
