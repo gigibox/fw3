@@ -91,6 +91,8 @@ void fw3_write_statefile(void *state);
 
 void fw3_free_object(void *obj, const void *opts);
 
+void fw3_free_list(struct list_head *head);
+
 bool fw3_hotplug(bool add, void *zone, void *device);
 
 #endif

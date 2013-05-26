@@ -656,6 +656,22 @@ fw3_free_object(void *obj, const void *opts)
 	free(obj);
 }
 
+void
+fw3_free_list(struct list_head *head)
+{
+	struct list_head *entry, *tmp;
+
+	if (!head)
+		return;
+
+	list_for_each_safe(entry, tmp, head)
+	{
+		list_del(entry);
+		free(entry);
+	}
+
+	free(head);
+}
 
 bool
 fw3_hotplug(bool add, void *zone, void *device)
