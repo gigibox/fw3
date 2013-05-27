@@ -63,11 +63,18 @@
 	__ipt_module(SNAT)			\
 	__ipt_module(TCPMSS)
 
+#ifdef DISABLE_IPV6
+#undef __ipt_module
+#define __ipt_module(x) \
+	extern void libxt_##x##_init(void) __attribute__((weak)); \
+	extern void libipt_##x##_init(void) __attribute__((weak));
+#else
 #undef __ipt_module
 #define __ipt_module(x) \
 	extern void libxt_##x##_init(void) __attribute__((weak)); \
 	extern void libipt_##x##_init(void) __attribute__((weak)); \
 	extern void libip6t_##x##_init(void) __attribute__((weak));
+#endif
 
 FW3_IPT_MODULES
 

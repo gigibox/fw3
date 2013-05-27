@@ -3,6 +3,8 @@ cmake_minimum_required(VERSION 2.6)
 PROJECT(firewall3 C)
 ADD_DEFINITIONS(-Os -Wall -Werror --std=gnu99 -g3 -Wmissing-declarations)
 
+SET(iptc_libs   ip4tc)
+
 SET(sed_match   "^[[:space:]]*__ipt_module(\\(.*\\)).*")
 SET(sed_replace "-Wl,--undefined=libxt_\\1_init -Wl,--undefined=libipt_\\1_init -Wl,--undefined=libip6t_\\1_init")
 
@@ -24,14 +26,19 @@ IF (EXISTS "${CMAKE_SOURCE_DIR}/libext4.a")
   LIST(APPEND ext_libs ext4)
 ENDIF()
 
-IF (EXISTS "${CMAKE_SOURCE_DIR}/libext6.a")
-  ADD_LIBRARY(ext6 STATIC IMPORTED)
-  SET_PROPERTY(TARGET ext6 PROPERTY IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/libext6.a")
-  LIST(APPEND ext_libs ext6)
+IF (NOT DISABLE_IPV6)
+  IF (EXISTS "${CMAKE_SOURCE_DIR}/libext6.a")
+	ADD_LIBRARY(ext6 STATIC IMPORTED)
+	SET_PROPERTY(TARGET ext6 PROPERTY IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/libext6.a")
+	LIST(APPEND ext_libs ext6)
+  ENDIF()
+  LIST(APPEND iptc_libs ip6tc)
+ELSE()
+  ADD_DEFINITIONS(-DDISABLE_IPV6)
 ENDIF()
 
 ADD_EXECUTABLE(firewall3 main.c options.c defaults.c zones.c forwards.c rules.c redirects.c utils.c ubus.c ipsets.c includes.c iptables.c)
-TARGET_LINK_LIBRARIES(firewall3 uci ubox ubus ip4tc ip6tc xtables m ${ext_libs})
+TARGET_LINK_LIBRARIES(firewall3 uci ubox ubus xtables m ${iptc_libs} ${ext_libs})
 
 SET(CMAKE_INSTALL_PREFIX /usr)
 

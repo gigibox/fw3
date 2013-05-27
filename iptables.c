@@ -54,8 +54,13 @@ get_kernel_version(void)
 	kernel_version = 0x10000 * x + 0x100 * y + z;
 }
 
+#ifdef DISABLE_IPV6
+#undef __ipt_module
+#define __ipt_module(x) libxt_##x##_init, libipt_##x##_init,
+#else
 #undef __ipt_module
 #define __ipt_module(x) libxt_##x##_init, libipt_##x##_init, libip6t_##x##_init,
+#endif
 
 static void fw3_init_extensions(void)
 {
@@ -78,12 +83,14 @@ fw3_ipt_open(enum fw3_family family, enum fw3_table table)
 
 	if (family == FW3_FAMILY_V6)
 	{
+#ifndef DISABLE_IPV6
 		h->family = FW3_FAMILY_V6;
 		h->table  = table;
 		h->handle = ip6tc_init(fw3_flag_names[table]);
 
 		xtables_set_params(&xtg6);
 		xtables_set_nfproto(NFPROTO_IPV6);
+#endif
 	}
 	else
 	{
@@ -127,9 +134,11 @@ fw3_ipt_set_policy(struct fw3_ipt_handle *h, const char *chain,
 	if (fw3_pr_debug)
 		debug(h, "-P %s %s\n", chain, fw3_flag_names[policy]);
 
+#ifndef DISABLE_IPV6
 	if (h->family == FW3_FAMILY_V6)
 		ip6tc_set_policy(chain, fw3_flag_names[policy], NULL, h->handle);
 	else
+#endif
 		iptc_set_policy(chain, fw3_flag_names[policy], NULL, h->handle);
 }
 
@@ -142,12 +151,14 @@ fw3_ipt_delete_chain(struct fw3_ipt_handle *h, const char *chain)
 		debug(h, "-X %s\n", chain);
 	}
 
+#ifndef DISABLE_IPV6
 	if (h->family == FW3_FAMILY_V6)
 	{
 		if (ip6tc_flush_entries(chain, h->handle))
 			ip6tc_delete_chain(chain, h->handle);
 	}
 	else
+#endif
 	{
 		if (iptc_flush_entries(chain, h->handle))
 			iptc_delete_chain(chain, h->handle);
@@ -159,11 +170,11 @@ fw3_ipt_delete_rules(struct fw3_ipt_handle *h, const char *target)
 {
 	unsigned int num;
 	const struct ipt_entry *e;
-	const struct ip6t_entry *e6;
 	const char *chain;
 	const char *t;
 	bool found;
 
+#ifndef DISABLE_IPV6
 	if (h->family == FW3_FAMILY_V6)
 	{
 		for (chain = ip6tc_first_chain(h->handle);
@@ -173,6 +184,7 @@ fw3_ipt_delete_rules(struct fw3_ipt_handle *h, const char *target)
 			do {
 				found = false;
 
+				const struct ip6t_entry *e6;
 				for (num = 0, e6 = ip6tc_first_rule(chain, h->handle);
 					 e6 != NULL;
 					 num++, e6 = ip6tc_next_rule(e6, h->handle))
@@ -193,6 +205,7 @@ fw3_ipt_delete_rules(struct fw3_ipt_handle *h, const char *target)
 		}
 	}
 	else
+#endif
 	{
 		for (chain = iptc_first_chain(h->handle);
 		     chain != NULL;
@@ -243,6 +256,7 @@ fw3_ipt_flush(struct fw3_ipt_handle *h)
 {
 	const char *chain;
 
+#ifndef DISABLE_IPV6
 	if (h->family == FW3_FAMILY_V6)
 	{
 		for (chain = ip6tc_first_chain(h->handle);
@@ -260,6 +274,7 @@ fw3_ipt_flush(struct fw3_ipt_handle *h)
 		}
 	}
 	else
+#endif
 	{
 		for (chain = iptc_first_chain(h->handle);
 		     chain != NULL;
@@ -282,6 +297,7 @@ fw3_ipt_commit(struct fw3_ipt_handle *h)
 {
 	int rv;
 
+#ifndef DISABLE_IPV6
 	if (h->family == FW3_FAMILY_V6)
 	{
 		rv = ip6tc_commit(h->handle);
@@ -289,6 +305,7 @@ fw3_ipt_commit(struct fw3_ipt_handle *h)
 			fprintf(stderr, "ip6tc_commit(): %s\n", ip6tc_strerror(errno));
 	}
 	else
+#endif
 	{
 		rv = iptc_commit(h->handle);
 		if (!rv)
@@ -316,9 +333,11 @@ fw3_ipt_rule_new(struct fw3_ipt_handle *h)
 static bool
 is_chain(struct fw3_ipt_handle *h, const char *name)
 {
+#ifndef DISABLE_IPV6
 	if (h->family == FW3_FAMILY_V6)
 		return ip6tc_is_chain(name, h->handle);
 	else
+#endif
 		return iptc_is_chain(name, h->handle);
 }
 
@@ -447,6 +466,7 @@ fw3_ipt_rule_proto(struct fw3_ipt_rule *r, struct fw3_protocol *proto)
 
 	pr = proto->protocol;
 
+#ifndef DISABLE_IPV6
 	if (r->h->family == FW3_FAMILY_V6)
 	{
 		if (pr == 1)
@@ -459,6 +479,7 @@ fw3_ipt_rule_proto(struct fw3_ipt_rule *r, struct fw3_protocol *proto)
 			r->e6.ipv6.invflags |= XT_INV_PROTO;
 	}
 	else
+#endif
 	{
 		r->e.ip.proto = pr;
 
@@ -473,6 +494,7 @@ void
 fw3_ipt_rule_in_out(struct fw3_ipt_rule *r,
                     struct fw3_device *in, struct fw3_device *out)
 {
+#ifndef DISABLE_IPV6
 	if (r->h->family == FW3_FAMILY_V6)
 	{
 		if (in && !in->any)
@@ -494,6 +516,7 @@ fw3_ipt_rule_in_out(struct fw3_ipt_rule *r,
 		}
 	}
 	else
+#endif
 	{
 		if (in && !in->any)
 		{
@@ -522,6 +545,7 @@ ip4prefix2mask(int prefix, struct in_addr *mask)
 	mask->s_addr = htonl(~((1 << (32 - prefix)) - 1));
 }
 
+#ifndef DISABLE_IPV6
 static void
 ip6prefix2mask(int prefix, struct in6_addr *mask)
 {
@@ -538,13 +562,12 @@ ip6prefix2mask(int prefix, struct in6_addr *mask)
 		memset(mask, 0, sizeof(*mask));
 	}
 }
+#endif
 
 void
 fw3_ipt_rule_src_dest(struct fw3_ipt_rule *r,
                       struct fw3_address *src, struct fw3_address *dest)
 {
-	int i;
-
 	if ((src && src->range) || (dest && dest->range))
 	{
 		fw3_ipt_rule_addarg(r, false, "-m", "iprange");
@@ -557,17 +580,20 @@ fw3_ipt_rule_src_dest(struct fw3_ipt_rule *r,
 			fw3_ipt_rule_addarg(r, src->invert, "--src-range",
 			                    fw3_address_to_string(src, false));
 		}
+#ifndef DISABLE_IPV6
 		else if (r->h->family == FW3_FAMILY_V6)
 		{
 			r->e6.ipv6.src = src->address.v6;
 			ip6prefix2mask(src->mask, &r->e6.ipv6.smsk);
 
+			int i;
 			for (i = 0; i < 4; i++)
 				r->e6.ipv6.src.s6_addr32[i] &= r->e6.ipv6.smsk.s6_addr32[i];
 
 			if (src->invert)
 				r->e6.ipv6.invflags |= IP6T_INV_SRCIP;
 		}
+#endif
 		else
 		{
 			r->e.ip.src = src->address.v4;
@@ -587,17 +613,20 @@ fw3_ipt_rule_src_dest(struct fw3_ipt_rule *r,
 			fw3_ipt_rule_addarg(r, dest->invert, "--dst-range",
 			                    fw3_address_to_string(dest, false));
 		}
+#ifndef DISABLE_IPV6
 		else if (r->h->family == FW3_FAMILY_V6)
 		{
 			r->e6.ipv6.dst = dest->address.v6;
 			ip6prefix2mask(dest->mask, &r->e6.ipv6.dmsk);
 
+			int i;
 			for (i = 0; i < 4; i++)
 				r->e6.ipv6.dst.s6_addr32[i] &= r->e6.ipv6.dmsk.s6_addr32[i];
 
 			if (dest->invert)
 				r->e6.ipv6.invflags |= IP6T_INV_DSTIP;
 		}
+#endif
 		else
 		{
 			r->e.ip.dst = dest->address.v4;
@@ -662,6 +691,7 @@ fw3_ipt_rule_icmptype(struct fw3_ipt_rule *r, struct fw3_icmptype *icmp)
 	if (!icmp)
 		return;
 
+#ifndef DISABLE_IPV6
 	if (r->h->family == FW3_FAMILY_V6)
 	{
 		if (icmp->code6_min == 0 && icmp->code6_max == 0xFF)
@@ -672,6 +702,7 @@ fw3_ipt_rule_icmptype(struct fw3_ipt_rule *r, struct fw3_icmptype *icmp)
 		fw3_ipt_rule_addarg(r, icmp->invert, "--icmpv6-type", buf);
 	}
 	else
+#endif
 	{
 		if (icmp->code_min == 0 && icmp->code_max == 0xFF)
 			sprintf(buf, "%u", icmp->type);
@@ -876,6 +907,7 @@ fw3_ipt_rule_extra(struct fw3_ipt_rule *r, const char *extra)
 	free(s);
 }
 
+#ifndef DISABLE_IPV6
 static void
 rule_print6(struct ip6t_entry *e)
 {
@@ -929,6 +961,7 @@ rule_print6(struct ip6t_entry *e)
 		                    xtables_ip6mask_to_cidr(&e->ipv6.dmsk));
 	}
 }
+#endif
 
 static void
 rule_print4(struct ipt_entry *e)
@@ -994,9 +1027,11 @@ rule_print(struct fw3_ipt_rule *r, const char *chain)
 
 	debug(r->h, "-A %s", chain);
 
+#ifndef DISABLE_IPV6
 	if (r->h->family == FW3_FAMILY_V6)
 		rule_print6(&r->e6);
 	else
+#endif
 		rule_print4(&r->e);
 
 	for (rm = r->matches; rm; rm = rm->next)
@@ -1109,7 +1144,6 @@ fw3_ipt_rule_append(struct fw3_ipt_rule *r, const char *fmt, ...)
 	struct xtables_target *et;
 	struct xtables_globals *g;
 	struct ipt_entry *e;
-	struct ip6t_entry *e6;
 
 	int i, optc;
 	bool inv = false;
@@ -1181,8 +1215,11 @@ fw3_ipt_rule_append(struct fw3_ipt_rule *r, const char *fmt, ...)
 	if (fw3_pr_debug)
 		rule_print(r, buf);
 
+#ifndef DISABLE_IPV6
 	if (r->h->family == FW3_FAMILY_V6)
 	{
+		struct ip6t_entry *e6;
+
 		s = XT_ALIGN(sizeof(struct ip6t_entry));
 
 		for (m = r->matches; m; m = m->next)
@@ -1208,6 +1245,7 @@ fw3_ipt_rule_append(struct fw3_ipt_rule *r, const char *fmt, ...)
 		free(e6);
 	}
 	else
+#endif
 	{
 		s = XT_ALIGN(sizeof(struct ipt_entry));
 

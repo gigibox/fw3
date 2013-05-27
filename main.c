@@ -489,9 +489,18 @@ int main(int argc, char **argv)
 	if (!strcmp(argv[optind], "print"))
 	{
 		if (family == FW3_FAMILY_ANY)
+		{
 			family = FW3_FAMILY_V4;
-		else if (family == FW3_FAMILY_V6 && defs->disable_ipv6)
-			warn("IPv6 rules globally disabled in configuration");
+		}
+		else if (family == FW3_FAMILY_V6)
+		{
+			if (defs->disable_ipv6)
+				warn("IPv6 rules globally disabled in configuration");
+#ifdef DISABLE_IPV6
+			else
+				warn("IPv6 support is not compiled in");
+#endif
+		}
 
 		freopen("/dev/null", "w", stderr);
 
