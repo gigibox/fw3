@@ -39,7 +39,7 @@ static struct xtables_globals xtg6 = {
 };
 
 /* Required by certain extensions like SNAT and DNAT */
-int kernel_version;
+int kernel_version = 0;
 
 void
 get_kernel_version(void)
@@ -51,7 +51,7 @@ get_kernel_version(void)
 		sprintf(uts.release, "3.0.0");
 
 	sscanf(uts.release, "%d.%d.%d", &x, &y, &z);
-	kernel_version = LINUX_VERSION(x, y, z);
+	kernel_version = 0x10000 * x + 0x100 * y + z;
 }
 
 #undef __ipt_module
@@ -358,16 +358,14 @@ init_match(struct fw3_ipt_rule *r, struct xtables_match *m, bool no_clone)
 	s = XT_ALIGN(sizeof(struct xt_entry_match)) + m->size;
 
 	m->m = fw3_alloc(s);
-	strcpy(m->m->u.user.name, m->real_name ? m->real_name : m->name);
+
+	fw3_xt_set_match_name(m);
+
 	m->m->u.user.revision = m->revision;
 	m->m->u.match_size = s;
 
 	/* free previous userspace data */
-	if (m->udata_size)
-	{
-		free(m->udata);
-		m->udata = fw3_alloc(m->udata_size);
-	}
+	fw3_xt_free_match_udata(m);
 
 	if (m->init)
 		m->init(m->m);
@@ -378,14 +376,7 @@ init_match(struct fw3_ipt_rule *r, struct xtables_match *m, bool no_clone)
 
 	/* merge option table */
 	g = (r->h->family == FW3_FAMILY_V6) ? &xtg6 : &xtg;
-
-	if (m->x6_options)
-		g->opts = xtables_options_xfrm(g->orig_opts, g->opts,
-									   m->x6_options, &m->option_offset);
-
-	if (m->extra_opts)
-		g->opts = xtables_merge_options(g->orig_opts, g->opts,
-										m->extra_opts, &m->option_offset);
+	fw3_xt_merge_match_options(g, m);
 }
 
 static bool
@@ -431,32 +422,20 @@ get_target(struct fw3_ipt_rule *r, const char *name)
 	s = XT_ALIGN(sizeof(struct xt_entry_target)) + t->size;
 	t->t = fw3_alloc(s);
 
-	if (!t->real_name)
-		strcpy(t->t->u.user.name, name);
-	else
-		strcpy(t->t->u.user.name, t->real_name);
+	fw3_xt_set_target_name(t, name);
 
 	t->t->u.user.revision = t->revision;
 	t->t->u.target_size = s;
 
-	if (t->udata_size)
-	{
-		free(t->udata);
-		t->udata = fw3_alloc(t->udata_size);
-	}
+	/* free previous userspace data */
+	fw3_xt_free_target_udata(t);
 
 	if (t->init)
 		t->init(t->t);
 
 	/* merge option table */
 	g = (r->h->family == FW3_FAMILY_V6) ? &xtg6 : &xtg;
-
-	if (t->x6_options)
-		g->opts = xtables_options_xfrm(g->orig_opts, g->opts,
-		                               t->x6_options, &t->option_offset);
-	else
-		g->opts = xtables_merge_options(g->orig_opts, g->opts,
-		                                t->extra_opts, &t->option_offset);
+	fw3_xt_merge_target_options(g, t);
 
 	r->target = t;
 
@@ -1028,7 +1007,7 @@ rule_print(struct fw3_ipt_rule *r, const char *chain)
 	for (rm = r->matches; rm; rm = rm->next)
 	{
 		m = rm->match;
-		printf(" -m %s", m->alias ? m->alias(m->m) : m->m->u.user.name);
+		printf(" -m %s", fw3_xt_get_match_name(m));
 
 		if (m->save)
 			m->save(&r->e.ip, m->m);
@@ -1037,7 +1016,7 @@ rule_print(struct fw3_ipt_rule *r, const char *chain)
 	if (r->target)
 	{
 		t = r->target;
-		printf(" -j %s", t->alias ? t->alias(t->t) : t->t->u.user.name);
+		printf(" -j %s", fw3_xt_get_target_name(t));
 
 		if (t->save)
 			t->save(&r->e.ip, t->t);
@@ -1053,7 +1032,7 @@ parse_option(struct fw3_ipt_rule *r, int optc, bool inv)
 	struct xtables_match *em;
 
 	/* is a target option */
-	if (r->target && (r->target->parse || r->target->x6_parse) &&
+	if (r->target && fw3_xt_has_target_parse(r->target) &&
 		optc >= r->target->option_offset &&
 		optc < (r->target->option_offset + 256))
 	{
@@ -1066,7 +1045,7 @@ parse_option(struct fw3_ipt_rule *r, int optc, bool inv)
 	{
 		em = m->match;
 
-		if (m->completed || (!em->parse && !em->x6_parse))
+		if (m->completed || !fw3_xt_has_match_parse(em))
 			continue;
 
 		if (optc < em->option_offset ||

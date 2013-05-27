@@ -30,6 +30,14 @@
 #include "options.h"
 
 
+#if (XTABLES_VERSION_CODE == 10)
+# include "xtables-10.h"
+#elif (XTABLES_VERSION_CODE == 5)
+# include "xtables-5.h"
+#else
+# error "Unsupported xtables version"
+#endif
+
 extern struct xtables_match *xtables_pending_matches;
 extern struct xtables_target *xtables_pending_targets;
 
@@ -74,7 +82,7 @@ void get_kernel_version(void);
 struct fw3_ipt_handle {
 	enum fw3_family family;
 	enum fw3_table table;
-	struct xtc_handle *handle;
+	void *handle;
 };
 
 struct fw3_ipt_rule {
