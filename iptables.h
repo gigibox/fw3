@@ -29,7 +29,7 @@
 
 #include "options.h"
 
-
+/* xtables interface */
 #if (XTABLES_VERSION_CODE == 10)
 # include "xtables-10.h"
 #elif (XTABLES_VERSION_CODE == 5)
@@ -37,9 +37,6 @@
 #else
 # error "Unsupported xtables version"
 #endif
-
-extern struct xtables_match *xtables_pending_matches;
-extern struct xtables_target *xtables_pending_targets;
 
 /* libext.a interface */
 #define FW3_IPT_MODULES			\

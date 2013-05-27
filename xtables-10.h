@@ -19,6 +19,20 @@
 #ifndef __FW3_XTABLES_10_H
 #define __FW3_XTABLES_10_H
 
+extern struct xtables_match *xtables_pending_matches;
+extern struct xtables_target *xtables_pending_targets;
+
+static inline void
+fw3_xt_reset(void)
+{
+	xtables_matches = NULL;
+	xtables_targets = NULL;
+
+	xtables_pending_matches = NULL;
+	xtables_pending_targets = NULL;
+}
+
+
 static inline const char *
 fw3_xt_get_match_name(struct xtables_match *m)
 {

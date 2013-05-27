@@ -19,6 +19,14 @@
 #ifndef __FW3_XTABLES_5_H
 #define __FW3_XTABLES_5_H
 
+static inline void
+fw3_xt_reset(void)
+{
+	xtables_matches = NULL;
+	xtables_targets = NULL;
+}
+
+
 static inline const char *
 fw3_xt_get_match_name(struct xtables_match *m)
 {

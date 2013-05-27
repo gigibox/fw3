@@ -101,12 +101,7 @@ fw3_ipt_open(enum fw3_family family, enum fw3_table table)
 		return NULL;
 	}
 
-	xtables_pending_matches = NULL;
-	xtables_pending_targets = NULL;
-
-	xtables_matches = NULL;
-	xtables_targets = NULL;
-
+	fw3_xt_reset();
 	fw3_init_extensions();
 
 	return h;
