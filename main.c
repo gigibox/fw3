@@ -205,6 +205,7 @@ stop(bool complete)
 			}
 
 			fw3_ipt_commit(handle);
+			fw3_ipt_close(handle);
 		}
 
 		family_set(run_state, family, false);
@@ -280,6 +281,8 @@ start(void)
 
 			if (!print_family)
 				fw3_ipt_commit(handle);
+
+			fw3_ipt_close(handle);
 		}
 
 		if (!print_family)
@@ -339,6 +342,7 @@ reload(void)
 			fw3_flush_rules(handle, run_state, true);
 			fw3_flush_zones(handle, run_state, true);
 			fw3_ipt_commit(handle);
+			fw3_ipt_close(handle);
 		}
 
 		family_set(run_state, family, false);
@@ -369,6 +373,7 @@ start:
 			fw3_print_default_tail_rules(handle, cfg_state, true);
 
 			fw3_ipt_commit(handle);
+			fw3_ipt_close(handle);
 		}
 
 		fw3_print_includes(cfg_state, family, true);

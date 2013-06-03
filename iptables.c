@@ -311,7 +311,11 @@ fw3_ipt_commit(struct fw3_ipt_handle *h)
 		if (!rv)
 			fprintf(stderr, "iptc_commit(): %s\n", iptc_strerror(errno));
 	}
+}
 
+void
+fw3_ipt_close(struct fw3_ipt_handle *h)
+{
 	if (h->libv)
 	{
 		while (h->libc > 0)

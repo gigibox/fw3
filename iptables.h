@@ -126,6 +126,8 @@ void fw3_ipt_flush(struct fw3_ipt_handle *h);
 
 void fw3_ipt_commit(struct fw3_ipt_handle *h);
 
+void fw3_ipt_close(struct fw3_ipt_handle *h);
+
 struct fw3_ipt_rule *fw3_ipt_rule_new(struct fw3_ipt_handle *h);
 
 void fw3_ipt_rule_proto(struct fw3_ipt_rule *r, struct fw3_protocol *proto);
