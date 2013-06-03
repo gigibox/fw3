@@ -23,6 +23,7 @@
 #include <libiptc/libip6tc.h>
 #include <xtables.h>
 
+#include <dlfcn.h>
 #include <unistd.h>
 #include <getopt.h>
 #include <sys/utsname.h>
@@ -87,6 +88,9 @@ struct fw3_ipt_handle {
 	enum fw3_family family;
 	enum fw3_table table;
 	void *handle;
+
+	int libc;
+	void **libv;
 };
 
 struct fw3_ipt_rule {

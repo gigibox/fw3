@@ -312,6 +312,17 @@ fw3_ipt_commit(struct fw3_ipt_handle *h)
 			fprintf(stderr, "iptc_commit(): %s\n", iptc_strerror(errno));
 	}
 
+	if (h->libv)
+	{
+		while (h->libc > 0)
+		{
+			h->libc--;
+			dlclose(h->libv[h->libc]);
+		}
+
+		free(h->libv);
+	}
+
 	free(h);
 }
 
@@ -354,10 +365,45 @@ get_protoname(struct fw3_ipt_rule *r)
 	return NULL;
 }
 
+static bool
+load_extension(struct fw3_ipt_handle *h, const char *name)
+{
+	char path[256];
+	void *lib, **tmp;
+	const char *pfx = (h->family == FW3_FAMILY_V6) ? "libip6t" : "libipt";
+
+	snprintf(path, sizeof(path), "/usr/lib/iptables/libxt_%s.so", name);
+	if (!(lib = dlopen(path, RTLD_NOW)))
+	{
+		snprintf(path, sizeof(path), "/usr/lib/iptables/%s_%s.so", pfx, name);
+		lib = dlopen(path, RTLD_NOW);
+	}
+
+	if (!lib)
+		return false;
+
+	tmp = realloc(h->libv, sizeof(lib) * (h->libc + 1));
+
+	if (!tmp)
+		return false;
+
+	h->libv = tmp;
+	h->libv[h->libc++] = lib;
+
+	return true;
+}
+
 static struct xtables_match *
 find_match(struct fw3_ipt_rule *r, const char *name)
 {
-	return xtables_find_match(name, XTF_TRY_LOAD, &r->matches);
+	struct xtables_match *m;
+
+	m = xtables_find_match(name, XTF_DONT_LOAD, &r->matches);
+
+	if (!m && load_extension(r->h, name))
+		m = xtables_find_match(name, XTF_DONT_LOAD, &r->matches);
+
+	return m;
 }
 
 static void
@@ -417,18 +463,29 @@ load_protomatch(struct fw3_ipt_rule *r)
 }
 
 static struct xtables_target *
+find_target(struct fw3_ipt_rule *r, const char *name)
+{
+	struct xtables_target *t;
+
+	if (is_chain(r->h, name))
+		return xtables_find_target(XT_STANDARD_TARGET, XTF_LOAD_MUST_SUCCEED);
+
+	t = xtables_find_target(name, XTF_DONT_LOAD);
+
+	if (!t && load_extension(r->h, name))
+		t = xtables_find_target(name, XTF_DONT_LOAD);
+
+	return t;
+}
+
+static struct xtables_target *
 get_target(struct fw3_ipt_rule *r, const char *name)
 {
 	size_t s;
 	struct xtables_target *t;
 	struct xtables_globals *g;
 
-	bool chain = is_chain(r->h, name);
-
-	if (chain)
-		t = xtables_find_target(XT_STANDARD_TARGET, XTF_LOAD_MUST_SUCCEED);
-	else
-		t = xtables_find_target(name, XTF_TRY_LOAD);
+	t = find_target(r, name);
 
 	if (!t)
 		return NULL;
