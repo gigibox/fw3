@@ -89,7 +89,7 @@ fw3_xt_merge_target_options(struct xtables_globals *g, struct xtables_target *t)
 }
 
 static inline void
-fw3_xt_print_matches(void *ip, struct xtables_match **matches)
+fw3_xt_print_matches(void *ip, struct xtables_rule_match *matches)
 {
 	struct xtables_rule_match *rm;
 	struct xtables_match *m;
