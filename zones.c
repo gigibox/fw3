@@ -222,12 +222,12 @@ fw3_load_zones(struct fw3_state *state, struct uci_package *p)
 		}
 
 		setbit(zone->flags[0], fw3_to_src_target(zone->policy_input));
+		setbit(zone->flags[0], fw3_to_src_target(zone->policy_forward));
 		setbit(zone->flags[0], zone->policy_output);
-		setbit(zone->flags[0], zone->policy_forward);
 
 		setbit(zone->flags[1], fw3_to_src_target(zone->policy_input));
+		setbit(zone->flags[1], fw3_to_src_target(zone->policy_forward));
 		setbit(zone->flags[1], zone->policy_output);
-		setbit(zone->flags[1], zone->policy_forward);
 
 		list_add_tail(&zone->list, &state->zones);
 	}
@@ -476,7 +476,7 @@ print_zone_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 		fw3_ipt_rule_append(r, "zone_%s_input", zone->name);
 
 		r = fw3_ipt_rule_new(handle);
-		fw3_ipt_rule_target(r, "zone_%s_dest_%s", zone->name,
+		fw3_ipt_rule_target(r, "zone_%s_src_%s", zone->name,
 		                     fw3_flag_names[zone->policy_forward]);
 		fw3_ipt_rule_append(r, "zone_%s_forward", zone->name);
 
