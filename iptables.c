@@ -1082,10 +1082,6 @@ rule_print4(struct ipt_entry *e)
 static void
 rule_print(struct fw3_ipt_rule *r, const char *chain)
 {
-	struct xtables_rule_match *rm;
-	struct xtables_match *m;
-	struct xtables_target *t;
-
 	debug(r->h, "-A %s", chain);
 
 #ifndef DISABLE_IPV6
@@ -1095,23 +1091,8 @@ rule_print(struct fw3_ipt_rule *r, const char *chain)
 #endif
 		rule_print4(&r->e);
 
-	for (rm = r->matches; rm; rm = rm->next)
-	{
-		m = rm->match;
-		printf(" -m %s", fw3_xt_get_match_name(m));
-
-		if (m->save)
-			m->save(&r->e.ip, m->m);
-	}
-
-	if (r->target)
-	{
-		t = r->target;
-		printf(" -j %s", fw3_xt_get_target_name(t));
-
-		if (t->save)
-			t->save(&r->e.ip, t->t);
-	}
+	fw3_xt_print_matches(&r->e.ip, r->matches);
+	fw3_xt_print_target(&r->e.ip, r->target);
 
 	printf("\n");
 }

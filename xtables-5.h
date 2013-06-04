@@ -88,6 +88,36 @@ fw3_xt_merge_target_options(struct xtables_globals *g, struct xtables_target *t)
 	g->opts = xtables_merge_options(g->opts, t->extra_opts, &t->option_offset);
 }
 
+static inline void
+fw3_xt_print_matches(void *ip, struct xtables_match **matches)
+{
+	struct xtables_rule_match *rm;
+	struct xtables_match *m;
+
+	printf(" ");
+
+	for (rm = matches; rm; rm = rm->next)
+	{
+		m = rm->match;
+		printf("-m %s ", fw3_xt_get_match_name(m));
+
+		if (m->save)
+			m->save(ip, m->m);
+	}
+}
+
+static inline void
+fw3_xt_print_target(void *ip, struct xtables_target *target)
+{
+	if (target)
+	{
+		printf("-j %s ", fw3_xt_get_target_name(target));
+
+		if (target->save)
+			target->save(ip, target->t);
+	}
+}
+
 
 /* xtables api addons */
 
