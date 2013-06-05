@@ -577,20 +577,22 @@ fw3_parse_ipset_datatype(void *ptr, const char *val, bool is_list)
 {
 	struct fw3_ipset_datatype type = { };
 
+	type.dir = "src";
+
 	if (!strncmp(val, "dest_", 5))
 	{
 		val += 5;
-		type.dest = true;
+		type.dir = "dst";
 	}
 	else if (!strncmp(val, "dst_", 4))
 	{
 		val += 4;
-		type.dest = true;
+		type.dir = "dst";
 	}
 	else if (!strncmp(val, "src_", 4))
 	{
 		val += 4;
-		type.dest = false;
+		type.dir = "src";
 	}
 
 	if (parse_enum(&type.type, val, &fw3_ipset_type_names[FW3_IPSET_TYPE_IP],
@@ -804,6 +806,46 @@ fw3_parse_mark(void *ptr, const char *val, bool is_list)
 
 		m->mask = n;
 	}
+
+	m->set = true;
+	return true;
+}
+
+bool
+fw3_parse_setmatch(void *ptr, const char *val, bool is_list)
+{
+	struct fw3_setmatch *m = ptr;
+	char *p, *s;
+	int i;
+
+	if (*val == '!')
+	{
+		m->invert = true;
+		while (isspace(*++val));
+	}
+
+	if (!(s = strdup(val)))
+		return false;
+
+	if (!(p = strtok(s, " \t")))
+	{
+		free(s);
+		return false;
+	}
+
+	strncpy(m->name, p, sizeof(m->name));
+
+	for (i = 0, p = strtok(NULL, " \t,");
+	     i < 3 && p != NULL;
+	     i++, p = strtok(NULL, " \t,"))
+	{
+		if (!strncmp(p, "dest", 4) || !strncmp(p, "dst", 3))
+			m->dir[i] = "dst";
+		else if (!strncmp(p, "src", 3))
+			m->dir[i] = "src";
+	}
+
+	free(s);
 
 	m->set = true;
 	return true;

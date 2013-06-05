@@ -795,29 +795,35 @@ fw3_ipt_rule_limit(struct fw3_ipt_rule *r, struct fw3_limit *limit)
 }
 
 void
-fw3_ipt_rule_ipset(struct fw3_ipt_rule *r, struct fw3_ipset *ipset,
-                   bool invert)
+fw3_ipt_rule_ipset(struct fw3_ipt_rule *r, struct fw3_setmatch *match)
 {
 	char buf[sizeof("dst,dst,dst\0")];
 	char *p = buf;
+	int i = 0;
 
+	struct fw3_ipset *set;
 	struct fw3_ipset_datatype *type;
 
-	if (!ipset)
+	if (!match || !match->set || !match->ptr)
 		return;
 
-	list_for_each_entry(type, &ipset->datatypes, list)
+	set = match->ptr;
+	list_for_each_entry(type, &set->datatypes, list)
 	{
+		if (i >= 3)
+			break;
+
 		if (p > buf)
 			*p++ = ',';
 
-		p += sprintf(p, "%s", type->dest ? "dst" : "src");
+		p += sprintf(p, "%s", match->dir[i] ? match->dir[i] : type->dir);
+		i++;
 	}
 
 	fw3_ipt_rule_addarg(r, false, "-m", "set");
 
-	fw3_ipt_rule_addarg(r, invert, "--match-set",
-	                    ipset->external ? ipset->external : ipset->name);
+	fw3_ipt_rule_addarg(r, match->invert, "--match-set",
+	                    set->external ? set->external : set->name);
 
 	fw3_ipt_rule_addarg(r, false, buf, NULL);
 }

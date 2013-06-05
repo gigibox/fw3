@@ -28,7 +28,7 @@ const struct fw3_option fw3_rule_opts[] = {
 	FW3_OPT("src",                 device,    rule,     src),
 	FW3_OPT("dest",                device,    rule,     dest),
 
-	FW3_OPT("ipset",               device,    rule,     ipset),
+	FW3_OPT("ipset",               setmatch,  rule,     ipset),
 
 	FW3_LIST("proto",              protocol,  rule,     proto),
 
@@ -133,8 +133,8 @@ fw3_load_rules(struct fw3_state *state, struct uci_package *p)
 			fw3_free_rule(rule);
 			continue;
 		}
-		else if (rule->ipset.set && !rule->ipset.any &&
-		         !(rule->_ipset = fw3_lookup_ipset(state, rule->ipset.name)))
+		else if (rule->ipset.set &&
+		         !(rule->ipset.ptr = fw3_lookup_ipset(state, rule->ipset.name)))
 		{
 			warn_elem(e, "refers to unknown ipset '%s'", rule->ipset.name);
 			fw3_free_rule(rule);
@@ -330,7 +330,7 @@ print_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 	fw3_ipt_rule_sport_dport(r, sport, dport);
 	fw3_ipt_rule_icmptype(r, icmptype);
 	fw3_ipt_rule_mac(r, mac);
-	fw3_ipt_rule_ipset(r, rule->_ipset, rule->ipset.invert);
+	fw3_ipt_rule_ipset(r, &rule->ipset);
 	fw3_ipt_rule_limit(r, &rule->limit);
 	fw3_ipt_rule_time(r, &rule->time);
 	fw3_ipt_rule_mark(r, &rule->mark);
@@ -379,23 +379,23 @@ expand_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 		return;
 	}
 
-	if (rule->_ipset)
+	if (rule->ipset.ptr)
 	{
-		if (!fw3_is_family(rule->_ipset, handle->family))
+		if (!fw3_is_family(rule->ipset.ptr, handle->family))
 		{
 			info("     ! Skipping due to different family in ipset");
 			return;
 		}
 
-		if (!fw3_check_ipset(rule->_ipset))
+		if (!fw3_check_ipset(rule->ipset.ptr))
 		{
 			info("     ! Skipping due to missing ipset '%s'",
-			     rule->_ipset->external
-					? rule->_ipset->external : rule->_ipset->name);
+			     rule->ipset.ptr->external
+					? rule->ipset.ptr->external : rule->ipset.ptr->name);
 			return;
 		}
 
-		set(rule->_ipset->flags, handle->family, handle->family);
+		set(rule->ipset.ptr->flags, handle->family, handle->family);
 	}
 
 	list_for_each_entry(proto, &rule->proto, list)

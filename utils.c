@@ -557,9 +557,7 @@ write_ipset_uci(struct uci_context *ctx, struct fw3_ipset *s,
 
 	list_for_each_entry(type, &s->datatypes, list)
 	{
-		sprintf(buf, "%s_%s", type->dest ? "dst" : "src",
-		                      fw3_ipset_type_names[type->type]);
-
+		sprintf(buf, "%s_%s", type->dir, fw3_ipset_type_names[type->type]);
 		ptr.o      = NULL;
 		ptr.option = "match";
 		ptr.value  = buf;

@@ -28,7 +28,7 @@ const struct fw3_option fw3_redirect_opts[] = {
 	FW3_OPT("src",                 device,    redirect,     src),
 	FW3_OPT("dest",                device,    redirect,     dest),
 
-	FW3_OPT("ipset",               device,    redirect,     ipset),
+	FW3_OPT("ipset",               setmatch,  redirect,     ipset),
 
 	FW3_LIST("proto",              protocol,  redirect,     proto),
 
@@ -82,7 +82,8 @@ check_families(struct uci_element *e, struct fw3_redirect *r)
 		return false;
 	}
 
-	if (r->_ipset && r->_ipset->family && r->_ipset->family != r->family)
+	if (r->ipset.ptr && r->ipset.ptr->family &&
+	    r->ipset.ptr->family != r->family)
 	{
 		warn_elem(e, "refers to ipset with different family");
 		return false;
@@ -228,8 +229,8 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 			fw3_free_redirect(redir);
 			continue;
 		}
-		else if (redir->ipset.set && !redir->ipset.any &&
-		         !(redir->_ipset = fw3_lookup_ipset(state, redir->ipset.name)))
+		else if (redir->ipset.set &&
+		         !(redir->ipset.ptr = fw3_lookup_ipset(state, redir->ipset.name)))
 		{
 			warn_elem(e, "refers to unknown ipset '%s'", redir->ipset.name);
 			fw3_free_redirect(redir);
@@ -443,7 +444,7 @@ print_redirect(struct fw3_ipt_handle *h, struct fw3_state *state,
 		r = fw3_ipt_rule_create(h, proto, NULL, NULL, src, dst);
 		fw3_ipt_rule_sport_dport(r, spt, dpt);
 		fw3_ipt_rule_mac(r, mac);
-		fw3_ipt_rule_ipset(r, redir->_ipset, redir->ipset.invert);
+		fw3_ipt_rule_ipset(r, &redir->ipset);
 		fw3_ipt_rule_time(r, &redir->time);
 		fw3_ipt_rule_mark(r, &redir->mark);
 		set_target_nat(r, redir);
@@ -461,7 +462,7 @@ print_redirect(struct fw3_ipt_handle *h, struct fw3_state *state,
 		r = fw3_ipt_rule_create(h, proto, NULL, NULL, src, dst);
 		fw3_ipt_rule_sport_dport(r, spt, dpt);
 		fw3_ipt_rule_mac(r, mac);
-		fw3_ipt_rule_ipset(r, redir->_ipset, redir->ipset.invert);
+		fw3_ipt_rule_ipset(r, &redir->ipset);
 		fw3_ipt_rule_time(r, &redir->time);
 		fw3_ipt_rule_mark(r, &redir->mark);
 		set_target_filter(r, redir);
@@ -548,23 +549,23 @@ expand_redirect(struct fw3_ipt_handle *handle, struct fw3_state *state,
 		return;
 	}
 
-	if (redir->_ipset)
+	if (redir->ipset.ptr)
 	{
-		if (!fw3_is_family(redir->_ipset, handle->family))
+		if (!fw3_is_family(redir->ipset.ptr, handle->family))
 		{
 			info("     ! Skipping due to different family in ipset");
 			return;
 		}
 
-		if (!fw3_check_ipset(redir->_ipset))
+		if (!fw3_check_ipset(redir->ipset.ptr))
 		{
 			info("     ! Skipping due to missing ipset '%s'",
-			     redir->_ipset->external ?
-					redir->_ipset->external : redir->_ipset->name);
+			     redir->ipset.ptr->external ?
+					redir->ipset.ptr->external : redir->ipset.ptr->name);
 			return;
 		}
 
-		set(redir->_ipset->flags, handle->family, handle->family);
+		set(redir->ipset.ptr->flags, handle->family, handle->family);
 	}
 
 	fw3_foreach(proto, &redir->proto)

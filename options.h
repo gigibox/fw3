@@ -141,7 +141,16 @@ struct fw3_ipset_datatype
 {
 	struct list_head list;
 	enum fw3_ipset_type type;
-	bool dest;
+	const char *dir;
+};
+
+struct fw3_setmatch
+{
+	bool set;
+	bool invert;
+	char name[32];
+	const char *dir[3];
+	struct fw3_ipset *ptr;
 };
 
 struct fw3_device
@@ -320,9 +329,7 @@ struct fw3_rule
 
 	struct fw3_device src;
 	struct fw3_device dest;
-
-	struct fw3_ipset *_ipset;
-	struct fw3_device ipset;
+	struct fw3_setmatch ipset;
 
 	struct list_head proto;
 
@@ -360,9 +367,7 @@ struct fw3_redirect
 
 	struct fw3_device src;
 	struct fw3_device dest;
-
-	struct fw3_ipset *_ipset;
-	struct fw3_device ipset;
+	struct fw3_setmatch ipset;
 
 	struct list_head proto;
 
@@ -505,6 +510,7 @@ bool fw3_parse_time(void *ptr, const char *val, bool is_list);
 bool fw3_parse_weekdays(void *ptr, const char *val, bool is_list);
 bool fw3_parse_monthdays(void *ptr, const char *val, bool is_list);
 bool fw3_parse_mark(void *ptr, const char *val, bool is_list);
+bool fw3_parse_setmatch(void *ptr, const char *val, bool is_list);
 
 void fw3_parse_options(void *s, const struct fw3_option *opts,
                        struct uci_section *section);
