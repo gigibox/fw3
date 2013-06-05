@@ -200,6 +200,11 @@ fw3_load_rules(struct fw3_state *state, struct uci_package *p)
 			setbit(rule->_dest->flags[0], rule->target);
 			setbit(rule->_dest->flags[1], rule->target);
 		}
+		else if (rule->_src)
+		{
+			setbit(rule->_src->flags[0], fw3_to_src_target(rule->target));
+			setbit(rule->_src->flags[1], fw3_to_src_target(rule->target));
+		}
 
 		list_add_tail(&rule->list, &state->rules);
 		continue;
@@ -274,21 +279,24 @@ static void set_target(struct fw3_ipt_rule *r, struct fw3_rule *rule)
 		fw3_ipt_rule_addarg(r, false, name, buf);
 		return;
 
+	case FW3_FLAG_NOTRACK:
+		fw3_ipt_rule_target(r, fw3_flag_names[rule->target]);
+		return;
+
 	case FW3_FLAG_ACCEPT:
 	case FW3_FLAG_DROP:
-	case FW3_FLAG_NOTRACK:
 		name = fw3_flag_names[rule->target];
 		break;
 
 	default:
-		name = fw3_flag_names[FW3_FLAG_REJECT];
+		name = "reject";
 		break;
 	}
 
 	if (rule->dest.set && !rule->dest.any)
 		fw3_ipt_rule_target(r, "zone_%s_dest_%s", rule->dest.name, name);
-	else if (rule->target == FW3_FLAG_REJECT)
-		fw3_ipt_rule_target(r, "reject");
+	else if (rule->src.set && !rule->src.any)
+		fw3_ipt_rule_target(r, "zone_%s_src_%s", rule->src.name, name);
 	else
 		fw3_ipt_rule_target(r, name);
 }
