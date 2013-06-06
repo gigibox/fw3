@@ -143,30 +143,21 @@ fw3_ipt_set_policy(struct fw3_ipt_handle *h, const char *chain,
 }
 
 void
-fw3_ipt_delete_chain(struct fw3_ipt_handle *h, const char *chain)
+fw3_ipt_flush_chain(struct fw3_ipt_handle *h, const char *chain)
 {
 	if (fw3_pr_debug)
-	{
 		debug(h, "-F %s\n", chain);
-		debug(h, "-X %s\n", chain);
-	}
 
 #ifndef DISABLE_IPV6
 	if (h->family == FW3_FAMILY_V6)
-	{
-		if (ip6tc_flush_entries(chain, h->handle))
-			ip6tc_delete_chain(chain, h->handle);
-	}
+		ip6tc_flush_entries(chain, h->handle);
 	else
 #endif
-	{
-		if (iptc_flush_entries(chain, h->handle))
-			iptc_delete_chain(chain, h->handle);
-	}
+		iptc_flush_entries(chain, h->handle);
 }
 
-void
-fw3_ipt_delete_rules(struct fw3_ipt_handle *h, const char *target)
+static void
+delete_rules(struct fw3_ipt_handle *h, const char *target)
 {
 	unsigned int num;
 	const struct ipt_entry *e;
@@ -236,6 +227,22 @@ fw3_ipt_delete_rules(struct fw3_ipt_handle *h, const char *target)
 }
 
 void
+fw3_ipt_delete_chain(struct fw3_ipt_handle *h, const char *chain)
+{
+	delete_rules(h, chain);
+
+	if (fw3_pr_debug)
+		debug(h, "-X %s\n", chain);
+
+#ifndef DISABLE_IPV6
+	if (h->family == FW3_FAMILY_V6)
+		ip6tc_delete_chain(chain, h->handle);
+	else
+#endif
+		iptc_delete_chain(chain, h->handle);
+}
+
+void
 fw3_ipt_create_chain(struct fw3_ipt_handle *h, const char *fmt, ...)
 {
 	char buf[32];
@@ -302,14 +309,14 @@ fw3_ipt_commit(struct fw3_ipt_handle *h)
 	{
 		rv = ip6tc_commit(h->handle);
 		if (!rv)
-			fprintf(stderr, "ip6tc_commit(): %s\n", ip6tc_strerror(errno));
+			warn("ip6tc_commit(): %s", ip6tc_strerror(errno));
 	}
 	else
 #endif
 	{
 		rv = iptc_commit(h->handle);
 		if (!rv)
-			fprintf(stderr, "iptc_commit(): %s\n", iptc_strerror(errno));
+			warn("iptc_commit(): %s", iptc_strerror(errno));
 	}
 }
 
@@ -1086,9 +1093,9 @@ rule_print4(struct ipt_entry *e)
 }
 
 static void
-rule_print(struct fw3_ipt_rule *r, const char *chain)
+rule_print(struct fw3_ipt_rule *r, const char *prefix, const char *chain)
 {
-	debug(r->h, "-A %s", chain);
+	debug(r->h, "%s %s", prefix, chain);
 
 #ifndef DISABLE_IPV6
 	if (r->h->family == FW3_FAMILY_V6)
@@ -1146,12 +1153,10 @@ parse_option(struct fw3_ipt_rule *r, int optc, bool inv)
 	}
 
 	if (optc == ':')
-		fprintf(stderr, "parse_option(): option '%s' needs argument\n",
-		        r->argv[optind-1]);
+		warn("parse_option(): option '%s' needs argument", r->argv[optind-1]);
 
 	if (optc == '?')
-		fprintf(stderr, "parse_option(): unknown option '%s'\n",
-		        r->argv[optind-1]);
+		warn("parse_option(): unknown option '%s'", r->argv[optind-1]);
 
 	return false;
 }
@@ -1183,85 +1188,68 @@ fw3_ipt_rule_addarg(struct fw3_ipt_rule *r, bool inv,
 		r->argv[r->argc++] = fw3_strdup(v);
 }
 
-void
-fw3_ipt_rule_append(struct fw3_ipt_rule *r, const char *fmt, ...)
+static unsigned char *
+rule_mask(struct fw3_ipt_rule *r)
+{
+	size_t s;
+	unsigned char *p, *mask = NULL;
+	struct xtables_rule_match *m;
+
+#define SZ(x) XT_ALIGN(sizeof(struct x))
+
+#ifndef DISABLE_IPV6
+	if (r->h->family == FW3_FAMILY_V6)
+	{
+		s = SZ(ip6t_entry);
+
+		for (m = r->matches; m; m = m->next)
+			s += SZ(ip6t_entry_match) + m->match->size;
+
+		s += SZ(ip6t_entry_target) + r->target->size;
+
+		mask = fw3_alloc(s);
+		memset(mask, 0xFF, SZ(ip6t_entry));
+		p = mask + SZ(ip6t_entry);
+
+		for (m = r->matches; m; m = m->next)
+		{
+			memset(p, 0xFF, SZ(ip6t_entry_match) + m->match->userspacesize);
+			p += SZ(ip6t_entry_match) + m->match->size;
+		}
+
+		memset(p, 0xFF, SZ(ip6t_entry_target) + r->target->userspacesize);
+	}
+	else
+#endif
+	{
+		s = SZ(ipt_entry);
+
+		for (m = r->matches; m; m = m->next)
+			s += SZ(ipt_entry_match) + m->match->size;
+
+		s += SZ(ipt_entry_target) + r->target->size;
+
+		mask = fw3_alloc(s);
+		memset(mask, 0xFF, SZ(ipt_entry));
+		p = mask + SZ(ipt_entry);
+
+		for (m = r->matches; m; m = m->next)
+		{
+			memset(p, 0xFF, SZ(ipt_entry_match) + m->match->userspacesize);
+			p += SZ(ipt_entry_match) + m->match->size;
+		}
+
+		memset(p, 0xFF, SZ(ipt_entry_target) + r->target->userspacesize);
+	}
+
+	return mask;
+}
+
+static void *
+rule_build(struct fw3_ipt_rule *r)
 {
 	size_t s;
 	struct xtables_rule_match *m;
-	struct xtables_match *em;
-	struct xtables_target *et;
-	struct xtables_globals *g;
-	struct ipt_entry *e;
-
-	int i, optc;
-	bool inv = false;
-	char buf[32];
-	va_list ap;
-
-	va_start(ap, fmt);
-	vsnprintf(buf, sizeof(buf) - 1, fmt, ap);
-	va_end(ap);
-
-	g = (r->h->family == FW3_FAMILY_V6) ? &xtg6 : &xtg;
-	g->opts = g->orig_opts;
-
-	optind = 0;
-	opterr = 0;
-
-	while ((optc = getopt_long(r->argc, r->argv, "m:j:", g->opts, NULL)) != -1)
-	{
-		switch (optc)
-		{
-		case 'm':
-			em = find_match(r, optarg);
-
-			if (!em)
-			{
-				fprintf(stderr, "fw3_ipt_rule_append(): Can't find match '%s'\n", optarg);
-				goto free;
-			}
-
-			init_match(r, em, true);
-			break;
-
-		case 'j':
-			et = get_target(r, optarg);
-
-			if (!et)
-			{
-				fprintf(stderr, "fw3_ipt_rule_append(): Can't find target '%s'\n", optarg);
-				goto free;
-			}
-
-			break;
-
-		case 1:
-			if ((optarg[0] == '!') && (optarg[1] == '\0'))
-			{
-				inv = true;
-				continue;
-			}
-
-			fprintf(stderr, "fw3_ipt_rule_append(): Bad argument '%s'\n", optarg);
-			return;
-
-		default:
-			if (parse_option(r, optc, inv))
-				continue;
-			break;
-		}
-
-		inv = false;
-	}
-
-	for (m = r->matches; m; m = m->next)
-		xtables_option_mfcall(m->match);
-
-	if (r->target)
-		xtables_option_tfcall(r->target);
-
-	if (fw3_pr_debug)
-		rule_print(r, buf);
 
 #ifndef DISABLE_IPV6
 	if (r->h->family == FW3_FAMILY_V6)
@@ -1289,12 +1277,14 @@ fw3_ipt_rule_append(struct fw3_ipt_rule *r, const char *fmt, ...)
 		}
 
 		memcpy(e6->elems + s, r->target->t, r->target->t->u.target_size);
-		ip6tc_append_entry(buf, e6, r->h->handle);
-		free(e6);
+
+		return e6;
 	}
 	else
 #endif
 	{
+		struct ipt_entry *e;
+
 		s = XT_ALIGN(sizeof(struct ipt_entry));
 
 		for (m = r->matches; m; m = m->next)
@@ -1317,11 +1307,132 @@ fw3_ipt_rule_append(struct fw3_ipt_rule *r, const char *fmt, ...)
 
 		memcpy(e->elems + s, r->target->t, r->target->t->u.target_size);
 
-		if (!iptc_append_entry(buf, e, r->h->handle))
-			fprintf(stderr, "iptc_append_entry(): %s\n", iptc_strerror(errno));
-
-		free(e);
+		return e;
 	}
+}
+
+void
+__fw3_ipt_rule_append(struct fw3_ipt_rule *r, bool repl, const char *fmt, ...)
+{
+	void *rule;
+	unsigned char *mask;
+
+	struct xtables_rule_match *m;
+	struct xtables_match *em;
+	struct xtables_target *et;
+	struct xtables_globals *g;
+
+	int i, optc;
+	bool inv = false;
+	char buf[32];
+	va_list ap;
+
+	va_start(ap, fmt);
+	vsnprintf(buf, sizeof(buf) - 1, fmt, ap);
+	va_end(ap);
+
+	g = (r->h->family == FW3_FAMILY_V6) ? &xtg6 : &xtg;
+	g->opts = g->orig_opts;
+
+	optind = 0;
+	opterr = 0;
+
+	while ((optc = getopt_long(r->argc, r->argv, "m:j:", g->opts, NULL)) != -1)
+	{
+		switch (optc)
+		{
+		case 'm':
+			em = find_match(r, optarg);
+
+			if (!em)
+			{
+				warn("fw3_ipt_rule_append(): Can't find match '%s'", optarg);
+				goto free;
+			}
+
+			init_match(r, em, true);
+			break;
+
+		case 'j':
+			et = get_target(r, optarg);
+
+			if (!et)
+			{
+				warn("fw3_ipt_rule_append(): Can't find target '%s'", optarg);
+				goto free;
+			}
+
+			break;
+
+		case 1:
+			if ((optarg[0] == '!') && (optarg[1] == '\0'))
+			{
+				inv = true;
+				continue;
+			}
+
+			warn("fw3_ipt_rule_append(): Bad argument '%s'", optarg);
+			goto free;
+
+		default:
+			if (parse_option(r, optc, inv))
+				continue;
+			break;
+		}
+
+		inv = false;
+	}
+
+	for (m = r->matches; m; m = m->next)
+		xtables_option_mfcall(m->match);
+
+	if (r->target)
+		xtables_option_tfcall(r->target);
+
+	rule = rule_build(r);
+
+#ifndef DISABLE_IPV6
+	if (r->h->family == FW3_FAMILY_V6)
+	{
+		if (repl)
+		{
+			mask = rule_mask(r);
+
+			while (ip6tc_delete_entry(buf, rule, mask, r->h->handle))
+				if (fw3_pr_debug)
+					rule_print(r, "-D", buf);
+
+			free(mask);
+		}
+
+		if (fw3_pr_debug)
+			rule_print(r, "-A", buf);
+
+		if (!ip6tc_append_entry(buf, rule, r->h->handle))
+			warn("ip6tc_append_entry(): %s", ip6tc_strerror(errno));
+	}
+	else
+#endif
+	{
+		if (repl)
+		{
+			mask = rule_mask(r);
+
+			while (iptc_delete_entry(buf, rule, mask, r->h->handle))
+				if (fw3_pr_debug)
+					rule_print(r, "-D", buf);
+
+			free(mask);
+		}
+
+		if (fw3_pr_debug)
+			rule_print(r, "-A", buf);
+
+		if (!iptc_append_entry(buf, rule, r->h->handle))
+			warn("iptc_append_entry(): %s\n", iptc_strerror(errno));
+	}
+
+	free(rule);
 
 free:
 	for (i = 1; i < r->argc; i++)

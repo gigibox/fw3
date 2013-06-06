@@ -220,7 +220,7 @@ fw3_print_default_head_rules(struct fw3_ipt_handle *handle,
 
 		r = fw3_ipt_rule_new(handle);
 		fw3_ipt_rule_target(r, tr->target);
-		fw3_ipt_rule_append(r, tr->chain);
+		fw3_ipt_rule_replace(r, tr->chain);
 	}
 
 	switch (handle->table)
@@ -419,7 +419,13 @@ fw3_flush_rules(struct fw3_ipt_handle *handle, struct fw3_state *state,
 		if (c->flag && !has(defs->flags, handle->family, c->flag))
 			continue;
 
-		fw3_ipt_delete_rules(handle, c->format);
+		fw3_ipt_flush_chain(handle, c->format);
+
+		/* keep certain basic chains that do not depend on any settings to
+		   avoid purging unrelated user rules pointing to them */
+		if (reload && !c->flag)
+			continue;
+
 		fw3_ipt_delete_chain(handle, c->format);
 	}
 

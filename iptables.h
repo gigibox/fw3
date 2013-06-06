@@ -117,8 +117,9 @@ struct fw3_ipt_handle *fw3_ipt_open(enum fw3_family family,
 void fw3_ipt_set_policy(struct fw3_ipt_handle *h, const char *chain,
                         enum fw3_flag policy);
 
+
+void fw3_ipt_flush_chain(struct fw3_ipt_handle *h, const char *chain);
 void fw3_ipt_delete_chain(struct fw3_ipt_handle *h, const char *chain);
-void fw3_ipt_delete_rules(struct fw3_ipt_handle *h, const char *target);
 
 void fw3_ipt_create_chain(struct fw3_ipt_handle *h, const char *fmt, ...);
 
@@ -167,7 +168,14 @@ struct fw3_ipt_rule * fw3_ipt_rule_create(struct fw3_ipt_handle *handle,
                                           struct fw3_address *src,
                                           struct fw3_address *dest);
 
-void fw3_ipt_rule_append(struct fw3_ipt_rule *r, const char *fmt, ...);
+void __fw3_ipt_rule_append(struct fw3_ipt_rule *r, bool repl,
+                           const char *fmt, ...);
+
+#define fw3_ipt_rule_append(rule, ...) \
+	__fw3_ipt_rule_append(rule, false, __VA_ARGS__)
+
+#define fw3_ipt_rule_replace(rule, ...) \
+	__fw3_ipt_rule_append(rule, true, __VA_ARGS__)
 
 static inline void
 fw3_ipt_rule_target(struct fw3_ipt_rule *r, const char *fmt, ...)

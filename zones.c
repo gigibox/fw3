@@ -595,7 +595,13 @@ fw3_flush_zones(struct fw3_ipt_handle *handle, struct fw3_state *state,
 				continue;
 
 			snprintf(chain, sizeof(chain), c->format, z->name);
-			fw3_ipt_delete_rules(handle, chain);
+			fw3_ipt_flush_chain(handle, chain);
+
+			/* keep certain basic chains that do not depend on any settings to
+			   avoid purging unrelated user rules pointing to them */
+			if (reload && !c->flag)
+				continue;
+
 			fw3_ipt_delete_chain(handle, chain);
 		}
 
