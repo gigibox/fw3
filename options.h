@@ -381,6 +381,7 @@ struct fw3_redirect
 	struct fw3_address ip_redir;
 	struct fw3_port port_redir;
 
+	struct fw3_limit limit;
 	struct fw3_time time;
 	struct fw3_mark mark;
 

@@ -44,6 +44,9 @@ const struct fw3_option fw3_redirect_opts[] = {
 
 	FW3_OPT("extra",               string,    redirect,     extra),
 
+	FW3_OPT("limit",               limit,     redirect,     limit),
+	FW3_OPT("limit_burst",         int,       redirect,     limit.burst),
+
 	FW3_OPT("utc_time",            bool,      redirect,     time.utc),
 	FW3_OPT("start_date",          date,      redirect,     time.datestart),
 	FW3_OPT("stop_date",           date,      redirect,     time.datestop),
@@ -445,6 +448,7 @@ print_redirect(struct fw3_ipt_handle *h, struct fw3_state *state,
 		fw3_ipt_rule_sport_dport(r, spt, dpt);
 		fw3_ipt_rule_mac(r, mac);
 		fw3_ipt_rule_ipset(r, &redir->ipset);
+		fw3_ipt_rule_limit(r, &redir->limit);
 		fw3_ipt_rule_time(r, &redir->time);
 		fw3_ipt_rule_mark(r, &redir->mark);
 		set_target_nat(r, redir);
@@ -463,6 +467,7 @@ print_redirect(struct fw3_ipt_handle *h, struct fw3_state *state,
 		fw3_ipt_rule_sport_dport(r, spt, dpt);
 		fw3_ipt_rule_mac(r, mac);
 		fw3_ipt_rule_ipset(r, &redir->ipset);
+		fw3_ipt_rule_limit(r, &redir->limit);
 		fw3_ipt_rule_time(r, &redir->time);
 		fw3_ipt_rule_mark(r, &redir->mark);
 		set_target_filter(r, redir);
@@ -489,6 +494,7 @@ print_reflection(struct fw3_ipt_handle *h, struct fw3_state *state,
 	case FW3_TABLE_NAT:
 		r = fw3_ipt_rule_create(h, proto, NULL, NULL, ia, ea);
 		fw3_ipt_rule_sport_dport(r, NULL, &redir->port_dest);
+		fw3_ipt_rule_limit(r, &redir->limit);
 		fw3_ipt_rule_time(r, &redir->time);
 		set_comment(r, redir->name, num, true);
 		set_snat_dnat(r, FW3_FLAG_DNAT, &redir->ip_redir, &redir->port_redir);
@@ -496,6 +502,7 @@ print_reflection(struct fw3_ipt_handle *h, struct fw3_state *state,
 
 		r = fw3_ipt_rule_create(h, proto, NULL, NULL, ia, &redir->ip_redir);
 		fw3_ipt_rule_sport_dport(r, NULL, &redir->port_redir);
+		fw3_ipt_rule_limit(r, &redir->limit);
 		fw3_ipt_rule_time(r, &redir->time);
 		set_comment(r, redir->name, num, true);
 		set_snat_dnat(r, FW3_FLAG_SNAT, ra, NULL);
@@ -505,6 +512,7 @@ print_reflection(struct fw3_ipt_handle *h, struct fw3_state *state,
 	case FW3_TABLE_FILTER:
 		r = fw3_ipt_rule_create(h, proto, NULL, NULL, ia, &redir->ip_redir);
 		fw3_ipt_rule_sport_dport(r, NULL, &redir->port_redir);
+		fw3_ipt_rule_limit(r, &redir->limit);
 		fw3_ipt_rule_time(r, &redir->time);
 		set_comment(r, redir->name, num, true);
 		fw3_ipt_rule_target(r, "zone_%s_dest_ACCEPT", redir->dest.name);
