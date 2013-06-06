@@ -121,7 +121,7 @@ compare_addr(struct fw3_address *a, struct fw3_address *b)
 	if (a->family != FW3_FAMILY_V4)
 		return false;
 
-	mask = ~((1 << (32 - a->mask)) - 1);
+	mask = htonl(~((1 << (32 - a->mask)) - 1));
 
 	return ((a->address.v4.s_addr & mask) == (b->address.v4.s_addr & mask));
 }
