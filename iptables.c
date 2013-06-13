@@ -22,7 +22,6 @@
 static struct option base_opts[] = {
 	{ .name = "match",  .has_arg = 1, .val = 'm' },
 	{ .name = "jump",   .has_arg = 1, .val = 'j' },
-	{ .name = "append", .has_arg = 1, .val = 'A' },
 	{ NULL }
 };
 
@@ -1337,7 +1336,8 @@ __fw3_ipt_rule_append(struct fw3_ipt_rule *r, bool repl, const char *fmt, ...)
 	optind = 0;
 	opterr = 0;
 
-	while ((optc = getopt_long(r->argc, r->argv, "m:j:", g->opts, NULL)) != -1)
+	while ((optc = getopt_long(r->argc, r->argv, "-:m:j:", g->opts,
+	                           NULL)) != -1)
 	{
 		switch (optc)
 		{
@@ -1367,6 +1367,7 @@ __fw3_ipt_rule_append(struct fw3_ipt_rule *r, bool repl, const char *fmt, ...)
 		case 1:
 			if ((optarg[0] == '!') && (optarg[1] == '\0'))
 			{
+				optarg[0] = '\0';
 				inv = true;
 				continue;
 			}
