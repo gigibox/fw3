@@ -295,7 +295,7 @@ static void set_target(struct fw3_ipt_rule *r, struct fw3_rule *rule)
 		break;
 
 	default:
-		name = "reject";
+		name = fw3_flag_names[FW3_FLAG_REJECT];
 		break;
 	}
 
@@ -303,8 +303,10 @@ static void set_target(struct fw3_ipt_rule *r, struct fw3_rule *rule)
 		fw3_ipt_rule_target(r, "zone_%s_dest_%s", rule->dest.name, name);
 	else if (need_src_action_chain(rule))
 		fw3_ipt_rule_target(r, "zone_%s_src_%s", rule->src.name, name);
-	else
+	else if (strcmp(name, "REJECT"))
 		fw3_ipt_rule_target(r, name);
+	else
+		fw3_ipt_rule_target(r, "reject");
 }
 
 static void
