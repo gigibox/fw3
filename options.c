@@ -518,6 +518,7 @@ fw3_parse_protocol(void *ptr, const char *val, bool is_list)
 {
 	struct fw3_protocol proto = { };
 	struct protoent *ent;
+	char *e;
 
 	if (*val == '!')
 	{
@@ -556,9 +557,9 @@ fw3_parse_protocol(void *ptr, const char *val, bool is_list)
 		return true;
 	}
 
-	proto.protocol = strtoul(val, NULL, 10);
+	proto.protocol = strtoul(val, &e, 10);
 
-	if (errno == ERANGE || errno == EINVAL)
+	if ((e == val) || (*e != 0))
 		return false;
 
 	put_value(ptr, &proto, sizeof(proto), is_list);
