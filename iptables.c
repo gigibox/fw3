@@ -609,7 +609,10 @@ fw3_ipt_rule_in_out(struct fw3_ipt_rule *r,
 static void
 ip4prefix2mask(int prefix, struct in_addr *mask)
 {
-	mask->s_addr = htonl(~((1 << (32 - prefix)) - 1));
+	if (prefix > 0)
+		mask->s_addr = htonl(~((1 << (32 - prefix)) - 1));
+	else
+		mask->s_addr = 0;
 }
 
 #ifndef DISABLE_IPV6
