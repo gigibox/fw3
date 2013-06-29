@@ -747,13 +747,13 @@ void
 fw3_ipt_rule_mac(struct fw3_ipt_rule *r, struct fw3_mac *mac)
 {
 	char buf[sizeof("ff:ff:ff:ff:ff:ff\0")];
+	uint8_t *addr = mac->mac.ether_addr_octet;
 
 	if (!mac)
 		return;
 
 	sprintf(buf, "%02x:%02x:%02x:%02x:%02x:%02x",
-	        mac->mac[0], mac->mac[1], mac->mac[2],
-	        mac->mac[3], mac->mac[4], mac->mac[5]);
+	        addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 
 	fw3_ipt_rule_addarg(r, false, "-m", "mac");
 	fw3_ipt_rule_addarg(r, mac->invert, "--mac-source", buf);
