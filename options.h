@@ -389,6 +389,7 @@ struct fw3_redirect
 
 	const char *extra;
 
+	bool local;
 	bool reflection;
 	enum fw3_reflection_source reflection_src;
 };

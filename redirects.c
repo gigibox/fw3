@@ -118,7 +118,7 @@ compare_addr(struct fw3_address *a, struct fw3_address *b)
 {
 	uint32_t mask;
 
-	if (a->family != FW3_FAMILY_V4)
+	if (a->family != FW3_FAMILY_V4 || b->family != FW3_FAMILY_V4)
 		return false;
 
 	mask = htonl(~((1 << (32 - a->mask)) - 1));
@@ -160,6 +160,55 @@ resolve_dest(struct uci_element *e, struct fw3_redirect *redir,
 
 		if (redir->_dest)
 			return true;
+	}
+
+	return false;
+}
+
+static bool
+check_local(struct uci_element *e, struct fw3_redirect *redir,
+            struct fw3_state *state)
+{
+	struct fw3_zone *zone;
+	struct fw3_device *net;
+	struct fw3_address *addr;
+	struct list_head *addrs;
+
+	if (redir->target != FW3_FLAG_DNAT)
+		return false;
+
+	if (!redir->ip_redir.set)
+		redir->local = true;
+
+	if (redir->local)
+		return true;
+
+	list_for_each_entry(zone, &state->zones, list)
+	{
+		list_for_each_entry(net, &zone->networks, list)
+		{
+			addrs = fw3_ubus_address(net->name);
+
+			if (!addrs)
+				continue;
+
+			list_for_each_entry(addr, addrs, list)
+			{
+				if (!compare_addr(&redir->ip_redir, addr))
+					continue;
+
+				warn_elem(e, "refers to a destination address on this router, "
+				             "assuming port redirection");
+
+				redir->local = true;
+				break;
+			}
+
+			fw3_free_list(addrs);
+
+			if (redir->local)
+				return true;
+		}
 	}
 
 	return false;
@@ -270,7 +319,8 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 				valid = true;
 			}
 
-			if (!redir->dest.set && resolve_dest(e, redir, state))
+			if (!check_local(e, redir, state) && !redir->dest.set &&
+			    resolve_dest(e, redir, state))
 			{
 				warn_elem(e, "does not specify a destination, assuming '%s'",
 				          redir->dest.name);
@@ -377,8 +427,7 @@ append_chain_filter(struct fw3_ipt_rule *r, struct fw3_redirect *redir)
 {
 	if (redir->target == FW3_FLAG_DNAT)
 	{
-		/* XXX: check for local ip */
-		if (!redir->ip_redir.set)
+		if (redir->local)
 			fw3_ipt_rule_append(r, "zone_%s_input", redir->src.name);
 		else
 			fw3_ipt_rule_append(r, "zone_%s_forward", redir->src.name);
@@ -395,8 +444,7 @@ append_chain_filter(struct fw3_ipt_rule *r, struct fw3_redirect *redir)
 static void
 set_target_filter(struct fw3_ipt_rule *r, struct fw3_redirect *redir)
 {
-	/* XXX: check for local ip */
-	if (redir->target == FW3_FLAG_DNAT && !redir->ip_redir.set)
+	if (redir->local)
 		fw3_ipt_rule_extra(r, "-m conntrack --ctstate DNAT");
 
 	fw3_ipt_rule_target(r, "ACCEPT");
