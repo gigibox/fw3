@@ -58,7 +58,6 @@
 	__ipt_module(LOG)			\
 	__ipt_module(MARK)			\
 	__ipt_module(MASQUERADE)	\
-	__ipt_module(NOTRACK)		\
 	__ipt_module(REDIRECT)		\
 	__ipt_module(REJECT)		\
 	__ipt_module(SET)			\
