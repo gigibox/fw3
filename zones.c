@@ -39,6 +39,8 @@ static const struct fw3_chain_spec zone_chains[] = {
 	C(V4,  NAT,    SNAT,          "zone_%s_postrouting"),
 	C(V4,  NAT,    DNAT,          "zone_%s_prerouting"),
 
+	C(ANY, RAW,    NOTRACK,       "zone_%s_notrack"),
+
 	C(ANY, FILTER, CUSTOM_CHAINS, "input_%s_rule"),
 	C(ANY, FILTER, CUSTOM_CHAINS, "output_%s_rule"),
 	C(ANY, FILTER, CUSTOM_CHAINS, "forwarding_%s_rule"),
@@ -317,7 +319,6 @@ print_interface_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 					 bool reload, struct fw3_zone *zone,
                      struct fw3_device *dev, struct fw3_address *sub)
 {
-	bool disable_notrack = state->defaults.drop_invalid;
 	struct fw3_protocol tcp = { .protocol = 6 };
 	struct fw3_ipt_rule *r;
 	enum fw3_flag t;
@@ -422,13 +423,12 @@ print_interface_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 	}
 	else if (handle->table == FW3_TABLE_RAW)
 	{
-		if (!zone->conntrack && !disable_notrack)
+		if (has(zone->flags, handle->family, FW3_FLAG_NOTRACK))
 		{
 			r = fw3_ipt_rule_create(handle, NULL, dev, NULL, sub, NULL);
-			fw3_ipt_rule_target(r, "CT");
-			fw3_ipt_rule_addarg(r, false, "--notrack", NULL);
+			fw3_ipt_rule_target(r, "zone_%s_notrack", zone->name);
 			fw3_ipt_rule_extra(r, zone->extra_src);
-			fw3_ipt_rule_append(r, "notrack");
+			fw3_ipt_rule_append(r, "delegate_notrack");
 		}
 	}
 }
@@ -457,6 +457,7 @@ static void
 print_zone_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
                 bool reload, struct fw3_zone *zone)
 {
+	bool disable_notrack = state->defaults.drop_invalid;
 	struct fw3_address *msrc;
 	struct fw3_address *mdest;
 	struct fw3_ipt_rule *r;
@@ -539,6 +540,15 @@ print_zone_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 		break;
 
 	case FW3_TABLE_RAW:
+		if (!zone->conntrack && !disable_notrack)
+		{
+			r = fw3_ipt_rule_new(handle);
+			fw3_ipt_rule_target(r, "CT");
+			fw3_ipt_rule_addarg(r, false, "--notrack", NULL);
+			fw3_ipt_rule_append(r, "zone_%s_notrack", zone->name);
+		}
+		break;
+
 	case FW3_TABLE_MANGLE:
 		break;
 	}

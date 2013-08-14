@@ -40,7 +40,7 @@ static const struct fw3_chain_spec default_chains[] = {
 	C(ANY, MANGLE, UNSPEC,        "mssfix"),
 	C(ANY, MANGLE, UNSPEC,        "fwmark"),
 
-	C(ANY, RAW,    UNSPEC,        "notrack"),
+	C(ANY, RAW,    UNSPEC,        "delegate_notrack"),
 
 	{ }
 };
@@ -208,7 +208,7 @@ fw3_print_default_head_rules(struct fw3_ipt_handle *handle,
 		{ FW3_TABLE_MANGLE, "FORWARD",     "mssfix" },
 		{ FW3_TABLE_MANGLE, "PREROUTING",  "fwmark" },
 
-		{ FW3_TABLE_RAW,    "PREROUTING",  "notrack" },
+		{ FW3_TABLE_RAW,    "PREROUTING",  "delegate_notrack" },
 
 		{ 0, NULL },
 	};
