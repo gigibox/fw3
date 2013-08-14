@@ -286,7 +286,8 @@ static void set_target(struct fw3_ipt_rule *r, struct fw3_rule *rule)
 		return;
 
 	case FW3_FLAG_NOTRACK:
-		fw3_ipt_rule_target(r, fw3_flag_names[rule->target]);
+		fw3_ipt_rule_target(r, "CT");
+		fw3_ipt_rule_addarg(r, false, "--notrack", NULL);
 		return;
 
 	case FW3_FLAG_ACCEPT:
