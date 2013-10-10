@@ -546,7 +546,7 @@ print_reflection(struct fw3_ipt_handle *h, struct fw3_state *state,
 		fw3_ipt_rule_time(r, &redir->time);
 		set_comment(r, redir->name, num, true);
 		set_snat_dnat(r, FW3_FLAG_DNAT, &redir->ip_redir, &redir->port_redir);
-		fw3_ipt_rule_append(r, "zone_%s_prerouting", redir->dest.name);
+		fw3_ipt_rule_replace(r, "zone_%s_prerouting", redir->dest.name);
 
 		r = fw3_ipt_rule_create(h, proto, NULL, NULL, ia, &redir->ip_redir);
 		fw3_ipt_rule_sport_dport(r, NULL, &redir->port_redir);
@@ -554,7 +554,7 @@ print_reflection(struct fw3_ipt_handle *h, struct fw3_state *state,
 		fw3_ipt_rule_time(r, &redir->time);
 		set_comment(r, redir->name, num, true);
 		set_snat_dnat(r, FW3_FLAG_SNAT, ra, NULL);
-		fw3_ipt_rule_append(r, "zone_%s_postrouting", redir->dest.name);
+		fw3_ipt_rule_replace(r, "zone_%s_postrouting", redir->dest.name);
 		break;
 
 	case FW3_TABLE_FILTER:
@@ -564,7 +564,7 @@ print_reflection(struct fw3_ipt_handle *h, struct fw3_state *state,
 		fw3_ipt_rule_time(r, &redir->time);
 		set_comment(r, redir->name, num, true);
 		fw3_ipt_rule_target(r, "zone_%s_dest_ACCEPT", redir->dest.name);
-		fw3_ipt_rule_append(r, "zone_%s_forward", redir->dest.name);
+		fw3_ipt_rule_replace(r, "zone_%s_forward", redir->dest.name);
 		break;
 
 	default:
