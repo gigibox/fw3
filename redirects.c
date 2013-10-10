@@ -653,7 +653,7 @@ expand_redirect(struct fw3_ipt_handle *handle, struct fw3_state *state,
 
 			fw3_foreach(proto, &redir->proto)
 			{
-				if (!proto || (proto->protocol != 6 && proto->protocol != 17))
+				if (!proto)
 					continue;
 
 				if (redir->reflection_src == FW3_REFLECTION_INTERNAL)
