@@ -199,6 +199,8 @@ fw3_load_zones(struct fw3_state *state, struct uci_package *p)
 			continue;
 		}
 
+		fw3_ubus_zone_devices(zone);
+
 		if (list_empty(&zone->networks) && list_empty(&zone->devices) &&
 		    list_empty(&zone->subnets) && !zone->extra_src)
 		{

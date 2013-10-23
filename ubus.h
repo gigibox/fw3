@@ -32,4 +32,6 @@ struct fw3_device * fw3_ubus_device(const char *net);
 
 struct list_head * fw3_ubus_address(const char *net);
 
+void fw3_ubus_zone_devices(struct fw3_zone *zone);
+
 #endif

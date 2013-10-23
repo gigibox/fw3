@@ -18,24 +18,47 @@
 
 #include "ubus.h"
 
+static struct blob_attr *interfaces = NULL;
 
-static struct ubus_context *ctx = NULL;
+
+static void dump_cb(struct ubus_request *req, int type, struct blob_attr *msg)
+{
+	struct blob_attr *cur;
+	unsigned rem = blob_len(msg);
+	__blob_for_each_attr(cur, blob_data(msg), rem)
+		if (!strcmp(blobmsg_name(cur), "interface"))
+			interfaces = blob_memdup(cur);
+}
 
 bool
 fw3_ubus_connect(void)
 {
-	ctx = ubus_connect(NULL);
-	return !!ctx;
+	bool status = false;
+	uint32_t id;
+	struct ubus_context *ctx = ubus_connect(NULL);
+
+	if (!ctx)
+		goto out;
+
+	if (ubus_lookup_id(ctx, "network.interface", &id))
+		goto out;
+
+	if (ubus_invoke(ctx, id, "dump", NULL, dump_cb, NULL, 500))
+		goto out;
+
+	status = true;
+
+out:
+	if (ctx)
+		ubus_free(ctx);
+	return status;
 }
 
 void
 fw3_ubus_disconnect(void)
 {
-	if (!ctx)
-		return;
-
-	ubus_free(ctx);
-	ctx = NULL;
+	free(interfaces);
+	interfaces = NULL;
 }
 
 static struct fw3_address *
@@ -83,90 +106,71 @@ parse_subnets(struct list_head *head, enum fw3_family family,
 	}
 }
 
-struct dev_addr
-{
-	struct fw3_device *dev;
-	struct list_head *addr;
-};
-
-static void
-invoke_cb(struct ubus_request *req, int type, struct blob_attr *msg)
-{
-	int rem;
-	char *data;
-	struct blob_attr *cur;
-	struct dev_addr *da = (struct dev_addr *)req->priv;
-	struct fw3_device *dev = da->dev;
-
-	if (!msg)
-		return;
-
-	rem = blob_len(msg);
-	__blob_for_each_attr(cur, blob_data(msg), rem)
-	{
-		data = blobmsg_data(cur);
-
-		if (dev && !strcmp(blobmsg_name(cur), "device") && !dev->name[0])
-			snprintf(dev->name, sizeof(dev->name), "%s", data);
-		else if (dev && !strcmp(blobmsg_name(cur), "l3_device"))
-			snprintf(dev->name, sizeof(dev->name), "%s", data);
-		else if (!dev && !strcmp(blobmsg_name(cur), "ipv4-address"))
-			parse_subnets(da->addr, FW3_FAMILY_V4,
-			              blobmsg_data(cur), blobmsg_data_len(cur));
-		else if (!dev && (!strcmp(blobmsg_name(cur), "ipv6-address") ||
-		                  !strcmp(blobmsg_name(cur), "ipv6-prefix-assignment")))
-			parse_subnets(da->addr, FW3_FAMILY_V6,
-			              blobmsg_data(cur), blobmsg_data_len(cur));
-	}
-
-	if (dev)
-		dev->set = !!dev->name[0];
-}
-
 static void *
-invoke_common(const char *net, bool dev)
+invoke_common(const char *net, bool device)
 {
-	uint32_t id;
-	char path[128];
-	static struct dev_addr da;
+	struct fw3_device *dev = NULL;
+	struct list_head *addr = NULL;
+	struct blob_attr *c, *cur;
+	unsigned r, rem;
+	char *data;
+	bool matched;
 
-	if (!net)
+	if (!net || !interfaces)
 		return NULL;
 
-	memset(&da, 0, sizeof(da));
-
-	if (dev)
-		da.dev = malloc(sizeof(*da.dev));
+	if (device)
+		dev = malloc(sizeof(*dev));
 	else
-		da.addr = malloc(sizeof(*da.addr));
+		addr = malloc(sizeof(*addr));
 
-	if ((dev && !da.dev) || (!dev && !da.addr))
+	if ((device && !dev) || (!device && !addr))
 		goto fail;
 
-	if (dev)
-		memset(da.dev, 0, sizeof(*da.dev));
+	if (device)
+		memset(dev, 0, sizeof(*dev));
 	else
-		INIT_LIST_HEAD(da.addr);
+		INIT_LIST_HEAD(addr);
 
-	snprintf(path, sizeof(path), "network.interface.%s", net);
+	blobmsg_for_each_attr(c, interfaces, r) {
+		matched = false;
+		blobmsg_for_each_attr(cur, c, rem)
+			if (!strcmp(blobmsg_name(cur), "interface"))
+				matched = !strcmp(blobmsg_get_string(cur), net);
 
-	if (ubus_lookup_id(ctx, path, &id))
-		goto fail;
+		if (!matched)
+			continue;
 
-	if (ubus_invoke(ctx, id, "status", NULL, invoke_cb, &da, 500))
-		goto fail;
+		blobmsg_for_each_attr(cur, c, rem) {
+			data = blobmsg_data(cur);
 
-	if (dev && da.dev->set)
-		return da.dev;
-	else if (!dev && !list_empty(da.addr))
-		return da.addr;
+			if (dev && !strcmp(blobmsg_name(cur), "device") && !dev->name[0])
+				snprintf(dev->name, sizeof(dev->name), "%s", data);
+			else if (dev && !strcmp(blobmsg_name(cur), "l3_device"))
+				snprintf(dev->name, sizeof(dev->name), "%s", data);
+			else if (!dev && !strcmp(blobmsg_name(cur), "ipv4-address"))
+				parse_subnets(addr, FW3_FAMILY_V4,
+					      blobmsg_data(cur), blobmsg_data_len(cur));
+			else if (!dev && (!strcmp(blobmsg_name(cur), "ipv6-address") ||
+					  !strcmp(blobmsg_name(cur), "ipv6-prefix-assignment")))
+				parse_subnets(addr, FW3_FAMILY_V6,
+					      blobmsg_data(cur), blobmsg_data_len(cur));
+		}
+
+		if (dev)
+			dev->set = !!dev->name[0];
+
+		break;
+	}
+
+	if (device && dev->set)
+		return dev;
+	else if (!device && !list_empty(addr))
+		return addr;
 
 fail:
-	if (da.dev)
-		free(da.dev);
-
-	if (da.addr)
-		free(da.addr);
+	free(dev);
+	free(addr);
 
 	return NULL;
 }
@@ -181,4 +185,30 @@ struct list_head *
 fw3_ubus_address(const char *net)
 {
 	return invoke_common(net, false);
+}
+
+void
+fw3_ubus_zone_devices(struct fw3_zone *zone)
+{
+	struct blob_attr *c, *cur, *dcur;
+	unsigned r, rem, drem;
+	const char *name;
+	bool matches;
+
+	blobmsg_for_each_attr(c, interfaces, r) {
+		name = NULL;
+		matches = false;
+
+		blobmsg_for_each_attr(cur, c, rem) {
+			if (!strcmp(blobmsg_name(cur), "interface"))
+				name = blobmsg_get_string(cur);
+			else if (!strcmp(blobmsg_name(cur), "data"))
+				blobmsg_for_each_attr(dcur, cur, drem)
+					if (!strcmp(blobmsg_name(dcur), "zone"))
+						matches = !strcmp(blobmsg_get_string(dcur), zone->name);
+		}
+
+		if (name && matches)
+			fw3_parse_device(&zone->networks, name, true);
+	}
 }
