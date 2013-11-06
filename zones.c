@@ -473,6 +473,19 @@ print_zone_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 	switch (handle->table)
 	{
 	case FW3_TABLE_FILTER:
+		if (has(zone->flags, handle->family, FW3_FLAG_DNAT))
+		{
+			r = fw3_ipt_rule_new(handle);
+			fw3_ipt_rule_extra(r, "-m conntrack --ctstate DNAT");
+			fw3_ipt_rule_target(r, fw3_flag_names[FW3_FLAG_ACCEPT]);
+			fw3_ipt_rule_append(r, "zone_%s_input", zone->name);
+
+			r = fw3_ipt_rule_new(handle);
+			fw3_ipt_rule_extra(r, "-m conntrack --ctstate DNAT");
+			fw3_ipt_rule_target(r, fw3_flag_names[FW3_FLAG_ACCEPT]);
+			fw3_ipt_rule_append(r, "zone_%s_forward", zone->name);
+		}
+
 		r = fw3_ipt_rule_new(handle);
 		fw3_ipt_rule_target(r, "zone_%s_src_%s", zone->name,
 		                     fw3_flag_names[zone->policy_input]);
