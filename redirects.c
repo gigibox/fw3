@@ -247,7 +247,12 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 
 		valid = false;
 
-		fw3_parse_options(redir, fw3_redirect_opts, s);
+		if (!fw3_parse_options(redir, fw3_redirect_opts, s))
+		{
+			warn_elem(e, "skipped due to invalid options");
+			fw3_free_redirect(redir);
+			continue;
+		}
 
 		if (!redir->enabled)
 		{
