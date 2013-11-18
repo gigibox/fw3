@@ -427,34 +427,6 @@ set_target_nat(struct fw3_ipt_rule *r, struct fw3_redirect *redir)
 		set_snat_dnat(r, redir->target, &redir->ip_dest, &redir->port_dest);
 }
 
-//static void
-//append_chain_filter(struct fw3_ipt_rule *r, struct fw3_redirect *redir)
-//{
-//	if (redir->target == FW3_FLAG_DNAT)
-//	{
-//		if (redir->local)
-//			fw3_ipt_rule_append(r, "zone_%s_input", redir->src.name);
-//		else
-//			fw3_ipt_rule_append(r, "zone_%s_forward", redir->src.name);
-//	}
-//	else
-//	{
-//		if (redir->src.set && !redir->src.any)
-//			fw3_ipt_rule_append(r, "zone_%s_forward", redir->src.name);
-//		else
-//			fw3_ipt_rule_append(r, "delegate_forward");
-//	}
-//}
-//
-//static void
-//set_target_filter(struct fw3_ipt_rule *r, struct fw3_redirect *redir)
-//{
-//	if (redir->local)
-//		fw3_ipt_rule_extra(r, "-m conntrack --ctstate DNAT");
-//
-//	fw3_ipt_rule_target(r, "ACCEPT");
-//}
-
 static void
 set_comment(struct fw3_ipt_rule *r, const char *name, int num, bool ref)
 {
@@ -510,25 +482,6 @@ print_redirect(struct fw3_ipt_handle *h, struct fw3_state *state,
 		append_chain_nat(r, redir);
 		break;
 
-	case FW3_TABLE_FILTER:
-		//src = &redir->ip_src;
-		//dst = &redir->ip_redir;
-		//spt = &redir->port_src;
-		//dpt = &redir->port_redir;
-		//
-		//r = fw3_ipt_rule_create(h, proto, NULL, NULL, src, dst);
-		//fw3_ipt_rule_sport_dport(r, spt, dpt);
-		//fw3_ipt_rule_mac(r, mac);
-		//fw3_ipt_rule_ipset(r, &redir->ipset);
-		//fw3_ipt_rule_limit(r, &redir->limit);
-		//fw3_ipt_rule_time(r, &redir->time);
-		//fw3_ipt_rule_mark(r, &redir->mark);
-		//set_target_filter(r, redir);
-		//fw3_ipt_rule_extra(r, redir->extra);
-		//set_comment(r, redir->name, num, false);
-		//append_chain_filter(r, redir);
-		break;
-
 	default:
 		break;
 	}
@@ -561,16 +514,6 @@ print_reflection(struct fw3_ipt_handle *h, struct fw3_state *state,
 		set_snat_dnat(r, FW3_FLAG_SNAT, ra, NULL);
 		fw3_ipt_rule_replace(r, "zone_%s_postrouting", redir->dest.name);
 		break;
-
-	//case FW3_TABLE_FILTER:
-	//	r = fw3_ipt_rule_create(h, proto, NULL, NULL, ia, &redir->ip_redir);
-	//	fw3_ipt_rule_sport_dport(r, NULL, &redir->port_redir);
-	//	fw3_ipt_rule_limit(r, &redir->limit);
-	//	fw3_ipt_rule_time(r, &redir->time);
-	//	set_comment(r, redir->name, num, true);
-	//	fw3_ipt_rule_target(r, "zone_%s_dest_ACCEPT", redir->dest.name);
-	//	fw3_ipt_rule_replace(r, "zone_%s_forward", redir->dest.name);
-	//	break;
 
 	default:
 		break;
