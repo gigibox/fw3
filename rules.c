@@ -105,7 +105,12 @@ fw3_load_rules(struct fw3_state *state, struct uci_package *p)
 
 		rule->enabled = true;
 
-		fw3_parse_options(rule, fw3_rule_opts, s);
+		if (!fw3_parse_options(rule, fw3_rule_opts, s))
+		{
+			warn_elem(e, "skipped due to invalid options");
+			fw3_free_rule(rule);
+			continue;
+		}
 
 		if (!rule->enabled)
 		{
