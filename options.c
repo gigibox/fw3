@@ -853,7 +853,7 @@ fw3_parse_setmatch(void *ptr, const char *val, bool is_list)
 }
 
 
-void
+bool
 fw3_parse_options(void *s, const struct fw3_option *opts,
                   struct uci_section *section)
 {
@@ -863,6 +863,7 @@ fw3_parse_options(void *s, const struct fw3_option *opts,
 	struct uci_option *o;
 	const struct fw3_option *opt;
 	struct list_head *dest;
+	bool valid = true;
 
 	uci_foreach_element(&section->options, e)
 	{
@@ -882,6 +883,7 @@ fw3_parse_options(void *s, const struct fw3_option *opts,
 				if (!opt->elem_size)
 				{
 					warn_elem(e, "must not be a list");
+					valid = false;
 				}
 				else
 				{
@@ -895,6 +897,7 @@ fw3_parse_options(void *s, const struct fw3_option *opts,
 						if (!opt->parse(dest, l->name, true))
 						{
 							warn_elem(e, "has invalid value '%s'", l->name);
+							valid = false;
 							continue;
 						}
 					}
@@ -910,7 +913,10 @@ fw3_parse_options(void *s, const struct fw3_option *opts,
 				if (!opt->elem_size)
 				{
 					if (!opt->parse((char *)s + opt->offset, o->v.string, false))
+					{
 						warn_elem(e, "has invalid value '%s'", o->v.string);
+						valid = false;
+					}
 				}
 				else
 				{
@@ -921,6 +927,7 @@ fw3_parse_options(void *s, const struct fw3_option *opts,
 						if (!opt->parse(dest, p, true))
 						{
 							warn_elem(e, "has invalid value '%s'", p);
+							valid = false;
 							continue;
 						}
 					}
@@ -934,6 +941,8 @@ fw3_parse_options(void *s, const struct fw3_option *opts,
 		if (!known)
 			warn_elem(e, "is unknown");
 	}
+
+	return valid;
 }
 
 

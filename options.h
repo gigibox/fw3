@@ -514,7 +514,7 @@ bool fw3_parse_monthdays(void *ptr, const char *val, bool is_list);
 bool fw3_parse_mark(void *ptr, const char *val, bool is_list);
 bool fw3_parse_setmatch(void *ptr, const char *val, bool is_list);
 
-void fw3_parse_options(void *s, const struct fw3_option *opts,
+bool fw3_parse_options(void *s, const struct fw3_option *opts,
                        struct uci_section *section);
 
 const char * fw3_address_to_string(struct fw3_address *address,
