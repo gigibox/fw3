@@ -359,7 +359,7 @@ fw3_print_default_tail_rules(struct fw3_ipt_handle *handle,
 }
 
 static void
-set_default(const char *name, bool set)
+set_default(const char *name, int set)
 {
 	FILE *f;
 	char path[sizeof("/proc/sys/net/ipv4/tcp_window_scaling\0")];
