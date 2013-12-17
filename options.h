@@ -267,7 +267,7 @@ struct fw3_defaults
 	struct fw3_limit syn_flood_rate;
 
 	bool tcp_syncookies;
-	bool tcp_ecn;
+	int tcp_ecn;
 	bool tcp_window_scaling;
 
 	bool accept_redirects;

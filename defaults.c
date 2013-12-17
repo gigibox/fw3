@@ -58,7 +58,7 @@ const struct fw3_option fw3_flag_opts[] = {
 	FW3_OPT("synflood_burst",      int,      defaults, syn_flood_rate.burst),
 
 	FW3_OPT("tcp_syncookies",      bool,     defaults, tcp_syncookies),
-	FW3_OPT("tcp_ecn",             bool,     defaults, tcp_ecn),
+	FW3_OPT("tcp_ecn",             int,      defaults, tcp_ecn),
 	FW3_OPT("tcp_window_scaling",  bool,     defaults, tcp_window_scaling),
 
 	FW3_OPT("accept_redirects",    bool,     defaults, accept_redirects),
