@@ -107,6 +107,11 @@ check_types(struct uci_element *e, struct fw3_ipset *ipset)
 	{
 		for (i = 0; i < ARRAY_SIZE(ipset_types); i++)
 		{
+			/* skip type for v6 if it does not support family */
+			if (ipset->family != FW3_FAMILY_V4 &&
+			    !(ipset_types[i].optional & OPT_FAMILY))
+				continue;
+
 			if (ipset_types[i].types == typelist)
 			{
 				ipset->method = ipset_types[i].method;
@@ -259,6 +264,10 @@ fw3_load_ipsets(struct fw3_state *state, struct uci_package *p)
 		{
 			warn_elem(e, "must not have family 'any'");
 		}
+		else if (ipset->iprange.set && ipset->family != ipset->iprange.family)
+		{
+			warn_elem(e, "has iprange of wrong address family");
+		}
 		else if (list_empty(&ipset->datatypes))
 		{
 			warn_elem(e, "has no datatypes assigned");
@@ -292,6 +301,9 @@ create_ipset(struct fw3_ipset *ipset, struct fw3_state *state)
 		first = false;
 	}
 
+	if (ipset->method == FW3_IPSET_METHOD_HASH)
+		fw3_pr(" family inet%s", (ipset->family == FW3_FAMILY_V4) ? "" : "6");
+
 	if (ipset->iprange.set)
 	{
 		fw3_pr(" range %s", fw3_address_to_string(&ipset->iprange, false));
@@ -301,8 +313,6 @@ create_ipset(struct fw3_ipset *ipset, struct fw3_state *state)
 		fw3_pr(" range %u-%u",
 		       ipset->portrange.port_min, ipset->portrange.port_max);
 	}
-
-	fw3_pr(" family inet%s", (ipset->family == FW3_FAMILY_V4) ? "" : "6");
 
 	if (ipset->timeout > 0)
 		fw3_pr(" timeout %u", ipset->timeout);
