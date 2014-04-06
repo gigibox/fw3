@@ -1,7 +1,7 @@
 /*
  * firewall3 - 3rd OpenWrt UCI firewall implementation
  *
- *   Copyright (C) 2013 Jo-Philipp Wich <jow@openwrt.org>
+ *   Copyright (C) 2013-2014 Jo-Philipp Wich <jow@openwrt.org>
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -305,7 +305,7 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 			warn_elem(e, "has no target specified, defaulting to DNAT");
 			redir->target = FW3_FLAG_DNAT;
 		}
-		else if (redir->target < FW3_FLAG_DNAT)
+		else if (redir->target < FW3_FLAG_DNAT || redir->target > FW3_FLAG_SNAT)
 		{
 			warn_elem(e, "has invalid target specified, defaulting to DNAT");
 			redir->target = FW3_FLAG_DNAT;

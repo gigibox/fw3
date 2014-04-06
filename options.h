@@ -1,7 +1,7 @@
 /*
  * firewall3 - 3rd OpenWrt UCI firewall implementation
  *
- *   Copyright (C) 2013 Jo-Philipp Wich <jow@openwrt.org>
+ *   Copyright (C) 2013-2014 Jo-Philipp Wich <jow@openwrt.org>
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -71,14 +71,15 @@ enum fw3_flag
 	FW3_FLAG_MARK          = 10,
 	FW3_FLAG_DNAT          = 11,
 	FW3_FLAG_SNAT          = 12,
-	FW3_FLAG_SRC_ACCEPT    = 13,
-	FW3_FLAG_SRC_REJECT    = 14,
-	FW3_FLAG_SRC_DROP      = 15,
-	FW3_FLAG_CUSTOM_CHAINS = 16,
-	FW3_FLAG_SYN_FLOOD     = 17,
-	FW3_FLAG_MTU_FIX       = 18,
-	FW3_FLAG_DROP_INVALID  = 19,
-	FW3_FLAG_HOTPLUG       = 20,
+	FW3_FLAG_MASQUERADE    = 13,
+	FW3_FLAG_SRC_ACCEPT    = 14,
+	FW3_FLAG_SRC_REJECT    = 15,
+	FW3_FLAG_SRC_DROP      = 16,
+	FW3_FLAG_CUSTOM_CHAINS = 17,
+	FW3_FLAG_SYN_FLOOD     = 18,
+	FW3_FLAG_MTU_FIX       = 19,
+	FW3_FLAG_DROP_INVALID  = 20,
+	FW3_FLAG_HOTPLUG       = 21,
 
 	__FW3_FLAG_MAX
 };
@@ -394,6 +395,40 @@ struct fw3_redirect
 	enum fw3_reflection_source reflection_src;
 };
 
+struct fw3_snat
+{
+	struct list_head list;
+
+	bool enabled;
+	const char *name;
+
+	enum fw3_family family;
+
+	struct fw3_zone *_src;
+
+	struct fw3_device src;
+	struct fw3_setmatch ipset;
+
+	struct list_head proto;
+
+	struct fw3_address ip_src;
+	struct fw3_port port_src;
+
+	struct fw3_address ip_dest;
+	struct fw3_port port_dest;
+
+	struct fw3_address ip_snat;
+	struct fw3_port port_snat;
+
+	struct fw3_limit limit;
+	struct fw3_time time;
+	struct fw3_mark mark;
+
+	enum fw3_flag target;
+
+	const char *extra;
+};
+
 struct fw3_forward
 {
 	struct list_head list;
@@ -456,6 +491,7 @@ struct fw3_state
 	struct list_head zones;
 	struct list_head rules;
 	struct list_head redirects;
+	struct list_head snats;
 	struct list_head forwards;
 	struct list_head ipsets;
 	struct list_head includes;

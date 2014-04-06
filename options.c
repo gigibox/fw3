@@ -1,7 +1,7 @@
 /*
  * firewall3 - 3rd OpenWrt UCI firewall implementation
  *
- *   Copyright (C) 2013 Jo-Philipp Wich <jow@openwrt.org>
+ *   Copyright (C) 2013-2014 Jo-Philipp Wich <jow@openwrt.org>
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -78,6 +78,7 @@ const char *fw3_flag_names[__FW3_FLAG_MAX] = {
 	"MARK",
 	"DNAT",
 	"SNAT",
+	"MASQUERADE",
 
 	"ACCEPT",
 	"REJECT",
@@ -164,7 +165,7 @@ bool
 fw3_parse_target(void *ptr, const char *val, bool is_list)
 {
 	return parse_enum(ptr, val, &fw3_flag_names[FW3_FLAG_ACCEPT],
-	                  FW3_FLAG_ACCEPT, FW3_FLAG_SNAT);
+	                  FW3_FLAG_ACCEPT, FW3_FLAG_MASQUERADE);
 }
 
 bool
