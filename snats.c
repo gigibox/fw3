@@ -179,7 +179,8 @@ fw3_load_snats(struct fw3_state *state, struct uci_package *p)
 			warn_elem(e, "has no target specified, defaulting to MASQUERADE");
 			snat->target = FW3_FLAG_MASQUERADE;
 		}
-		else if (snat->target < FW3_FLAG_SNAT || snat->target > FW3_FLAG_MASQUERADE)
+		else if (snat->target != FW3_FLAG_ACCEPT && snat->target != FW3_FLAG_SNAT &&
+				snat->target != FW3_FLAG_MASQUERADE)
 		{
 			warn_elem(e, "has invalid target specified, defaulting to MASQUERADE");
 			snat->target = FW3_FLAG_MASQUERADE;
@@ -192,15 +193,15 @@ fw3_load_snats(struct fw3_state *state, struct uci_package *p)
 			fw3_free_snat(snat);
 			continue;
 		}
-		else if (snat->target == FW3_FLAG_MASQUERADE && snat->ip_snat.set)
+		else if (snat->target != FW3_FLAG_SNAT && snat->ip_snat.set)
 		{
-			warn_elem(e, "must not use 'snat_ip' for MASQUERADE");
+			warn_elem(e, "must not use 'snat_ip' for non-SNAT");
 			fw3_free_snat(snat);
 			continue;
 		}
-		else if (snat->target == FW3_FLAG_MASQUERADE && snat->port_snat.set)
+		else if (snat->target != FW3_FLAG_SNAT && snat->port_snat.set)
 		{
-			warn_elem(e, "must not use 'snat_port' for MASQUERADE");
+			warn_elem(e, "must not use 'snat_port' for non-SNAT");
 			fw3_free_snat(snat);
 			continue;
 		}
@@ -257,6 +258,10 @@ set_target(struct fw3_ipt_rule *r, struct fw3_snat *snat,
 
 		fw3_ipt_rule_target(r, "SNAT");
 		fw3_ipt_rule_addarg(r, false, "--to-source", buf);
+	}
+	else if (snat->target == FW3_FLAG_ACCEPT)
+	{
+		fw3_ipt_rule_target(r, "ACCEPT");
 	}
 	else
 	{
