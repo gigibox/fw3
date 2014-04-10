@@ -247,7 +247,7 @@ set_target(struct fw3_ipt_rule *r, struct fw3_snat *snat,
 		}
 
 		if (snat->port_snat.set && proto && !proto->any &&
-		    (proto->protocol == 6 || proto->protocol == 17))
+		    (proto->protocol == 6 || proto->protocol == 17 || proto->protocol == 1))
 		{
 			if (snat->port_snat.port_min == snat->port_snat.port_max)
 				sprintf(buf + strlen(buf), ":%u", snat->port_snat.port_min);
