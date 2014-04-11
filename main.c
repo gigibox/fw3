@@ -374,6 +374,7 @@ start:
 			fw3_print_default_head_rules(handle, cfg_state, true);
 			fw3_print_rules(handle, cfg_state);
 			fw3_print_redirects(handle, cfg_state);
+			fw3_print_snats(handle, cfg_state);
 			fw3_print_forwards(handle, cfg_state);
 			fw3_print_zone_rules(handle, cfg_state, true);
 			fw3_print_default_tail_rules(handle, cfg_state, true);
