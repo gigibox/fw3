@@ -72,29 +72,12 @@ need_src_action_chain(struct fw3_rule *r)
 	return (r->_src && r->_src->log && (r->target > FW3_FLAG_ACCEPT));
 }
 
-void
-fw3_load_rules(struct fw3_state *state, struct uci_package *p)
+static struct fw3_rule*
+alloc_rule(struct fw3_state *state)
 {
-	struct uci_section *s;
-	struct uci_element *e;
-	struct fw3_rule *rule;
+	struct fw3_rule *rule = calloc(1, sizeof(*rule));
 
-	INIT_LIST_HEAD(&state->rules);
-
-	uci_foreach_element(&p->sections, e)
-	{
-		s = uci_to_section(e);
-
-		if (strcmp(s->type, "rule"))
-			continue;
-
-		rule = malloc(sizeof(*rule));
-
-		if (!rule)
-			continue;
-
-		memset(rule, 0, sizeof(*rule));
-
+	if (rule) {
 		INIT_LIST_HEAD(&rule->proto);
 
 		INIT_LIST_HEAD(&rule->ip_src);
@@ -106,7 +89,54 @@ fw3_load_rules(struct fw3_state *state, struct uci_package *p)
 
 		INIT_LIST_HEAD(&rule->icmp_type);
 
+		list_add_tail(&rule->list, &state->rules);
 		rule->enabled = true;
+	}
+
+	return rule;
+}
+
+void
+fw3_load_rules(struct fw3_state *state, struct uci_package *p,
+		struct blob_attr *a)
+{
+	struct uci_section *s;
+	struct uci_element *e;
+	struct fw3_rule *rule, *n;
+	struct blob_attr *entry, *opt;
+	unsigned rem, orem;
+
+	INIT_LIST_HEAD(&state->rules);
+
+	blob_for_each_attr(entry, a, rem) {
+		const char *type = NULL;
+		blobmsg_for_each_attr(opt, entry, orem)
+			if (!strcmp(blobmsg_name(opt), "type"))
+				type = blobmsg_get_string(opt);
+
+		if (!type || strcmp(type, "rule"))
+			continue;
+
+		if (!(rule = alloc_rule(state)))
+			continue;
+
+		if (!fw3_parse_blob_options(rule, fw3_rule_opts, entry))
+		{
+			fprintf(stderr, "ubus section skipped due to invalid options\n");
+			fw3_free_rule(rule);
+			continue;
+		}
+	}
+
+	uci_foreach_element(&p->sections, e)
+	{
+		s = uci_to_section(e);
+
+		if (strcmp(s->type, "rule"))
+			continue;
+
+		if (!(rule = alloc_rule(state)))
+			continue;
 
 		if (!fw3_parse_options(rule, fw3_rule_opts, s))
 		{
@@ -114,7 +144,10 @@ fw3_load_rules(struct fw3_state *state, struct uci_package *p)
 			fw3_free_rule(rule);
 			continue;
 		}
+	}
 
+	list_for_each_entry_safe(rule, n, &state->rules, list)
+	{
 		if (!rule->enabled)
 		{
 			fw3_free_rule(rule);
@@ -219,9 +252,6 @@ fw3_load_rules(struct fw3_state *state, struct uci_package *p)
 			setbit(rule->_src->flags[0], fw3_to_src_target(rule->target));
 			setbit(rule->_src->flags[1], fw3_to_src_target(rule->target));
 		}
-
-		list_add_tail(&rule->list, &state->rules);
-		continue;
 	}
 }
 

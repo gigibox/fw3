@@ -27,10 +27,13 @@
 
 extern const struct fw3_option fw3_snat_opts[];
 
-void fw3_load_snats(struct fw3_state *state, struct uci_package *p);
+void fw3_load_snats(struct fw3_state *state, struct uci_package *p, struct blob_attr *a);
 void fw3_print_snats(struct fw3_ipt_handle *handle, struct fw3_state *state);
 
-#define fw3_free_snat(redir) \
-	fw3_free_object(redir, fw3_snat_opts)
+static inline void fw3_free_snat(struct fw3_snat *snat)
+{
+	list_del(&snat->list);
+	fw3_free_object(snat, fw3_snat_opts);
+}
 
 #endif

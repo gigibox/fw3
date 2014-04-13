@@ -27,10 +27,13 @@
 
 extern const struct fw3_option fw3_rule_opts[];
 
-void fw3_load_rules(struct fw3_state *state, struct uci_package *p);
+void fw3_load_rules(struct fw3_state *state, struct uci_package *p, struct blob_attr *a);
 void fw3_print_rules(struct fw3_ipt_handle *handle, struct fw3_state *state);
 
-#define fw3_free_rule(rule) \
-	fw3_free_object(rule, fw3_rule_opts)
+static inline void fw3_free_rule(struct fw3_rule *rule)
+{
+	list_del(&rule->list);
+	fw3_free_object(rule, fw3_rule_opts);
+}
 
 #endif

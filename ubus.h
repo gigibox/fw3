@@ -34,4 +34,6 @@ struct list_head * fw3_ubus_address(const char *net);
 
 void fw3_ubus_zone_devices(struct fw3_zone *zone);
 
+void fw3_ubus_rules(struct blob_buf *b);
+
 #endif

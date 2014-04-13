@@ -212,3 +212,43 @@ fw3_ubus_zone_devices(struct fw3_zone *zone)
 			fw3_parse_device(&zone->networks, name, true);
 	}
 }
+
+void
+fw3_ubus_rules(struct blob_buf *b)
+{
+	blob_buf_init(b, 0);
+
+	struct blob_attr *c, *cur, *dcur, *rule, *ropt;
+	unsigned r, rem, drem, rrem, orem;
+
+	blobmsg_for_each_attr(c, interfaces, r) {
+		const char *l3_device = NULL;
+		struct blob_attr *data = NULL;
+
+		blobmsg_for_each_attr(cur, c, rem) {
+			if (!strcmp(blobmsg_name(cur), "l3_device"))
+				l3_device = blobmsg_get_string(cur);
+			else if (!strcmp(blobmsg_name(cur), "data"))
+				data = cur;
+		}
+
+		if (!data || !l3_device)
+			continue;
+
+		blobmsg_for_each_attr(dcur, data, drem) {
+			if (strcmp(blobmsg_name(dcur), "firewall"))
+				continue;
+
+			blobmsg_for_each_attr(rule, dcur, rrem) {
+				void *k = blobmsg_open_table(b, "");
+
+				blobmsg_for_each_attr(ropt, rule, orem)
+					if (strcmp(blobmsg_name(ropt), "device"))
+						blobmsg_add_blob(b, ropt);
+
+				blobmsg_add_string(b, "device", l3_device);
+				blobmsg_close_table(b, k);
+			}
+		}
+	}
+}

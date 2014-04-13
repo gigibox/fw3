@@ -98,12 +98,16 @@ build_state(bool runtime)
 		cfg_state = state;
 	}
 
+
+	struct blob_buf b = {NULL, NULL, 0, NULL};
+	fw3_ubus_rules(&b);
+
 	fw3_load_defaults(state, p);
 	fw3_load_ipsets(state, p);
 	fw3_load_zones(state, p);
-	fw3_load_rules(state, p);
+	fw3_load_rules(state, p, b.head);
 	fw3_load_redirects(state, p);
-	fw3_load_snats(state, p);
+	fw3_load_snats(state, p, b.head);
 	fw3_load_forwards(state, p);
 	fw3_load_includes(state, p);
 

@@ -104,14 +104,52 @@ check_families(struct uci_element *e, struct fw3_snat *r)
 	return true;
 }
 
+
+static struct fw3_snat*
+alloc_snat(struct fw3_state *state)
+{
+	struct fw3_snat *snat = calloc(1, sizeof(*snat));
+
+	if (snat) {
+		INIT_LIST_HEAD(&snat->proto);
+		list_add_tail(&snat->list, &state->snats);
+		snat->enabled = true;
+	}
+
+	return snat;
+}
+
+
 void
-fw3_load_snats(struct fw3_state *state, struct uci_package *p)
+fw3_load_snats(struct fw3_state *state, struct uci_package *p, struct blob_attr *a)
 {
 	struct uci_section *s;
 	struct uci_element *e;
-	struct fw3_snat *snat;
+	struct fw3_snat *snat, *n;
+	struct blob_attr *rule, *opt;
+	unsigned rem, orem;
 
 	INIT_LIST_HEAD(&state->snats);
+
+	blob_for_each_attr(rule, a, rem) {
+		const char *type = NULL;
+		blobmsg_for_each_attr(opt, rule, orem)
+			if (!strcmp(blobmsg_name(opt), "type"))
+				type = blobmsg_get_string(opt);
+
+		if (!type || strcmp(type, "nat"))
+			continue;
+
+		if (!(snat = alloc_snat(state)))
+			continue;
+
+		if (!fw3_parse_blob_options(snat, fw3_snat_opts, rule))
+		{
+			fprintf(stderr, "ubus section skipped due to invalid options\n");
+			fw3_free_snat(snat);
+			continue;
+		}
+	}
 
 	uci_foreach_element(&p->sections, e)
 	{
@@ -120,16 +158,8 @@ fw3_load_snats(struct fw3_state *state, struct uci_package *p)
 		if (strcmp(s->type, "nat"))
 			continue;
 
-		snat = malloc(sizeof(*snat));
-
-		if (!snat)
+		if (!(snat = alloc_snat(state)))
 			continue;
-
-		memset(snat, 0, sizeof(*snat));
-
-		INIT_LIST_HEAD(&snat->proto);
-
-		snat->enabled = true;
 
 		if (!fw3_parse_options(snat, fw3_snat_opts, s))
 		{
@@ -137,7 +167,10 @@ fw3_load_snats(struct fw3_state *state, struct uci_package *p)
 			fw3_free_snat(snat);
 			continue;
 		}
+	}
 
+	list_for_each_entry_safe(snat, n, &state->snats, list)
+	{
 		if (!snat->enabled)
 		{
 			fw3_free_snat(snat);
@@ -220,8 +253,6 @@ fw3_load_snats(struct fw3_state *state, struct uci_package *p)
 			set(snat->_src->flags, FW3_FAMILY_V4, FW3_FLAG_SNAT);
 			snat->_src->conntrack = true;
 		}
-
-		list_add_tail(&snat->list, &state->snats);
 	}
 }
 

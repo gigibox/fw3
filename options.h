@@ -41,6 +41,7 @@
 
 #include <libubox/list.h>
 #include <libubox/utils.h>
+#include <libubox/blobmsg.h>
 
 #include "icmp_codes.h"
 #include "utils.h"
@@ -558,6 +559,8 @@ bool fw3_parse_direction(void *ptr, const char *val, bool is_list);
 
 bool fw3_parse_options(void *s, const struct fw3_option *opts,
                        struct uci_section *section);
+bool fw3_parse_blob_options(void *s, const struct fw3_option *opts,
+                       struct blob_attr *a);
 
 const char * fw3_address_to_string(struct fw3_address *address,
                                    bool allow_invert);

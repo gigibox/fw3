@@ -964,6 +964,107 @@ fw3_parse_options(void *s, const struct fw3_option *opts,
 }
 
 
+bool
+fw3_parse_blob_options(void *s, const struct fw3_option *opts,
+                  struct blob_attr *a)
+{
+	char *p, *v, buf[16];
+	bool known;
+	unsigned rem, erem;
+	struct blob_attr *o, *e;
+	const struct fw3_option *opt;
+	struct list_head *dest;
+	bool valid = true;
+
+	blobmsg_for_each_attr(o, a, rem)
+	{
+		known = false;
+
+		for (opt = opts; opt->name; opt++)
+		{
+			if (!opt->parse)
+				continue;
+
+			if (strcmp(opt->name, blobmsg_name(o)))
+				continue;
+
+			if (blobmsg_type(o) == BLOBMSG_TYPE_ARRAY)
+			{
+				if (!opt->elem_size)
+				{
+					fprintf(stderr, "%s must not be a list\n", opt->name);
+					valid = false;
+				}
+				else
+				{
+					dest = (struct list_head *)((char *)s + opt->offset);
+
+					blobmsg_for_each_attr(e, o, erem)
+					{
+						if (blobmsg_type(e) == BLOBMSG_TYPE_INT32) {
+							snprintf(buf, sizeof(buf), "%d", blobmsg_get_u32(e));
+							v = buf;
+						} else {
+							v = blobmsg_get_string(e);
+						}
+
+						if (!opt->parse(dest, v, true))
+						{
+							fprintf(stderr, "%s has invalid value '%s'\n", opt->name, v);
+							valid = false;
+							continue;
+						}
+					}
+				}
+			}
+			else
+			{
+				if (blobmsg_type(o) == BLOBMSG_TYPE_INT32) {
+					snprintf(buf, sizeof(buf), "%d", blobmsg_get_u32(o));
+					v = buf;
+				} else {
+					v = blobmsg_get_string(o);
+				}
+
+				if (!v)
+					continue;
+
+				if (!opt->elem_size)
+				{
+					if (!opt->parse((char *)s + opt->offset, v, false))
+					{
+						fprintf(stderr, "%s has invalid value '%s'\n", opt->name, v);
+						valid = false;
+					}
+				}
+				else
+				{
+					dest = (struct list_head *)((char *)s + opt->offset);
+
+					for (p = strtok(v, " \t"); p != NULL; p = strtok(NULL, " \t"))
+					{
+						if (!opt->parse(dest, p, true))
+						{
+							fprintf(stderr, "%s has invalid value '%s'\n", opt->name, p);
+							valid = false;
+							continue;
+						}
+					}
+				}
+			}
+
+			known = true;
+			break;
+		}
+
+		if (!known)
+			fprintf(stderr, "%s is unknown\n", blobmsg_name(o));
+	}
+
+	return valid;
+}
+
+
 const char *
 fw3_address_to_string(struct fw3_address *address, bool allow_invert)
 {
