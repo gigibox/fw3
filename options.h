@@ -328,6 +328,9 @@ struct fw3_rule
 	struct fw3_zone *_src;
 	struct fw3_zone *_dest;
 
+	const char *device;
+	bool direction_out;
+
 	struct fw3_device src;
 	struct fw3_device dest;
 	struct fw3_setmatch ipset;
@@ -408,6 +411,7 @@ struct fw3_snat
 
 	struct fw3_device src;
 	struct fw3_setmatch ipset;
+	const char *device;
 
 	struct list_head proto;
 
@@ -550,6 +554,7 @@ bool fw3_parse_weekdays(void *ptr, const char *val, bool is_list);
 bool fw3_parse_monthdays(void *ptr, const char *val, bool is_list);
 bool fw3_parse_mark(void *ptr, const char *val, bool is_list);
 bool fw3_parse_setmatch(void *ptr, const char *val, bool is_list);
+bool fw3_parse_direction(void *ptr, const char *val, bool is_list);
 
 bool fw3_parse_options(void *s, const struct fw3_option *opts,
                        struct uci_section *section);

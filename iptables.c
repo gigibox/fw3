@@ -744,6 +744,16 @@ fw3_ipt_rule_sport_dport(struct fw3_ipt_rule *r,
 }
 
 void
+fw3_ipt_rule_device(struct fw3_ipt_rule *r, const char *device, bool out)
+{
+	if (device) {
+		struct fw3_device dev = { .any = false };
+		strncpy(dev.name, device, sizeof(dev.name) - 1);
+		fw3_ipt_rule_in_out(r, (out) ? NULL : &dev, (out) ? &dev : NULL);
+	}
+}
+
+void
 fw3_ipt_rule_mac(struct fw3_ipt_rule *r, struct fw3_mac *mac)
 {
 	char buf[sizeof("ff:ff:ff:ff:ff:ff\0")];

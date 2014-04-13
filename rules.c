@@ -28,6 +28,9 @@ const struct fw3_option fw3_rule_opts[] = {
 	FW3_OPT("src",                 device,    rule,     src),
 	FW3_OPT("dest",                device,    rule,     dest),
 
+	FW3_OPT("device",              string,    rule,     device),
+	FW3_OPT("direction",           direction, rule,     direction_out),
+
 	FW3_OPT("ipset",               setmatch,  rule,     ipset),
 
 	FW3_LIST("proto",              protocol,  rule,     proto),
@@ -350,6 +353,7 @@ print_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 
 	r = fw3_ipt_rule_create(handle, proto, NULL, NULL, sip, dip);
 	fw3_ipt_rule_sport_dport(r, sport, dport);
+	fw3_ipt_rule_device(r, rule->device, rule->direction_out);
 	fw3_ipt_rule_icmptype(r, icmptype);
 	fw3_ipt_rule_mac(r, mac);
 	fw3_ipt_rule_ipset(r, &rule->ipset);

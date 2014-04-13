@@ -854,6 +854,22 @@ fw3_parse_setmatch(void *ptr, const char *val, bool is_list)
 	return true;
 }
 
+bool
+fw3_parse_direction(void *ptr, const char *val, bool is_list)
+{
+	bool *is_out = ptr;
+	bool valid = true;
+
+	if (!strcmp(val, "in") || !strcmp(val, "ingress"))
+		*is_out = false;
+	else if (!strcmp(val, "out") || !strcmp(val, "egress"))
+		*is_out = true;
+	else
+		valid = false;
+
+	return valid;
+}
+
 
 bool
 fw3_parse_options(void *s, const struct fw3_option *opts,

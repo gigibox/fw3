@@ -26,6 +26,7 @@ const struct fw3_option fw3_snat_opts[] = {
 	FW3_OPT("family",              family,    snat,     family),
 
 	FW3_OPT("src",                 device,    snat,     src),
+	FW3_OPT("device",              string,    snat,     device),
 
 	FW3_OPT("ipset",               setmatch,  snat,     ipset),
 
@@ -308,6 +309,7 @@ print_snat(struct fw3_ipt_handle *h, struct fw3_state *state,
 
 		r = fw3_ipt_rule_create(h, proto, NULL, NULL, src, dst);
 		fw3_ipt_rule_sport_dport(r, spt, dpt);
+		fw3_ipt_rule_device(r, snat->device, true);
 		fw3_ipt_rule_ipset(r, &snat->ipset);
 		fw3_ipt_rule_limit(r, &snat->limit);
 		fw3_ipt_rule_time(r, &snat->time);
