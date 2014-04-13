@@ -479,7 +479,7 @@ int main(int argc, char **argv)
 			break;
 
 		case 'q':
-			freopen("/dev/null", "w", stderr);
+			if (freopen("/dev/null", "w", stderr)) {}
 			break;
 
 		case 'h':
@@ -514,7 +514,7 @@ int main(int argc, char **argv)
 #endif
 		}
 
-		freopen("/dev/null", "w", stderr);
+		if (freopen("/dev/null", "w", stderr)) {};
 
 		cfg_state->disable_ipsets = true;
 		print_family = family;
