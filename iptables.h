@@ -46,6 +46,7 @@
 	__ipt_module(icmp)			\
 	__ipt_module(icmp6)			\
 	__ipt_module(limit)			\
+	__ipt_module(connlimit)			\
 	__ipt_module(mac)			\
 	__ipt_module(mark)			\
 	__ipt_module(set)			\

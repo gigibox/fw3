@@ -45,6 +45,8 @@ const struct fw3_option fw3_snat_opts[] = {
 	FW3_OPT("limit",               limit,     snat,     limit),
 	FW3_OPT("limit_burst",         int,       snat,     limit.burst),
 
+	FW3_OPT("connlimit_ports",     bool,      snat,     connlimit_ports),
+
 	FW3_OPT("utc_time",            bool,      snat,     time.utc),
 	FW3_OPT("start_date",          date,      snat,     time.datestart),
 	FW3_OPT("stop_date",           date,      snat,     time.datestop),
@@ -254,6 +256,16 @@ set_target(struct fw3_ipt_rule *r, struct fw3_snat *snat,
 			else
 				sprintf(buf + strlen(buf), ":%u-%u",
 						snat->port_snat.port_min, snat->port_snat.port_max);
+
+			if (snat->connlimit_ports) {
+				char portcntbuf[6];
+				snprintf(portcntbuf, sizeof(portcntbuf), "%u",
+						1 + snat->port_snat.port_max - snat->port_snat.port_min);
+
+				fw3_ipt_rule_addarg(r, false, "-m", "connlimit");
+				fw3_ipt_rule_addarg(r, false, "--connlimit-daddr", NULL);
+				fw3_ipt_rule_addarg(r, false, "--connlimit-upto", portcntbuf);
+			}
 		}
 
 		fw3_ipt_rule_target(r, "SNAT");
