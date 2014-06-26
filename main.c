@@ -449,12 +449,42 @@ lookup_device(const char *dev)
 }
 
 static int
+lookup_zone(const char *zone, const char *device)
+{
+	struct fw3_zone *z;
+	struct fw3_device *d;
+
+	list_for_each_entry(z, &cfg_state->zones, list)
+	{
+		if (strcmp(z->name, zone))
+			continue;
+
+		list_for_each_entry(d, &z->devices, list)
+		{
+			if (device && strcmp(device, d->name))
+				continue;
+
+			printf("%s\n", d->name);
+
+			if (device)
+				return 0;
+		}
+
+		if (!device)
+			return 0;
+	}
+
+	return 1;
+}
+
+static int
 usage(void)
 {
 	fprintf(stderr, "fw3 [-4] [-6] [-q] print\n");
 	fprintf(stderr, "fw3 [-q] {start|stop|flush|reload|restart}\n");
 	fprintf(stderr, "fw3 [-q] network {net}\n");
 	fprintf(stderr, "fw3 [-q] device {dev}\n");
+	fprintf(stderr, "fw3 [-q] zone {zone} [dev]\n");
 
 	return 1;
 }
@@ -574,6 +604,10 @@ int main(int argc, char **argv)
 	else if (!strcmp(argv[optind], "device") && (optind + 1) < argc)
 	{
 		rv = lookup_device(argv[optind + 1]);
+	}
+	else if (!strcmp(argv[optind], "zone") && (optind + 1) < argc)
+	{
+		rv = lookup_zone(argv[optind + 1], argv[optind + 2]);
 	}
 	else
 	{
