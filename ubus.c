@@ -111,11 +111,21 @@ parse_subnets(struct list_head *head, enum fw3_family family,
 struct fw3_device *
 fw3_ubus_device(const char *net)
 {
+	enum {
+		DEV_INTERFACE,
+		DEV_DEVICE,
+		DEV_L3_DEVICE,
+		__DEV_MAX
+	};
+	static const struct blobmsg_policy policy[__DEV_MAX] = {
+		[DEV_INTERFACE] = { "interface", BLOBMSG_TYPE_STRING },
+		[DEV_DEVICE] = { "device", BLOBMSG_TYPE_STRING },
+		[DEV_L3_DEVICE] = { "l3_device", BLOBMSG_TYPE_STRING },
+	};
 	struct fw3_device *dev = NULL;
-	struct blob_attr *c, *cur;
-	unsigned r, rem;
-	char *data;
-	bool matched;
+	struct blob_attr *tb[__DEV_MAX];
+	struct blob_attr *cur;
+	int rem;
 
 	if (!net || !interfaces)
 		return NULL;
@@ -124,24 +134,22 @@ fw3_ubus_device(const char *net)
 	if (!dev)
 		return NULL;
 
-	blobmsg_for_each_attr(c, interfaces, r) {
-		matched = false;
-		blobmsg_for_each_attr(cur, c, rem)
-			if (!strcmp(blobmsg_name(cur), "interface"))
-				matched = !strcmp(blobmsg_get_string(cur), net);
+	blobmsg_for_each_attr(cur, interfaces, rem) {
+		char *name;
 
-		if (!matched)
+		blobmsg_parse(policy, __DEV_MAX, tb, blobmsg_data(cur), blobmsg_len(cur));
+		if (!tb[DEV_INTERFACE] ||
+		    strcmp(blobmsg_data(tb[DEV_INTERFACE]), net) != 0)
 			continue;
 
-		blobmsg_for_each_attr(cur, c, rem) {
-			data = blobmsg_data(cur);
+		if (tb[DEV_L3_DEVICE])
+			name = blobmsg_data(tb[DEV_L3_DEVICE]);
+		else if (tb[DEV_DEVICE])
+			name = blobmsg_data(tb[DEV_DEVICE]);
+		else
+			continue;
 
-			if (!strcmp(blobmsg_name(cur), "device") && !dev->name[0])
-				snprintf(dev->name, sizeof(dev->name), "%s", data);
-			else if (!strcmp(blobmsg_name(cur), "l3_device"))
-				snprintf(dev->name, sizeof(dev->name), "%s", data);
-		}
-
+		snprintf(dev->name, sizeof(dev->name), "%s", name);
 		dev->set = !!dev->name[0];
 		return dev;
 	}
