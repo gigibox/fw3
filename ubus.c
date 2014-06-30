@@ -23,11 +23,12 @@ static struct blob_attr *interfaces = NULL;
 
 static void dump_cb(struct ubus_request *req, int type, struct blob_attr *msg)
 {
+	static const struct blobmsg_policy policy = { "interface", BLOBMSG_TYPE_ARRAY };
 	struct blob_attr *cur;
-	unsigned rem = blob_len(msg);
-	__blob_for_each_attr(cur, blob_data(msg), rem)
-		if (!strcmp(blobmsg_name(cur), "interface"))
-			interfaces = blob_memdup(cur);
+
+	blobmsg_parse(&policy, 1, &cur, blob_data(msg), blob_len(msg));
+	if (cur)
+		interfaces = blob_memdup(cur);
 }
 
 bool
