@@ -68,12 +68,9 @@ parse_subnet(enum fw3_family family, struct blob_attr *dict, int rem)
 	struct blob_attr *cur;
 	struct fw3_address *addr;
 
-	addr = malloc(sizeof(*addr));
-
+	addr = calloc(1, sizeof(*addr));
 	if (!addr)
 		return NULL;
-
-	memset(addr, 0, sizeof(*addr));
 
 	addr->set = true;
 	addr->family = family;
@@ -121,16 +118,14 @@ invoke_common(const char *net, bool device)
 		return NULL;
 
 	if (device)
-		dev = malloc(sizeof(*dev));
+		dev = calloc(1, sizeof(*dev));
 	else
 		addr = malloc(sizeof(*addr));
 
 	if ((device && !dev) || (!device && !addr))
 		goto fail;
 
-	if (device)
-		memset(dev, 0, sizeof(*dev));
-	else
+	if (!device)
 		INIT_LIST_HEAD(addr);
 
 	blobmsg_for_each_attr(c, interfaces, r) {

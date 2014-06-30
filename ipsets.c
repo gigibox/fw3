@@ -203,12 +203,9 @@ fw3_alloc_ipset(void)
 {
 	struct fw3_ipset *ipset;
 
-	ipset = malloc(sizeof(*ipset));
-
+	ipset = calloc(1, sizeof(*ipset));
 	if (!ipset)
 		return NULL;
-
-	memset(ipset, 0, sizeof(*ipset));
 
 	INIT_LIST_HEAD(&ipset->datatypes);
 

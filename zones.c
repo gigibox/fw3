@@ -128,12 +128,9 @@ fw3_alloc_zone(void)
 {
 	struct fw3_zone *zone;
 
-	zone = malloc(sizeof(*zone));
-
+	zone = calloc(1, sizeof(*zone));
 	if (!zone)
 		return NULL;
-
-	memset(zone, 0, sizeof(*zone));
 
 	INIT_LIST_HEAD(&zone->networks);
 	INIT_LIST_HEAD(&zone->devices);
@@ -683,12 +680,10 @@ fw3_resolve_zone_addresses(struct fw3_zone *zone)
 	struct fw3_address *addr, *tmp;
 	struct list_head *addrs, *all;
 
-	all = malloc(sizeof(*all));
-
+	all = calloc(1, sizeof(*all));
 	if (!all)
 		return NULL;
 
-	memset(all, 0, sizeof(*all));
 	INIT_LIST_HEAD(all);
 
 	list_for_each_entry(net, &zone->networks, list)

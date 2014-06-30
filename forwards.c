@@ -48,12 +48,9 @@ fw3_load_forwards(struct fw3_state *state, struct uci_package *p)
 		if (strcmp(s->type, "forwarding"))
 			continue;
 
-		forward = malloc(sizeof(*forward));
-
+		forward = calloc(1, sizeof(*forward));
 		if (!forward)
 			continue;
-
-		memset(forward, 0, sizeof(*forward));
 
 		forward->enabled = true;
 

@@ -232,12 +232,9 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 		if (strcmp(s->type, "redirect"))
 			continue;
 
-		redir = malloc(sizeof(*redir));
-
+		redir = calloc(1, sizeof(*redir));
 		if (!redir)
 			continue;
-
-		memset(redir, 0, sizeof(*redir));
 
 		INIT_LIST_HEAD(&redir->proto);
 		INIT_LIST_HEAD(&redir->mac_src);

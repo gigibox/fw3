@@ -225,7 +225,7 @@ __fw3_command_pipe(bool silent, const char *command, ...)
 		return false;
 
 	argn = 2;
-	args = malloc(argn * sizeof(arg));
+	args = calloc(argn, sizeof(arg));
 
 	if (!args)
 		return false;

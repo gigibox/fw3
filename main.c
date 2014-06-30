@@ -45,12 +45,10 @@ build_state(bool runtime)
 	struct uci_package *p = NULL;
 	FILE *sf;
 
-	state = malloc(sizeof(*state));
-
+	state = calloc(1, sizeof(*state));
 	if (!state)
 		error("Out of memory");
 
-	memset(state, 0, sizeof(*state));
 	state->uci = uci_alloc_context();
 
 	if (!state->uci)

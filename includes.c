@@ -47,12 +47,9 @@ fw3_load_includes(struct fw3_state *state, struct uci_package *p)
 		if (strcmp(s->type, "include"))
 			continue;
 
-		include = malloc(sizeof(*include));
-
+		include = calloc(1, sizeof(*include));
 		if (!include)
 			continue;
-
-		memset(include, 0, sizeof(*include));
 
 		include->name = e->name;
 		include->enabled = true;
