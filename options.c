@@ -330,28 +330,20 @@ fw3_parse_network(void *ptr, const char *val, bool is_list)
 {
 	struct fw3_device dev = { };
 	struct fw3_address *addr;
-	struct list_head *addr_list;
+	LIST_HEAD(addr_list);
 
 	if (!fw3_parse_address(ptr, val, is_list))
 	{
 		if (!fw3_parse_device(&dev, val, false))
 			return false;
 
-		addr_list = fw3_ubus_address(dev.name);
-
-		if (addr_list)
+		fw3_ubus_address(&addr_list, dev.name);
+		list_for_each_entry(addr, &addr_list, list)
 		{
-			list_for_each_entry(addr, addr_list, list)
-			{
-				addr->invert = dev.invert;
-				addr->resolved = true;
-
-				if (!put_value(ptr, addr, sizeof(*addr), is_list))
-					break;
-			}
-
-			fw3_free_list(addr_list);
+			addr->invert = dev.invert;
+			addr->resolved = true;
 		}
+		list_splice_tail(&addr_list, ptr);
 	}
 
 	return true;

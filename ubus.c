@@ -90,12 +90,16 @@ parse_subnet(enum fw3_family family, struct blob_attr *dict, int rem)
 
 static void
 parse_subnets(struct list_head *head, enum fw3_family family,
-              struct blob_attr *list, int rem)
+              struct blob_attr *list)
 {
 	struct blob_attr *cur;
 	struct fw3_address *addr;
+	int rem;
 
-	__blob_for_each_attr(cur, list, rem)
+	if (!list)
+		return;
+
+	blob_for_each_attr(cur, list, rem)
 	{
 		addr = parse_subnet(family, blobmsg_data(cur), blobmsg_data_len(cur));
 
@@ -104,11 +108,10 @@ parse_subnets(struct list_head *head, enum fw3_family family,
 	}
 }
 
-static void *
-invoke_common(const char *net, bool device)
+struct fw3_device *
+fw3_ubus_device(const char *net)
 {
 	struct fw3_device *dev = NULL;
-	struct list_head *addr = NULL;
 	struct blob_attr *c, *cur;
 	unsigned r, rem;
 	char *data;
@@ -117,16 +120,9 @@ invoke_common(const char *net, bool device)
 	if (!net || !interfaces)
 		return NULL;
 
-	if (device)
-		dev = calloc(1, sizeof(*dev));
-	else
-		addr = malloc(sizeof(*addr));
-
-	if ((device && !dev) || (!device && !addr))
-		goto fail;
-
-	if (!device)
-		INIT_LIST_HEAD(addr);
+	dev = calloc(1, sizeof(*dev));
+	if (!dev)
+		return NULL;
 
 	blobmsg_for_each_attr(c, interfaces, r) {
 		matched = false;
@@ -140,47 +136,53 @@ invoke_common(const char *net, bool device)
 		blobmsg_for_each_attr(cur, c, rem) {
 			data = blobmsg_data(cur);
 
-			if (dev && !strcmp(blobmsg_name(cur), "device") && !dev->name[0])
+			if (!strcmp(blobmsg_name(cur), "device") && !dev->name[0])
 				snprintf(dev->name, sizeof(dev->name), "%s", data);
-			else if (dev && !strcmp(blobmsg_name(cur), "l3_device"))
+			else if (!strcmp(blobmsg_name(cur), "l3_device"))
 				snprintf(dev->name, sizeof(dev->name), "%s", data);
-			else if (!dev && !strcmp(blobmsg_name(cur), "ipv4-address"))
-				parse_subnets(addr, FW3_FAMILY_V4,
-					      blobmsg_data(cur), blobmsg_data_len(cur));
-			else if (!dev && (!strcmp(blobmsg_name(cur), "ipv6-address") ||
-					  !strcmp(blobmsg_name(cur), "ipv6-prefix-assignment")))
-				parse_subnets(addr, FW3_FAMILY_V6,
-					      blobmsg_data(cur), blobmsg_data_len(cur));
 		}
 
-		if (dev)
-			dev->set = !!dev->name[0];
-
-		break;
-	}
-
-	if (device && dev->set)
+		dev->set = !!dev->name[0];
 		return dev;
-	else if (!device && !list_empty(addr))
-		return addr;
-
-fail:
-	free(dev);
-	free(addr);
+	}
 
 	return NULL;
 }
 
-struct fw3_device *
-fw3_ubus_device(const char *net)
+void
+fw3_ubus_address(struct list_head *list, const char *net)
 {
-	return invoke_common(net, true);
-}
+	enum {
+		ADDR_INTERFACE,
+		ADDR_IPV4,
+		ADDR_IPV6,
+		ADDR_IPV6_PREFIX,
+		__ADDR_MAX
+	};
+	static const struct blobmsg_policy policy[__ADDR_MAX] = {
+		[ADDR_INTERFACE] = { "interface", BLOBMSG_TYPE_STRING },
+		[ADDR_IPV4] = { "ipv4-address", BLOBMSG_TYPE_ARRAY },
+		[ADDR_IPV6] = { "ipv6-address", BLOBMSG_TYPE_ARRAY },
+		[ADDR_IPV6_PREFIX] = { "ipv6-prefix-assignment", BLOBMSG_TYPE_ARRAY },
+	};
+	struct blob_attr *tb[__ADDR_MAX];
+	struct blob_attr *cur;
+	int rem;
 
-struct list_head *
-fw3_ubus_address(const char *net)
-{
-	return invoke_common(net, false);
+	if (!net || !interfaces)
+		return;
+
+	blobmsg_for_each_attr(cur, interfaces, rem) {
+		blobmsg_parse(policy, __ADDR_MAX, tb, blobmsg_data(cur), blobmsg_len(cur));
+
+		if (!tb[ADDR_INTERFACE] ||
+		    strcmp(blobmsg_data(tb[ADDR_INTERFACE]), net) != 0)
+			continue;
+
+		parse_subnets(list, FW3_FAMILY_V4, tb[ADDR_IPV4]);
+		parse_subnets(list, FW3_FAMILY_V6, tb[ADDR_IPV6]);
+		parse_subnets(list, FW3_FAMILY_V6, tb[ADDR_IPV6_PREFIX]);
+	}
 }
 
 void

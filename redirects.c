@@ -171,8 +171,7 @@ check_local(struct uci_element *e, struct fw3_redirect *redir,
 {
 	struct fw3_zone *zone;
 	struct fw3_device *net;
-	struct fw3_address *addr;
-	struct list_head *addrs;
+	struct fw3_address *addr, *tmp;
 
 	if (redir->target != FW3_FLAG_DNAT)
 		return false;
@@ -187,24 +186,22 @@ check_local(struct uci_element *e, struct fw3_redirect *redir,
 	{
 		list_for_each_entry(net, &zone->networks, list)
 		{
-			addrs = fw3_ubus_address(net->name);
+			LIST_HEAD(addrs);
 
-			if (!addrs)
-				continue;
-
-			list_for_each_entry(addr, addrs, list)
+			fw3_ubus_address(&addrs, net->name);
+			list_for_each_entry_safe(addr, tmp, &addrs, list)
 			{
-				if (!compare_addr(&redir->ip_redir, addr))
+				if (compare_addr(&redir->ip_redir, addr)) {
+					warn_elem(e, "refers to a destination address on this router, "
+					             "assuming port redirection");
+
+					redir->local = true;
 					continue;
+				}
 
-				warn_elem(e, "refers to a destination address on this router, "
-				             "assuming port redirection");
-
-				redir->local = true;
-				break;
+				list_del(&addr->list);
+				free(addr);
 			}
-
-			fw3_free_list(addrs);
 
 			if (redir->local)
 				return true;

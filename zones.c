@@ -678,7 +678,7 @@ fw3_resolve_zone_addresses(struct fw3_zone *zone)
 {
 	struct fw3_device *net;
 	struct fw3_address *addr, *tmp;
-	struct list_head *addrs, *all;
+	struct list_head *all;
 
 	all = calloc(1, sizeof(*all));
 	if (!all)
@@ -687,20 +687,7 @@ fw3_resolve_zone_addresses(struct fw3_zone *zone)
 	INIT_LIST_HEAD(all);
 
 	list_for_each_entry(net, &zone->networks, list)
-	{
-		addrs = fw3_ubus_address(net->name);
-
-		if (!addrs)
-			continue;
-
-		list_for_each_entry_safe(addr, tmp, addrs, list)
-		{
-			list_del(&addr->list);
-			list_add_tail(&addr->list, all);
-		}
-
-		free(addrs);
-	}
+		fw3_ubus_address(all, net->name);
 
 	list_for_each_entry(addr, &zone->subnets, list)
 	{
