@@ -19,6 +19,7 @@
 #include "ubus.h"
 
 static struct blob_attr *interfaces = NULL;
+static struct blob_attr *procd_data;
 
 
 static void dump_cb(struct ubus_request *req, int type, struct blob_attr *msg)
@@ -31,12 +32,18 @@ static void dump_cb(struct ubus_request *req, int type, struct blob_attr *msg)
 		interfaces = blob_memdup(cur);
 }
 
+static void procd_data_cb(struct ubus_request *req, int type, struct blob_attr *msg)
+{
+	procd_data = blob_memdup(msg);
+}
+
 bool
 fw3_ubus_connect(void)
 {
 	bool status = false;
 	uint32_t id;
 	struct ubus_context *ctx = ubus_connect(NULL);
+	struct blob_buf b = { };
 
 	if (!ctx)
 		goto out;
@@ -48,6 +55,14 @@ fw3_ubus_connect(void)
 		goto out;
 
 	status = true;
+
+	if (ubus_lookup_id(ctx, "service", &id))
+		goto out;
+
+	blob_buf_init(&b, 0);
+	blobmsg_add_string(&b, "type", "firewall");
+	ubus_invoke(ctx, id, "get_data", b.head, procd_data_cb, NULL, 2000);
+	blob_buf_free(&b);
 
 out:
 	if (ctx)
@@ -254,6 +269,30 @@ fw3_ubus_rules(struct blob_buf *b)
 
 				blobmsg_add_string(b, "device", l3_device);
 				blobmsg_close_table(b, k);
+			}
+		}
+	}
+
+	if (!procd_data)
+		return;
+
+	/* service */
+	blobmsg_for_each_attr(c, procd_data, r) {
+		if (!blobmsg_check_attr(c, true))
+			continue;
+
+		/* instance */
+		blobmsg_for_each_attr(cur, c, rem) {
+			if (!blobmsg_check_attr(cur, true))
+				continue;
+
+			/* type */
+			blobmsg_for_each_attr(dcur, cur, drem) {
+				if (!blobmsg_check_attr(dcur, true))
+					continue;
+
+				blobmsg_for_each_attr(rule, dcur, rrem)
+					blobmsg_add_blob(b, rule);
 			}
 		}
 	}
