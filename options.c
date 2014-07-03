@@ -329,7 +329,7 @@ bool
 fw3_parse_network(void *ptr, const char *val, bool is_list)
 {
 	struct fw3_device dev = { };
-	struct fw3_address *addr;
+	struct fw3_address *addr, *tmp;
 	LIST_HEAD(addr_list);
 
 	if (!fw3_parse_address(ptr, val, is_list))
@@ -343,7 +343,19 @@ fw3_parse_network(void *ptr, const char *val, bool is_list)
 			addr->invert = dev.invert;
 			addr->resolved = true;
 		}
-		list_splice_tail(&addr_list, ptr);
+
+		if (is_list)
+		{
+			list_splice_tail(&addr_list, ptr);
+		}
+		else if (!list_empty(&addr_list))
+		{
+			memcpy(ptr, list_first_entry(&addr_list, typeof(*addr), list),
+			       sizeof(*addr));
+
+			list_for_each_entry_safe(addr, tmp, &addr_list, list)
+				free(addr);
+		}
 	}
 
 	return true;
