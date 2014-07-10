@@ -105,16 +105,15 @@ parse_subnet(enum fw3_family family, struct blob_attr *dict, int rem)
 
 static void
 parse_subnets(struct list_head *head, enum fw3_family family,
-              struct blob_attr *list)
+              struct blob_attr *list, int rem)
 {
 	struct blob_attr *cur;
 	struct fw3_address *addr;
-	int rem;
 
 	if (!list)
 		return;
 
-	blob_for_each_attr(cur, list, rem)
+	__blob_for_each_attr(cur, list, rem)
 	{
 		addr = parse_subnet(family, blobmsg_data(cur), blobmsg_data_len(cur));
 
@@ -206,9 +205,9 @@ fw3_ubus_address(struct list_head *list, const char *net)
 		    strcmp(blobmsg_data(tb[ADDR_INTERFACE]), net) != 0)
 			continue;
 
-		parse_subnets(list, FW3_FAMILY_V4, tb[ADDR_IPV4]);
-		parse_subnets(list, FW3_FAMILY_V6, tb[ADDR_IPV6]);
-		parse_subnets(list, FW3_FAMILY_V6, tb[ADDR_IPV6_PREFIX]);
+		parse_subnets(list, FW3_FAMILY_V4, blobmsg_data(tb[ADDR_IPV4]), blobmsg_data_len(tb[ADDR_IPV4]));
+		parse_subnets(list, FW3_FAMILY_V6, blobmsg_data(tb[ADDR_IPV6]), blobmsg_data_len(tb[ADDR_IPV6]));
+		parse_subnets(list, FW3_FAMILY_V6, blobmsg_data(tb[ADDR_IPV6_PREFIX]), blobmsg_data_len(tb[ADDR_IPV6_PREFIX]));
 	}
 }
 
