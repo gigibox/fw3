@@ -140,18 +140,13 @@ fw3_ubus_device(const char *net)
 	struct fw3_device *dev = NULL;
 	struct blob_attr *tb[__DEV_MAX];
 	struct blob_attr *cur;
+	char *name = NULL;
 	int rem;
 
 	if (!net || !interfaces)
 		return NULL;
 
-	dev = calloc(1, sizeof(*dev));
-	if (!dev)
-		return NULL;
-
 	blobmsg_for_each_attr(cur, interfaces, rem) {
-		char *name;
-
 		blobmsg_parse(policy, __DEV_MAX, tb, blobmsg_data(cur), blobmsg_len(cur));
 		if (!tb[DEV_INTERFACE] ||
 		    strcmp(blobmsg_data(tb[DEV_INTERFACE]), net) != 0)
@@ -164,12 +159,21 @@ fw3_ubus_device(const char *net)
 		else
 			continue;
 
-		snprintf(dev->name, sizeof(dev->name), "%s", name);
-		dev->set = !!dev->name[0];
-		return dev;
+		break;
 	}
 
-	return NULL;
+	if (!name)
+		return NULL;
+
+	dev = calloc(1, sizeof(*dev));
+
+	if (!dev)
+		return NULL;
+
+	snprintf(dev->name, sizeof(dev->name), "%s", name);
+	dev->set = true;
+
+	return dev;
 }
 
 void
