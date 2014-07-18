@@ -95,4 +95,8 @@ void fw3_free_list(struct list_head *head);
 
 bool fw3_hotplug(bool add, void *zone, void *device);
 
+int fw3_netmask2bitlen(int family, void *mask);
+
+bool fw3_bitlen2netmask(int family, int bits, void *mask);
+
 #endif

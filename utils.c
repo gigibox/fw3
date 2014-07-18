@@ -514,7 +514,7 @@ write_zone_uci(struct uci_context *ctx, struct fw3_zone *z,
 		if (!sub)
 			continue;
 
-		ptr.value = fw3_address_to_string(sub, true);
+		ptr.value = fw3_address_to_string(sub, true, false);
 		uci_add_list(ctx, &ptr);
 	}
 
@@ -569,7 +569,7 @@ write_ipset_uci(struct uci_context *ctx, struct fw3_ipset *s,
 	{
 		ptr.o      = NULL;
 		ptr.option = "iprange";
-		ptr.value  = fw3_address_to_string(&s->iprange, false);
+		ptr.value  = fw3_address_to_string(&s->iprange, false, false);
 		uci_set(ctx, &ptr);
 	}
 
@@ -709,4 +709,61 @@ fw3_hotplug(bool add, void *zone, void *device)
 
 	/* unreached */
 	return false;
+}
+
+int
+fw3_netmask2bitlen(int family, void *mask)
+{
+	int bits;
+	struct in_addr *v4;
+	struct in6_addr *v6;
+
+	if (family == FW3_FAMILY_V6)
+		for (bits = 0, v6 = mask;
+		     bits < 128 && (v6->s6_addr[bits / 8] << (bits % 8)) & 128;
+		     bits++);
+	else
+		for (bits = 0, v4 = mask;
+		     bits < 32 && (ntohl(v4->s_addr) << bits) & 0x80000000;
+		     bits++);
+
+	return bits;
+}
+
+bool
+fw3_bitlen2netmask(int family, int bits, void *mask)
+{
+	int i;
+	struct in_addr *v4;
+	struct in6_addr *v6;
+
+	if (family == FW3_FAMILY_V6)
+	{
+		if (bits < -128 || bits > 128)
+			return false;
+
+		v6 = mask;
+		i = abs(bits);
+
+		memset(v6->s6_addr, 0xff, i / 8);
+		memset(v6->s6_addr + (i / 8) + 1, 0, (128 - i) / 8);
+		v6->s6_addr[i / 8] = 0xff << (8 - (i & 7));
+
+		if (bits < 0)
+			for (i = 0; i < 16; i++)
+				v6->s6_addr[i] = ~v6->s6_addr[i];
+	}
+	else
+	{
+		if (bits < -32 || bits > 32)
+			return false;
+
+		v4 = mask;
+		v4->s_addr = htonl(~((1 << (32 - abs(bits))) - 1));
+
+		if (bits < 0)
+			v4->s_addr = ~v4->s_addr;
+	}
+
+	return true;
 }

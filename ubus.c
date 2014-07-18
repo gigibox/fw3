@@ -94,10 +94,10 @@ parse_subnet(enum fw3_family family, struct blob_attr *dict, int rem)
 	{
 		if (!strcmp(blobmsg_name(cur), "address"))
 			inet_pton(family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
-			          blobmsg_data(cur), &addr->address.v6);
+			          blobmsg_get_string(cur), &addr->address.v6);
 
 		else if (!strcmp(blobmsg_name(cur), "mask"))
-			addr->mask = be32_to_cpu(*(uint32_t *)blobmsg_data(cur));
+			fw3_bitlen2netmask(family, blobmsg_get_u32(cur), &addr->mask.v6);
 	}
 
 	return addr;

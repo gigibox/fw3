@@ -303,7 +303,7 @@ create_ipset(struct fw3_ipset *ipset, struct fw3_state *state)
 
 	if (ipset->iprange.set)
 	{
-		fw3_pr(" range %s", fw3_address_to_string(&ipset->iprange, false));
+		fw3_pr(" range %s", fw3_address_to_string(&ipset->iprange, false, true));
 	}
 	else if (ipset->portrange.set)
 	{

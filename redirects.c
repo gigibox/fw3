@@ -116,14 +116,11 @@ check_families(struct uci_element *e, struct fw3_redirect *r)
 static bool
 compare_addr(struct fw3_address *a, struct fw3_address *b)
 {
-	uint32_t mask;
-
 	if (a->family != FW3_FAMILY_V4 || b->family != FW3_FAMILY_V4)
 		return false;
 
-	mask = htonl(~((1 << (32 - a->mask)) - 1));
-
-	return ((a->address.v4.s_addr & mask) == (b->address.v4.s_addr & mask));
+	return ((a->address.v4.s_addr & a->mask.v4.s_addr) ==
+	        (b->address.v4.s_addr & a->mask.v4.s_addr));
 }
 
 static bool
@@ -603,8 +600,8 @@ expand_redirect(struct fw3_ipt_handle *handle, struct fw3_state *state,
 				else
 					ref_addr = *ext_addr;
 
-				ref_addr.mask = 32;
-				ext_addr->mask = 32;
+				ref_addr.mask.v4.s_addr = 0xFFFFFFFF;
+				ext_addr->mask.v4.s_addr = 0xFFFFFFFF;
 
 				print_reflection(handle, state, redir, num, proto,
 								 &ref_addr, int_addr, ext_addr);

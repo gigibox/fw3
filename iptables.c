@@ -606,34 +606,6 @@ fw3_ipt_rule_in_out(struct fw3_ipt_rule *r,
 }
 
 
-static void
-ip4prefix2mask(int prefix, struct in_addr *mask)
-{
-	if (prefix > 0)
-		mask->s_addr = htonl(~((1 << (32 - prefix)) - 1));
-	else
-		mask->s_addr = 0;
-}
-
-#ifndef DISABLE_IPV6
-static void
-ip6prefix2mask(int prefix, struct in6_addr *mask)
-{
-	char *p = (char *)mask;
-
-	if (prefix > 0)
-	{
-		memset(p, 0xff, prefix / 8);
-		memset(p + (prefix / 8) + 1, 0, (128 - prefix) / 8);
-		p[prefix / 8] = 0xff << (8 - (prefix & 7));
-	}
-	else
-	{
-		memset(mask, 0, sizeof(*mask));
-	}
-}
-#endif
-
 void
 fw3_ipt_rule_src_dest(struct fw3_ipt_rule *r,
                       struct fw3_address *src, struct fw3_address *dest)
@@ -648,13 +620,13 @@ fw3_ipt_rule_src_dest(struct fw3_ipt_rule *r,
 		if (src->range)
 		{
 			fw3_ipt_rule_addarg(r, src->invert, "--src-range",
-			                    fw3_address_to_string(src, false));
+			                    fw3_address_to_string(src, false, false));
 		}
 #ifndef DISABLE_IPV6
 		else if (r->h->family == FW3_FAMILY_V6)
 		{
 			r->e6.ipv6.src = src->address.v6;
-			ip6prefix2mask(src->mask, &r->e6.ipv6.smsk);
+			r->e6.ipv6.smsk = src->mask.v6;
 
 			int i;
 			for (i = 0; i < 4; i++)
@@ -667,7 +639,7 @@ fw3_ipt_rule_src_dest(struct fw3_ipt_rule *r,
 		else
 		{
 			r->e.ip.src = src->address.v4;
-			ip4prefix2mask(src->mask, &r->e.ip.smsk);
+			r->e.ip.smsk = src->mask.v4;
 
 			r->e.ip.src.s_addr &= r->e.ip.smsk.s_addr;
 
@@ -681,13 +653,13 @@ fw3_ipt_rule_src_dest(struct fw3_ipt_rule *r,
 		if (dest->range)
 		{
 			fw3_ipt_rule_addarg(r, dest->invert, "--dst-range",
-			                    fw3_address_to_string(dest, false));
+			                    fw3_address_to_string(dest, false, false));
 		}
 #ifndef DISABLE_IPV6
 		else if (r->h->family == FW3_FAMILY_V6)
 		{
 			r->e6.ipv6.dst = dest->address.v6;
-			ip6prefix2mask(dest->mask, &r->e6.ipv6.dmsk);
+			r->e6.ipv6.dmsk = dest->mask.v6;
 
 			int i;
 			for (i = 0; i < 4; i++)
@@ -700,7 +672,7 @@ fw3_ipt_rule_src_dest(struct fw3_ipt_rule *r,
 		else
 		{
 			r->e.ip.dst = dest->address.v4;
-			ip4prefix2mask(dest->mask, &r->e.ip.dmsk);
+			r->e.ip.dmsk = dest->mask.v4;
 
 			r->e.ip.dst.s_addr &= r->e.ip.dmsk.s_addr;
 
@@ -1003,7 +975,7 @@ fw3_ipt_rule_extra(struct fw3_ipt_rule *r, const char *extra)
 static void
 rule_print6(struct ip6t_entry *e)
 {
-	char buf[INET6_ADDRSTRLEN];
+	char buf1[INET6_ADDRSTRLEN], buf2[INET6_ADDRSTRLEN];
 	char *pname;
 
 	if (e->ipv6.flags & IP6T_F_PROTO)
@@ -1040,8 +1012,9 @@ rule_print6(struct ip6t_entry *e)
 		if (e->ipv6.flags & IP6T_INV_SRCIP)
 			printf(" !");
 
-		printf(" -s %s/%u", inet_ntop(AF_INET6, &e->ipv6.src, buf, sizeof(buf)),
-		                    xtables_ip6mask_to_cidr(&e->ipv6.smsk));
+		printf(" -s %s/%s",
+		       inet_ntop(AF_INET6, &e->ipv6.src, buf1, sizeof(buf1)),
+		       inet_ntop(AF_INET6, &e->ipv6.smsk, buf2, sizeof(buf2)));
 	}
 
 	if (memcmp(&e->ipv6.dst, &in6addr_any, sizeof(struct in6_addr)))
@@ -1049,8 +1022,9 @@ rule_print6(struct ip6t_entry *e)
 		if (e->ipv6.flags & IP6T_INV_DSTIP)
 			printf(" !");
 
-		printf(" -d %s/%u", inet_ntop(AF_INET6, &e->ipv6.dst, buf, sizeof(buf)),
-		                    xtables_ip6mask_to_cidr(&e->ipv6.dmsk));
+		printf(" -d %s/%s",
+		       inet_ntop(AF_INET6, &e->ipv6.dst, buf1, sizeof(buf1)),
+		       inet_ntop(AF_INET6, &e->ipv6.dmsk, buf2, sizeof(buf2)));
 	}
 }
 #endif
@@ -1059,7 +1033,7 @@ static void
 rule_print4(struct ipt_entry *e)
 {
 	struct in_addr in_zero = { 0 };
-	char buf[sizeof("255.255.255.255\0")];
+	char buf1[sizeof("255.255.255.255\0")], buf2[sizeof("255.255.255.255\0")];
 	char *pname;
 
 	if (e->ip.proto)
@@ -1096,8 +1070,9 @@ rule_print4(struct ipt_entry *e)
 		if (e->ip.flags & IPT_INV_SRCIP)
 			printf(" !");
 
-		printf(" -s %s/%u", inet_ntop(AF_INET, &e->ip.src, buf, sizeof(buf)),
-		                    xtables_ipmask_to_cidr(&e->ip.smsk));
+		printf(" -s %s/%s",
+		       inet_ntop(AF_INET, &e->ip.src, buf1, sizeof(buf1)),
+		       inet_ntop(AF_INET, &e->ip.smsk, buf2, sizeof(buf2)));
 	}
 
 	if (memcmp(&e->ip.dst, &in_zero, sizeof(struct in_addr)))
@@ -1105,8 +1080,9 @@ rule_print4(struct ipt_entry *e)
 		if (e->ip.flags & IPT_INV_DSTIP)
 			printf(" !");
 
-		printf(" -d %s/%u", inet_ntop(AF_INET, &e->ip.dst, buf, sizeof(buf)),
-		                    xtables_ipmask_to_cidr(&e->ip.dmsk));
+		printf(" -d %s/%s",
+		       inet_ntop(AF_INET, &e->ip.dst, buf1, sizeof(buf1)),
+		       inet_ntop(AF_INET, &e->ip.dmsk, buf2, sizeof(buf2)));
 	}
 }
 

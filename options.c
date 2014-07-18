@@ -244,8 +244,8 @@ fw3_parse_address(void *ptr, const char *val, bool is_list)
 	struct fw3_address addr = { };
 	struct in_addr v4;
 	struct in6_addr v6;
-	char *p, *s, *e;
-	int i, m = -1;
+	char *p = NULL, *m = NULL, *s, *e;
+	int bits = -1;
 
 	if (*val == '!')
 	{
@@ -258,71 +258,76 @@ fw3_parse_address(void *ptr, const char *val, bool is_list)
 	if (!s)
 		return false;
 
-	if ((p = strchr(s, '/')) != NULL)
-	{
-		*p++ = 0;
-		m = strtoul(p, &e, 10);
-
-		if ((e == p) || (*e != 0))
-		{
-			if (strchr(s, ':') || !inet_pton(AF_INET, p, &v4))
-			{
-				free(s);
-				return false;
-			}
-
-			for (i = 0, m = 32; !(v4.s_addr & 1) && (i < 32); i++)
-			{
-				m--;
-				v4.s_addr >>= 1;
-			}
-		}
-	}
+	if ((m = strchr(s, '/')) != NULL)
+		*m++ = 0;
 	else if ((p = strchr(s, '-')) != NULL)
-	{
 		*p++ = 0;
-
-		if (inet_pton(AF_INET6, p, &v6))
-		{
-			addr.family = FW3_FAMILY_V6;
-			addr.address2.v6 = v6;
-			addr.range = true;
-		}
-		else if (inet_pton(AF_INET, p, &v4))
-		{
-			addr.family = FW3_FAMILY_V4;
-			addr.address2.v4 = v4;
-			addr.range = true;
-		}
-		else
-		{
-			free(s);
-			return false;
-		}
-	}
 
 	if (inet_pton(AF_INET6, s, &v6))
 	{
 		addr.family = FW3_FAMILY_V6;
 		addr.address.v6 = v6;
-		addr.mask = (m >= 0) ? m : 128;
+
+		if (m && !inet_pton(AF_INET6, m, &addr.mask.v6))
+		{
+			bits = strtol(m, &e, 10);
+
+			if ((*e != 0) || !fw3_bitlen2netmask(addr.family, bits, &v6))
+				goto fail;
+
+			addr.mask.v6 = v6;
+		}
+		else if (p)
+		{
+			if (!inet_pton(AF_INET6, p, &addr.mask.v6))
+				goto fail;
+
+			addr.range = true;
+		}
+		else
+		{
+			memset(addr.mask.v6.s6_addr, 0xFF, 16);
+		}
 	}
 	else if (inet_pton(AF_INET, s, &v4))
 	{
 		addr.family = FW3_FAMILY_V4;
 		addr.address.v4 = v4;
-		addr.mask = (m >= 0) ? m : 32;
+
+		if (m && !inet_pton(AF_INET, m, &addr.mask.v4))
+		{
+			bits = strtol(m, &e, 10);
+
+			if ((*e != 0) || !fw3_bitlen2netmask(addr.family, bits, &v4))
+				goto fail;
+
+			addr.mask.v4 = v4;
+		}
+		else if (p)
+		{
+			if (!inet_pton(AF_INET, p, &addr.mask.v4))
+				goto fail;
+
+			addr.range = true;
+		}
+		else
+		{
+			addr.mask.v4.s_addr = 0xFFFFFFFF;
+		}
 	}
 	else
 	{
-		free(s);
-		return false;
+		goto fail;
 	}
 
 	free(s);
 	addr.set = true;
 	put_value(ptr, &addr, sizeof(addr), is_list);
 	return true;
+
+fail:
+	free(s);
+	return false;
 }
 
 bool
@@ -1070,7 +1075,7 @@ fw3_parse_blob_options(void *s, const struct fw3_option *opts,
 
 
 const char *
-fw3_address_to_string(struct fw3_address *address, bool allow_invert)
+fw3_address_to_string(struct fw3_address *address, bool allow_invert, bool as_cidr)
 {
 	char *p, ip[INET6_ADDRSTRLEN];
 	static char buf[INET6_ADDRSTRLEN * 2 + 2];
@@ -1088,13 +1093,21 @@ fw3_address_to_string(struct fw3_address *address, bool allow_invert)
 	if (address->range)
 	{
 		inet_ntop(address->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
-		          &address->address2.v4, ip, sizeof(ip));
+		          &address->mask.v4, ip, sizeof(ip));
 
 		p += sprintf(p, "-%s", ip);
 	}
+	else if (!as_cidr)
+	{
+		inet_ntop(address->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
+		          &address->mask.v4, ip, sizeof(ip));
+
+		p += sprintf(p, "/%s", ip);
+	}
 	else
 	{
-		p += sprintf(p, "/%u", address->mask);
+		p += sprintf(p, "/%u", fw3_netmask2bitlen(address->family,
+		                                          &address->mask.v6));
 	}
 
 	return buf;
