@@ -268,12 +268,15 @@ fw3_parse_address(void *ptr, const char *val, bool is_list)
 		addr.family = FW3_FAMILY_V6;
 		addr.address.v6 = v6;
 
-		if (m && !inet_pton(AF_INET6, m, &addr.mask.v6))
+		if (m)
 		{
-			bits = strtol(m, &e, 10);
+			if (!inet_pton(AF_INET6, m, &v6))
+			{
+				bits = strtol(m, &e, 10);
 
-			if ((*e != 0) || !fw3_bitlen2netmask(addr.family, bits, &v6))
-				goto fail;
+				if ((*e != 0) || !fw3_bitlen2netmask(addr.family, bits, &v6))
+					goto fail;
+			}
 
 			addr.mask.v6 = v6;
 		}
@@ -294,12 +297,15 @@ fw3_parse_address(void *ptr, const char *val, bool is_list)
 		addr.family = FW3_FAMILY_V4;
 		addr.address.v4 = v4;
 
-		if (m && !inet_pton(AF_INET, m, &addr.mask.v4))
+		if (m)
 		{
-			bits = strtol(m, &e, 10);
+			if (!inet_pton(AF_INET, m, &v4))
+			{
+				bits = strtol(m, &e, 10);
 
-			if ((*e != 0) || !fw3_bitlen2netmask(addr.family, bits, &v4))
-				goto fail;
+				if ((*e != 0) || !fw3_bitlen2netmask(addr.family, bits, &v4))
+					goto fail;
+			}
 
 			addr.mask.v4 = v4;
 		}
