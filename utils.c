@@ -414,13 +414,14 @@ write_defaults_uci(struct uci_context *ctx, struct fw3_defaults *d,
 
 static void
 write_zone_uci(struct uci_context *ctx, struct fw3_zone *z,
-               struct uci_package *dest)
+               struct uci_package *dest, struct ifaddrs *ifaddr)
 {
 	struct fw3_device *dev;
 	struct fw3_address *sub;
+	struct ifaddrs *ifa;
 	enum fw3_family fam = FW3_FAMILY_ANY;
 
-	char *p, buf[34];
+	char *p, buf[INET6_ADDRSTRLEN];
 
 	struct uci_ptr ptr = { .p = dest };
 
@@ -518,6 +519,35 @@ write_zone_uci(struct uci_context *ctx, struct fw3_zone *z,
 		uci_add_list(ctx, &ptr);
 	}
 
+	ptr.o      = NULL;
+	ptr.option = "__addrs";
+
+	fw3_foreach(dev, &z->devices)
+	{
+		if (!dev)
+			continue;
+
+		for (ifa = ifaddr; ifa; ifa = ifa->ifa_next)
+		{
+			if (strcmp(dev->name, ifa->ifa_name))
+				continue;
+
+			if (ifa->ifa_addr->sa_family == AF_INET)
+				inet_ntop(AF_INET,
+				          &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr,
+				          buf, sizeof(buf));
+			else if (ifa->ifa_addr->sa_family == AF_INET6)
+				inet_ntop(AF_INET6,
+				          &((struct sockaddr_in6 *)ifa->ifa_addr)->sin6_addr,
+				          buf, sizeof(buf));
+			else
+				continue;
+
+			ptr.value = buf;
+			uci_add_list(ctx, &ptr);
+		}
+	}
+
 	sprintf(buf, "0x%x", z->flags[0]);
 	ptr.o      = NULL;
 	ptr.option = "__flags_v4";
@@ -590,6 +620,7 @@ fw3_write_statefile(void *state)
 	struct fw3_state *s = state;
 	struct fw3_zone *z;
 	struct fw3_ipset *i;
+	struct ifaddrs *ifaddr;
 
 	struct uci_package *p;
 
@@ -608,6 +639,12 @@ fw3_write_statefile(void *state)
 			return;
 		}
 
+		if (getifaddrs(&ifaddr))
+		{
+			warn("Cannot get interface addresses: %s", strerror(errno));
+			ifaddr = NULL;
+		}
+
 		if ((p = uci_lookup_package(s->uci, "fw3_state")) != NULL)
 			uci_unload(s->uci, p);
 
@@ -618,7 +655,7 @@ fw3_write_statefile(void *state)
 			write_defaults_uci(s->uci, &s->defaults, p);
 
 			list_for_each_entry(z, &s->zones, list)
-				write_zone_uci(s->uci, z, p);
+				write_zone_uci(s->uci, z, p, ifaddr);
 
 			list_for_each_entry(i, &s->ipsets, list)
 				write_ipset_uci(s->uci, i, p);
@@ -629,6 +666,9 @@ fw3_write_statefile(void *state)
 
 		fsync(fileno(sf));
 		fclose(sf);
+
+		if (ifaddr)
+			freeifaddrs(ifaddr);
 	}
 }
 
@@ -766,4 +806,88 @@ fw3_bitlen2netmask(int family, int bits, void *mask)
 	}
 
 	return true;
+}
+
+void
+fw3_flush_conntrack(void *state)
+{
+	bool found;
+	struct fw3_state *s = state;
+	struct fw3_address *addr;
+	struct fw3_device *dev;
+	struct fw3_zone *zone;
+	struct ifaddrs *ifaddr, *ifa;
+	struct sockaddr_in *sin;
+	struct sockaddr_in6 *sin6;
+	char buf[INET6_ADDRSTRLEN];
+	FILE *ct;
+
+	if (!state)
+	{
+		if ((ct = fopen("/proc/net/nf_conntrack", "w")) != NULL)
+		{
+			info(" * Flushing conntrack table ...");
+
+			fwrite("f\n", 1, 2, ct);
+			fclose(ct);
+		}
+
+		return;
+	}
+
+	if (getifaddrs(&ifaddr))
+	{
+		warn("Cannot get interface addresses: %s", strerror(errno));
+		return;
+	}
+
+	if ((ct = fopen("/proc/net/nf_conntrack", "w")) != NULL)
+	{
+		list_for_each_entry(zone, &s->zones, list)
+		list_for_each_entry(addr, &zone->old_addrs, list)
+		{
+			found = false;
+
+			list_for_each_entry(dev, &zone->devices, list)
+			{
+				for (ifa = ifaddr; ifa && !found; ifa = ifa->ifa_next)
+				{
+					if (strcmp(dev->name, ifa->ifa_name))
+						continue;
+
+					sin = (struct sockaddr_in *)ifa->ifa_addr;
+					sin6 = (struct sockaddr_in6 *)ifa->ifa_addr;
+
+					if (addr->family == FW3_FAMILY_V4 &&
+						sin->sin_family == AF_INET)
+					{
+						found = !memcmp(&addr->address.v4, &sin->sin_addr,
+										sizeof(sin->sin_addr));
+					}
+					else if (addr->family == FW3_FAMILY_V6 &&
+							 sin6->sin6_family == AF_INET6)
+					{
+						found = !memcmp(&addr->address.v6, &sin6->sin6_addr,
+										sizeof(sin6->sin6_addr));
+					}
+				}
+
+				if (found)
+					break;
+			}
+
+			if (!found)
+			{
+				inet_ntop(addr->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
+						  &addr->address.v4, buf, sizeof(buf));
+
+				info(" * Flushing conntrack: %s", buf);
+				fprintf(ct, "%s\n", buf);
+			}
+		}
+
+		fclose(ct);
+	}
+
+	freeifaddrs(ifaddr);
 }

@@ -314,6 +314,8 @@ struct fw3_zone
 	bool custom_chains;
 
 	uint32_t flags[2];
+
+	struct list_head old_addrs;
 };
 
 struct fw3_rule

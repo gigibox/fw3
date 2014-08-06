@@ -28,6 +28,8 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <sys/file.h>
+#include <sys/types.h>
+#include <ifaddrs.h>
 
 #include <libubox/list.h>
 #include <uci.h>
@@ -98,5 +100,7 @@ bool fw3_hotplug(bool add, void *zone, void *device);
 int fw3_netmask2bitlen(int family, void *mask);
 
 bool fw3_bitlen2netmask(int family, int bits, void *mask);
+
+void fw3_flush_conntrack(void *zone);
 
 #endif

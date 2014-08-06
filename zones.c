@@ -83,6 +83,8 @@ const struct fw3_option fw3_zone_opts[] = {
 	FW3_OPT("__flags_v4",          int,      zone,     flags[0]),
 	FW3_OPT("__flags_v6",          int,      zone,     flags[1]),
 
+	FW3_LIST("__addrs",            address,  zone,     old_addrs),
+
 	{ }
 };
 
@@ -137,6 +139,8 @@ fw3_alloc_zone(void)
 	INIT_LIST_HEAD(&zone->subnets);
 	INIT_LIST_HEAD(&zone->masq_src);
 	INIT_LIST_HEAD(&zone->masq_dest);
+
+	INIT_LIST_HEAD(&zone->old_addrs);
 
 	zone->enabled = true;
 	zone->custom_chains = true;

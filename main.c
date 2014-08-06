@@ -167,8 +167,6 @@ family_set(struct fw3_state *state, enum fw3_family family, bool set)
 static int
 stop(bool complete)
 {
-	FILE *ct;
-
 	int rv = 1;
 	enum fw3_family family;
 	enum fw3_table table;
@@ -224,13 +222,8 @@ stop(bool complete)
 	if (run_state)
 		fw3_destroy_ipsets(run_state);
 
-	if (complete && (ct = fopen("/proc/net/nf_conntrack", "w")) != NULL)
-	{
-		info(" * Flushing conntrack table ...");
-
-		fwrite("f\n", 2, 1, ct);
-		fclose(ct);
-	}
+	if (complete)
+		fw3_flush_conntrack(NULL);
 
 	if (!rv && run_state)
 		fw3_write_statefile(run_state);
@@ -304,6 +297,7 @@ start(void)
 
 	if (!rv)
 	{
+		fw3_flush_conntrack(run_state);
 		fw3_set_defaults(cfg_state);
 
 		if (!print_family)
@@ -395,6 +389,8 @@ start:
 
 	if (!rv)
 	{
+		fw3_flush_conntrack(run_state);
+
 		fw3_set_defaults(cfg_state);
 		fw3_run_includes(cfg_state, true);
 		fw3_hotplug_zones(cfg_state, true);
