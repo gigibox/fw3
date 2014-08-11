@@ -529,7 +529,7 @@ write_zone_uci(struct uci_context *ctx, struct fw3_zone *z,
 
 		for (ifa = ifaddr; ifa; ifa = ifa->ifa_next)
 		{
-			if (strcmp(dev->name, ifa->ifa_name))
+			if (!ifa->ifa_addr || strcmp(dev->name, ifa->ifa_name))
 				continue;
 
 			if (ifa->ifa_addr->sa_family == AF_INET)
@@ -852,7 +852,7 @@ fw3_flush_conntrack(void *state)
 			{
 				for (ifa = ifaddr; ifa && !found; ifa = ifa->ifa_next)
 				{
-					if (strcmp(dev->name, ifa->ifa_name))
+					if (!ifa->ifa_addr || strcmp(dev->name, ifa->ifa_name))
 						continue;
 
 					sin = (struct sockaddr_in *)ifa->ifa_addr;
