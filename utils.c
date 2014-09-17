@@ -786,8 +786,12 @@ fw3_bitlen2netmask(int family, int bits, void *mask)
 		i = abs(bits);
 
 		memset(v6->s6_addr, 0xff, i / 8);
-		memset(v6->s6_addr + (i / 8) + 1, 0, (128 - i) / 8);
-		v6->s6_addr[i / 8] = 0xff << (8 - (i & 7));
+
+		if (i < 128)
+		{
+			memset(v6->s6_addr + (i / 8) + 1, 0, (128 - i) / 8);
+			v6->s6_addr[i / 8] = 0xff << (8 - (i & 7));
+		}
 
 		if (bits < 0)
 			for (i = 0; i < 16; i++)
