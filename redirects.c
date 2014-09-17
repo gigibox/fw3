@@ -188,12 +188,11 @@ check_local(struct uci_element *e, struct fw3_redirect *redir,
 			fw3_ubus_address(&addrs, net->name);
 			list_for_each_entry_safe(addr, tmp, &addrs, list)
 			{
-				if (compare_addr(&redir->ip_redir, addr)) {
+				if (!redir->local && compare_addr(&redir->ip_redir, addr)) {
 					warn_elem(e, "refers to a destination address on this router, "
 					             "assuming port redirection");
 
 					redir->local = true;
-					continue;
 				}
 
 				list_del(&addr->list);
@@ -376,6 +375,24 @@ append_chain_nat(struct fw3_ipt_rule *r, struct fw3_redirect *redir)
 }
 
 static void
+set_redirect(struct fw3_ipt_rule *r, struct fw3_port *port)
+{
+	char buf[sizeof("65535-65535\0")];
+
+	fw3_ipt_rule_target(r, "REDIRECT");
+
+	if (port && port->set)
+	{
+		if (port->port_min == port->port_max)
+			sprintf(buf, "%u", port->port_min);
+		else
+			sprintf(buf, "%u-%u", port->port_min, port->port_max);
+
+		fw3_ipt_rule_addarg(r, false, "--to-ports", buf);
+	}
+}
+
+static void
 set_snat_dnat(struct fw3_ipt_rule *r, enum fw3_flag target,
               struct fw3_address *addr, struct fw3_port *port)
 {
@@ -412,7 +429,9 @@ set_snat_dnat(struct fw3_ipt_rule *r, enum fw3_flag target,
 static void
 set_target_nat(struct fw3_ipt_rule *r, struct fw3_redirect *redir)
 {
-	if (redir->target == FW3_FLAG_DNAT)
+	if (redir->local)
+		set_redirect(r, &redir->port_redir);
+	else if (redir->target == FW3_FLAG_DNAT)
 		set_snat_dnat(r, redir->target, &redir->ip_redir, &redir->port_redir);
 	else
 		set_snat_dnat(r, redir->target, &redir->ip_dest, &redir->port_dest);
@@ -568,7 +587,7 @@ expand_redirect(struct fw3_ipt_handle *handle, struct fw3_state *state,
 		print_redirect(handle, state, redir, num, proto, mac);
 
 	/* reflection rules */
-	if (redir->target != FW3_FLAG_DNAT || !redir->reflection)
+	if (redir->target != FW3_FLAG_DNAT || !redir->reflection || redir->local)
 		return;
 
 	if (!redir->_dest || !redir->_src->masq)
