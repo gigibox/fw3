@@ -774,6 +774,7 @@ bool
 fw3_bitlen2netmask(int family, int bits, void *mask)
 {
 	int i;
+	uint8_t rem, b;
 	struct in_addr *v4;
 	struct in6_addr *v6;
 
@@ -783,18 +784,17 @@ fw3_bitlen2netmask(int family, int bits, void *mask)
 			return false;
 
 		v6 = mask;
-		i = abs(bits);
+		rem = abs(bits);
 
-		memset(v6->s6_addr, 0xff, i / 8);
-
-		if (i < 128)
+		for (i = 0; i < sizeof(v6->s6_addr); i++)
 		{
-			memset(v6->s6_addr + (i / 8) + 1, 0, (128 - i) / 8);
-			v6->s6_addr[i / 8] = 0xff << (8 - (i & 7));
+			b = (rem > 8) ? 8 : rem;
+			v6->s6_addr[i] = (uint8_t)(0xFF << (8 - b));
+			rem -= b;
 		}
 
 		if (bits < 0)
-			for (i = 0; i < 16; i++)
+			for (i = 0; i < sizeof(v6->s6_addr); i++)
 				v6->s6_addr[i] = ~v6->s6_addr[i];
 	}
 	else
