@@ -442,7 +442,7 @@ fw3_parse_port(void *ptr, const char *val, bool is_list)
 bool
 fw3_parse_family(void *ptr, const char *val, bool is_list)
 {
-	if (!strcmp(val, "any"))
+	if (!strcmp(val, "any") || !strcmp(val, "*"))
 		*((enum fw3_family *)ptr) = FW3_FAMILY_ANY;
 	else if (!strcmp(val, "inet") || strrchr(val, '4'))
 		*((enum fw3_family *)ptr) = FW3_FAMILY_V4;
@@ -543,7 +543,7 @@ fw3_parse_protocol(void *ptr, const char *val, bool is_list)
 		while (isspace(*++val));
 	}
 
-	if (!strcmp(val, "all"))
+	if (!strcmp(val, "all") || !strcmp(val, "any") || !strcmp(val, "*"))
 	{
 		proto.any = true;
 		put_value(ptr, &proto, sizeof(proto), is_list);
