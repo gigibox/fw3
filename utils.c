@@ -803,7 +803,7 @@ fw3_bitlen2netmask(int family, int bits, void *mask)
 			return false;
 
 		v4 = mask;
-		v4->s_addr = htonl(~((1 << (32 - abs(bits))) - 1));
+		v4->s_addr = bits ? htonl(~((1 << (32 - abs(bits))) - 1)) : 0;
 
 		if (bits < 0)
 			v4->s_addr = ~v4->s_addr;
