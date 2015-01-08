@@ -678,10 +678,10 @@ fw3_lookup_zone(struct fw3_state *state, const char *name)
 }
 
 struct list_head *
-fw3_resolve_zone_addresses(struct fw3_zone *zone)
+fw3_resolve_zone_addresses(struct fw3_zone *zone, struct fw3_address *addr)
 {
 	struct fw3_device *net;
-	struct fw3_address *addr, *tmp;
+	struct fw3_address *cur, *tmp;
 	struct list_head *all;
 
 	all = calloc(1, sizeof(*all));
@@ -690,18 +690,31 @@ fw3_resolve_zone_addresses(struct fw3_zone *zone)
 
 	INIT_LIST_HEAD(all);
 
-	list_for_each_entry(net, &zone->networks, list)
-		fw3_ubus_address(all, net->name);
-
-	list_for_each_entry(addr, &zone->subnets, list)
+	if (addr && addr->set)
 	{
 		tmp = malloc(sizeof(*tmp));
 
-		if (!tmp)
-			continue;
+		if (tmp)
+		{
+			*tmp = *addr;
+			list_add_tail(&tmp->list, all);
+		}
+	}
+	else
+	{
+		list_for_each_entry(net, &zone->networks, list)
+			fw3_ubus_address(all, net->name);
 
-		memcpy(tmp, addr, sizeof(*tmp));
-		list_add_tail(&tmp->list, all);
+		list_for_each_entry(cur, &zone->subnets, list)
+		{
+			tmp = malloc(sizeof(*tmp));
+
+			if (!tmp)
+				continue;
+
+			*tmp = *cur;
+			list_add_tail(&tmp->list, all);
+		}
 	}
 
 	return all;

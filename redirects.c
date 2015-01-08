@@ -136,7 +136,7 @@ resolve_dest(struct uci_element *e, struct fw3_redirect *redir,
 
 	list_for_each_entry(zone, &state->zones, list)
 	{
-		addrs = fw3_resolve_zone_addresses(zone);
+		addrs = fw3_resolve_zone_addresses(zone, NULL);
 
 		if (!addrs)
 			continue;
@@ -593,8 +593,8 @@ expand_redirect(struct fw3_ipt_handle *handle, struct fw3_state *state,
 	if (!redir->_dest || !redir->_src->masq)
 		return;
 
-	ext_addrs = fw3_resolve_zone_addresses(redir->_src);
-	int_addrs = fw3_resolve_zone_addresses(redir->_dest);
+	ext_addrs = fw3_resolve_zone_addresses(redir->_src, &redir->ip_dest);
+	int_addrs = fw3_resolve_zone_addresses(redir->_dest, NULL);
 
 	if (!ext_addrs || !int_addrs)
 		goto out;

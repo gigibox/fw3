@@ -44,7 +44,8 @@ void fw3_hotplug_zones(struct fw3_state *state, bool add);
 
 struct fw3_zone * fw3_lookup_zone(struct fw3_state *state, const char *name);
 
-struct list_head * fw3_resolve_zone_addresses(struct fw3_zone *zone);
+struct list_head * fw3_resolve_zone_addresses(struct fw3_zone *zone,
+                                              struct fw3_address *addr);
 
 #define fw3_free_zone(zone) \
 	fw3_free_object(zone, fw3_zone_opts)
