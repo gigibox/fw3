@@ -312,20 +312,20 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 				set(redir->_src->flags, FW3_FAMILY_V4, redir->target);
 				redir->_src->conntrack = true;
 				valid = true;
-			}
 
-			if (!check_local(e, redir, state) && !redir->dest.set &&
-			    resolve_dest(e, redir, state))
-			{
-				warn_elem(e, "does not specify a destination, assuming '%s'",
-				          redir->dest.name);
-			}
+				if (!check_local(e, redir, state) && !redir->dest.set &&
+				    resolve_dest(e, redir, state))
+				{
+					warn_elem(e, "does not specify a destination, assuming '%s'",
+					          redir->dest.name);
+				}
 
-			if (redir->reflection && redir->_dest && redir->_src->masq)
-			{
-				set(redir->_dest->flags, FW3_FAMILY_V4, FW3_FLAG_ACCEPT);
-				set(redir->_dest->flags, FW3_FAMILY_V4, FW3_FLAG_DNAT);
-				set(redir->_dest->flags, FW3_FAMILY_V4, FW3_FLAG_SNAT);
+				if (redir->reflection && redir->_dest && redir->_src->masq)
+				{
+					set(redir->_dest->flags, FW3_FAMILY_V4, FW3_FLAG_ACCEPT);
+					set(redir->_dest->flags, FW3_FAMILY_V4, FW3_FLAG_DNAT);
+					set(redir->_dest->flags, FW3_FAMILY_V4, FW3_FLAG_SNAT);
+				}
 			}
 		}
 		else
