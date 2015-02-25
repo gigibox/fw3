@@ -1199,7 +1199,9 @@ rule_mask(struct fw3_ipt_rule *r)
 		for (m = r->matches; m; m = m->next)
 			s += SZ(ip6t_entry_match) + m->match->size;
 
-		s += SZ(ip6t_entry_target) + r->target->size;
+		s += SZ(ip6t_entry_target);
+		if (r->target)
+			s += r->target->size;
 
 		mask = fw3_alloc(s);
 		memset(mask, 0xFF, SZ(ip6t_entry));
@@ -1211,7 +1213,7 @@ rule_mask(struct fw3_ipt_rule *r)
 			p += SZ(ip6t_entry_match) + m->match->size;
 		}
 
-		memset(p, 0xFF, SZ(ip6t_entry_target) + r->target->userspacesize);
+		memset(p, 0xFF, SZ(ip6t_entry_target) + (r->target) ? r->target->userspacesize : 0);
 	}
 	else
 #endif
@@ -1221,7 +1223,9 @@ rule_mask(struct fw3_ipt_rule *r)
 		for (m = r->matches; m; m = m->next)
 			s += SZ(ipt_entry_match) + m->match->size;
 
-		s += SZ(ipt_entry_target) + r->target->size;
+		s += SZ(ipt_entry_target);
+		if (r->target)
+			s += r->target->size;
 
 		mask = fw3_alloc(s);
 		memset(mask, 0xFF, SZ(ipt_entry));
@@ -1233,7 +1237,7 @@ rule_mask(struct fw3_ipt_rule *r)
 			p += SZ(ipt_entry_match) + m->match->size;
 		}
 
-		memset(p, 0xFF, SZ(ipt_entry_target) + r->target->userspacesize);
+		memset(p, 0xFF, SZ(ipt_entry_target) + (r->target) ? r->target->userspacesize : 0);
 	}
 
 	return mask;
@@ -1242,7 +1246,7 @@ rule_mask(struct fw3_ipt_rule *r)
 static void *
 rule_build(struct fw3_ipt_rule *r)
 {
-	size_t s;
+	size_t s, target_size = (r->target) ? r->target->t->u.target_size : 0;
 	struct xtables_rule_match *m;
 
 #ifndef DISABLE_IPV6
@@ -1255,12 +1259,12 @@ rule_build(struct fw3_ipt_rule *r)
 		for (m = r->matches; m; m = m->next)
 			s += m->match->m->u.match_size;
 
-		e6 = fw3_alloc(s + r->target->t->u.target_size);
+		e6 = fw3_alloc(s + target_size);
 
 		memcpy(e6, &r->e6, sizeof(struct ip6t_entry));
 
 		e6->target_offset = s;
-		e6->next_offset = s + r->target->t->u.target_size;
+		e6->next_offset = s + target_size;
 
 		s = 0;
 
@@ -1270,7 +1274,8 @@ rule_build(struct fw3_ipt_rule *r)
 			s += m->match->m->u.match_size;
 		}
 
-		memcpy(e6->elems + s, r->target->t, r->target->t->u.target_size);
+		if (target_size)
+			memcpy(e6->elems + s, r->target->t, target_size);
 
 		return e6;
 	}
@@ -1284,12 +1289,12 @@ rule_build(struct fw3_ipt_rule *r)
 		for (m = r->matches; m; m = m->next)
 			s += m->match->m->u.match_size;
 
-		e = fw3_alloc(s + r->target->t->u.target_size);
+		e = fw3_alloc(s + target_size);
 
 		memcpy(e, &r->e, sizeof(struct ipt_entry));
 
 		e->target_offset = s;
-		e->next_offset = s + r->target->t->u.target_size;
+		e->next_offset = s + target_size;
 
 		s = 0;
 
@@ -1299,7 +1304,8 @@ rule_build(struct fw3_ipt_rule *r)
 			s += m->match->m->u.match_size;
 		}
 
-		memcpy(e->elems + s, r->target->t, r->target->t->u.target_size);
+		if (target_size)
+			memcpy(e->elems + s, r->target->t, target_size);
 
 		return e;
 	}
