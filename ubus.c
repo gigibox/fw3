@@ -246,15 +246,22 @@ fw3_ubus_rules(struct blob_buf *b)
 	blob_buf_init(b, 0);
 
 	struct blob_attr *c, *cur, *dcur, *rule, *ropt;
-	unsigned r, rem, drem, rrem, orem;
+	unsigned n, r, rem, drem, rrem, orem;
+	char comment[256];
 
 	blobmsg_for_each_attr(c, interfaces, r) {
 		const char *l3_device = NULL;
+		const char *iface_proto = "unknown";
+		const char *iface_name = "unknown";
 		struct blob_attr *data = NULL;
 
 		blobmsg_for_each_attr(cur, c, rem) {
 			if (!strcmp(blobmsg_name(cur), "l3_device"))
 				l3_device = blobmsg_get_string(cur);
+			else if (!strcmp(blobmsg_name(cur), "interface"))
+				iface_proto = blobmsg_get_string(cur);
+			else if (!strcmp(blobmsg_name(cur), "proto"))
+				iface_name = blobmsg_get_string(cur);
 			else if (!strcmp(blobmsg_name(cur), "data"))
 				data = cur;
 		}
@@ -266,13 +273,20 @@ fw3_ubus_rules(struct blob_buf *b)
 			if (strcmp(blobmsg_name(dcur), "firewall"))
 				continue;
 
+			n = 0;
+
 			blobmsg_for_each_attr(rule, dcur, rrem) {
 				void *k = blobmsg_open_table(b, "");
 
+				snprintf(comment, sizeof(comment), "ubus:%s[%s] rule %d",
+				         iface_name, iface_proto, n++);
+
 				blobmsg_for_each_attr(ropt, rule, orem)
-					if (strcmp(blobmsg_name(ropt), "device"))
+					if (strcmp(blobmsg_name(ropt), "name") &&
+					    strcmp(blobmsg_name(ropt), "device"))
 						blobmsg_add_blob(b, ropt);
 
+				blobmsg_add_string(b, "name", comment);
 				blobmsg_add_string(b, "device", l3_device);
 				blobmsg_close_table(b, k);
 			}
@@ -297,8 +311,21 @@ fw3_ubus_rules(struct blob_buf *b)
 				if (!blobmsg_check_attr(dcur, true))
 					continue;
 
-				blobmsg_for_each_attr(rule, dcur, rrem)
-					blobmsg_add_blob(b, rule);
+				n = 0;
+
+				blobmsg_for_each_attr(rule, dcur, rrem) {
+					void *k = blobmsg_open_table(b, "");
+
+					snprintf(comment, sizeof(comment), "ubus:%s[%s] rule %d",
+					         blobmsg_name(c), blobmsg_name(cur), n++);
+
+					blobmsg_for_each_attr(ropt, rule, orem)
+						if (strcmp(blobmsg_name(ropt), "name"))
+							blobmsg_add_blob(b, ropt);
+
+					blobmsg_add_string(b, "name", comment);
+					blobmsg_close_table(b, k);
+				}
 			}
 		}
 	}
