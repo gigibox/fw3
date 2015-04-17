@@ -110,9 +110,12 @@ fw3_load_rules(struct fw3_state *state, struct uci_package *p,
 
 	blob_for_each_attr(entry, a, rem) {
 		const char *type = NULL;
+		const char *name = "ubus rule";
 		blobmsg_for_each_attr(opt, entry, orem)
 			if (!strcmp(blobmsg_name(opt), "type"))
 				type = blobmsg_get_string(opt);
+			else if (!strcmp(blobmsg_name(opt), "name"))
+				name = blobmsg_get_string(opt);
 
 		if (!type || strcmp(type, "rule"))
 			continue;
@@ -120,9 +123,9 @@ fw3_load_rules(struct fw3_state *state, struct uci_package *p,
 		if (!(rule = alloc_rule(state)))
 			continue;
 
-		if (!fw3_parse_blob_options(rule, fw3_rule_opts, entry))
+		if (!fw3_parse_blob_options(rule, fw3_rule_opts, entry, name))
 		{
-			fprintf(stderr, "ubus section skipped due to invalid options\n");
+			fprintf(stderr, "%s skipped due to invalid options\n", name);
 			fw3_free_rule(rule);
 			continue;
 		}

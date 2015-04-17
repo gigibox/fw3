@@ -133,9 +133,12 @@ fw3_load_snats(struct fw3_state *state, struct uci_package *p, struct blob_attr 
 
 	blob_for_each_attr(rule, a, rem) {
 		const char *type = NULL;
+		const char *name = "ubus rule";
 		blobmsg_for_each_attr(opt, rule, orem)
 			if (!strcmp(blobmsg_name(opt), "type"))
 				type = blobmsg_get_string(opt);
+			else if (!strcmp(blobmsg_name(opt), "name"))
+				name = blobmsg_get_string(opt);
 
 		if (!type || strcmp(type, "nat"))
 			continue;
@@ -143,9 +146,9 @@ fw3_load_snats(struct fw3_state *state, struct uci_package *p, struct blob_attr 
 		if (!(snat = alloc_snat(state)))
 			continue;
 
-		if (!fw3_parse_blob_options(snat, fw3_snat_opts, rule))
+		if (!fw3_parse_blob_options(snat, fw3_snat_opts, rule, name))
 		{
-			fprintf(stderr, "ubus section skipped due to invalid options\n");
+			fprintf(stderr, "%s skipped due to invalid options\n", name);
 			fw3_free_snat(snat);
 			continue;
 		}

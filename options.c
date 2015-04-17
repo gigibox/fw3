@@ -981,7 +981,7 @@ fw3_parse_options(void *s, const struct fw3_option *opts,
 
 bool
 fw3_parse_blob_options(void *s, const struct fw3_option *opts,
-                  struct blob_attr *a)
+                       struct blob_attr *a, const char *name)
 {
 	char *p, *v, buf[16];
 	bool known;
@@ -1007,7 +1007,9 @@ fw3_parse_blob_options(void *s, const struct fw3_option *opts,
 			{
 				if (!opt->elem_size)
 				{
-					fprintf(stderr, "%s must not be a list\n", opt->name);
+					fprintf(stderr, "%s: '%s' must not be a list\n",
+					        name, opt->name);
+
 					valid = false;
 				}
 				else
@@ -1025,7 +1027,8 @@ fw3_parse_blob_options(void *s, const struct fw3_option *opts,
 
 						if (!opt->parse(dest, v, true))
 						{
-							fprintf(stderr, "%s has invalid value '%s'\n", opt->name, v);
+							fprintf(stderr, "%s: '%s' has invalid value '%s'\n",
+							        name, opt->name, v);
 							valid = false;
 							continue;
 						}
@@ -1048,7 +1051,8 @@ fw3_parse_blob_options(void *s, const struct fw3_option *opts,
 				{
 					if (!opt->parse((char *)s + opt->offset, v, false))
 					{
-						fprintf(stderr, "%s has invalid value '%s'\n", opt->name, v);
+						fprintf(stderr, "%s: '%s' has invalid value '%s'\n",
+						        name, opt->name, v);
 						valid = false;
 					}
 				}
@@ -1060,7 +1064,8 @@ fw3_parse_blob_options(void *s, const struct fw3_option *opts,
 					{
 						if (!opt->parse(dest, p, true))
 						{
-							fprintf(stderr, "%s has invalid value '%s'\n", opt->name, p);
+							fprintf(stderr, "%s: '%s' has invalid value '%s'\n",
+							        name, opt->name, p);
 							valid = false;
 							continue;
 						}
@@ -1072,8 +1077,8 @@ fw3_parse_blob_options(void *s, const struct fw3_option *opts,
 			break;
 		}
 
-		if (!known)
-			fprintf(stderr, "%s is unknown\n", blobmsg_name(o));
+		if (!known && strcmp(blobmsg_name(o), "type"))
+			fprintf(stderr, "%s: '%s' is unknown\n", name, blobmsg_name(o));
 	}
 
 	return valid;
