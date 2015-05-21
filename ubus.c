@@ -281,10 +281,12 @@ fw3_ubus_rules(struct blob_buf *b)
 				snprintf(comment, sizeof(comment), "ubus:%s[%s] rule %d",
 				         iface_name, iface_proto, n++);
 
-				blobmsg_for_each_attr(ropt, rule, orem)
-					if (strcmp(blobmsg_name(ropt), "name") &&
-					    strcmp(blobmsg_name(ropt), "device"))
+				blobmsg_for_each_attr(ropt, rule, orem) {
+					if (!strcmp(blobmsg_name(ropt), "device"))
+						l3_device = blobmsg_get_string(ropt);
+					else if (strcmp(blobmsg_name(ropt), "name"))
 						blobmsg_add_blob(b, ropt);
+				}
 
 				blobmsg_add_string(b, "name", comment);
 				blobmsg_add_string(b, "device", l3_device);
