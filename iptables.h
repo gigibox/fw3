@@ -49,6 +49,7 @@
 	__ipt_module(connlimit)			\
 	__ipt_module(mac)			\
 	__ipt_module(mark)			\
+	__ipt_module(multiport)			\
 	__ipt_module(set)			\
 	__ipt_module(standard)		\
 	__ipt_module(tcp)			\
