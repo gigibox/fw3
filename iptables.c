@@ -53,22 +53,14 @@ get_kernel_version(void)
 	kernel_version = 0x10000 * x + 0x100 * y + z;
 }
 
-#ifdef DISABLE_IPV6
-#undef __ipt_module
-#define __ipt_module(x) libxt_##x##_init, libipt_##x##_init,
-#else
-#undef __ipt_module
-#define __ipt_module(x) libxt_##x##_init, libipt_##x##_init, libip6t_##x##_init,
-#endif
-
 static void fw3_init_extensions(void)
 {
-	int i;
-	void (*initfuncs[])(void) = { FW3_IPT_MODULES };
+	init_extensions();
+	init_extensions4();
 
-	for (i = 0; i < sizeof(initfuncs)/sizeof(initfuncs[0]); i++)
-		if (initfuncs[i])
-			initfuncs[i]();
+#ifndef DISABLE_IPV6
+	init_extensions6();
+#endif
 }
 
 struct fw3_ipt_handle *

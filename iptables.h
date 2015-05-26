@@ -39,48 +39,10 @@
 # error "Unsupported xtables version"
 #endif
 
-/* libext.a interface */
-#define FW3_IPT_MODULES			\
-	__ipt_module(comment)		\
-	__ipt_module(conntrack)		\
-	__ipt_module(icmp)			\
-	__ipt_module(icmp6)			\
-	__ipt_module(limit)			\
-	__ipt_module(connlimit)			\
-	__ipt_module(mac)			\
-	__ipt_module(mark)			\
-	__ipt_module(multiport)			\
-	__ipt_module(set)			\
-	__ipt_module(standard)		\
-	__ipt_module(tcp)			\
-	__ipt_module(time)			\
-	__ipt_module(udp)			\
-	__ipt_module(CT)			\
-	__ipt_module(DNAT)			\
-	__ipt_module(LOG)			\
-	__ipt_module(MARK)			\
-	__ipt_module(MASQUERADE)	\
-	__ipt_module(REDIRECT)		\
-	__ipt_module(REJECT)		\
-	__ipt_module(SET)			\
-	__ipt_module(SNAT)			\
-	__ipt_module(TCPMSS)
-
-#ifdef DISABLE_IPV6
-#undef __ipt_module
-#define __ipt_module(x) \
-	extern void libxt_##x##_init(void) __attribute__((weak)); \
-	extern void libipt_##x##_init(void) __attribute__((weak));
-#else
-#undef __ipt_module
-#define __ipt_module(x) \
-	extern void libxt_##x##_init(void) __attribute__((weak)); \
-	extern void libipt_##x##_init(void) __attribute__((weak)); \
-	extern void libip6t_##x##_init(void) __attribute__((weak));
-#endif
-
-FW3_IPT_MODULES
-
+/* libipt*ext.so interfaces */
+extern void init_extensions(void);
+extern void init_extensions4(void);
+extern void init_extensions6(void);
 
 /* Required by certain extensions like SNAT and DNAT */
 extern int kernel_version;
