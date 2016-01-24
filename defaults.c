@@ -23,24 +23,14 @@
 	{ FW3_FAMILY_##f, FW3_TABLE_##tbl, FW3_FLAG_##def, fmt }
 
 static const struct fw3_chain_spec default_chains[] = {
-	//C(ANY, FILTER, UNSPEC,        "delegate_input"),
-	//C(ANY, FILTER, UNSPEC,        "delegate_output"),
-	//C(ANY, FILTER, UNSPEC,        "delegate_forward"),
 	C(ANY, FILTER, UNSPEC,        "reject"),
 	C(ANY, FILTER, CUSTOM_CHAINS, "input_rule"),
 	C(ANY, FILTER, CUSTOM_CHAINS, "output_rule"),
 	C(ANY, FILTER, CUSTOM_CHAINS, "forwarding_rule"),
 	C(ANY, FILTER, SYN_FLOOD,     "syn_flood"),
 
-	//C(V4,  NAT,    UNSPEC,        "delegate_prerouting"),
-	//C(V4,  NAT,    UNSPEC,        "delegate_postrouting"),
 	C(V4,  NAT,    CUSTOM_CHAINS, "prerouting_rule"),
 	C(V4,  NAT,    CUSTOM_CHAINS, "postrouting_rule"),
-
-	//C(ANY, MANGLE, UNSPEC,        "mssfix"),
-	//C(ANY, MANGLE, UNSPEC,        "fwmark"),
-
-	//C(ANY, RAW,    UNSPEC,        "delegate_notrack"),
 
 	{ }
 };
@@ -189,39 +179,12 @@ fw3_print_default_head_rules(struct fw3_ipt_handle *handle,
 	struct fw3_device lodev = { .set = true };
 	struct fw3_protocol tcp = { .protocol = 6 };
 	struct fw3_ipt_rule *r;
-	//struct toplevel_rule *tr;
 
 	const char *chains[] = {
 		"INPUT", "input",
 		"OUTPUT", "output",
 		"FORWARD", "forwarding",
 	};
-
-	//struct toplevel_rule rules[] = {
-	//	{ FW3_TABLE_FILTER, "INPUT",       "delegate_input" },
-	//	{ FW3_TABLE_FILTER, "OUTPUT",      "delegate_output" },
-	//	{ FW3_TABLE_FILTER, "FORWARD",     "delegate_forward" },
-	//
-	//	{ FW3_TABLE_NAT,    "PREROUTING",  "delegate_prerouting" },
-	//	{ FW3_TABLE_NAT,    "POSTROUTING", "delegate_postrouting" },
-	//
-	//	{ FW3_TABLE_MANGLE, "FORWARD",     "mssfix" },
-	//	{ FW3_TABLE_MANGLE, "PREROUTING",  "fwmark" },
-	//
-	//	{ FW3_TABLE_RAW,    "PREROUTING",  "delegate_notrack" },
-	//
-	//	{ 0, NULL },
-	//};
-	//
-	//for (tr = rules; tr->chain; tr++)
-	//{
-	//	if (tr->table != handle->table)
-	//		continue;
-	//
-	//	r = fw3_ipt_rule_new(handle);
-	//	fw3_ipt_rule_target(r, tr->target);
-	//	fw3_ipt_rule_replace(r, tr->chain);
-	//}
 
 	switch (handle->table)
 	{
