@@ -233,6 +233,96 @@ fw3_ipt_delete_chain(struct fw3_ipt_handle *h, const char *chain)
 		iptc_delete_chain(chain, h->handle);
 }
 
+static int
+get_rule_id(const void *base, unsigned int start, unsigned int end)
+{
+	uint32_t id;
+	unsigned int i;
+	const struct xt_entry_match *em;
+
+	for (i = start; i < end; i += em->u.match_size)
+	{
+		em = base + i;
+
+		if (strcmp(em->u.user.name, "id"))
+			continue;
+
+		memcpy(&id, em->data, sizeof(id));
+
+		if ((id & FW3_ID_MASK) != FW3_ID_MAGIC)
+			continue;
+
+		return (id & ~FW3_ID_MASK);
+	}
+
+	return -1;
+}
+
+void
+fw3_ipt_delete_id_rules(struct fw3_ipt_handle *h, const char *chain)
+{
+	unsigned int num;
+	const struct ipt_entry *e;
+	bool found;
+	int id;
+
+#ifndef DISABLE_IPV6
+	if (h->family == FW3_FAMILY_V6)
+	{
+		if (!ip6tc_is_chain(chain, h->handle))
+			return;
+
+		do {
+			found = false;
+
+			const struct ip6t_entry *e6;
+			for (num = 0, e6 = ip6tc_first_rule(chain, h->handle);
+				 e6 != NULL;
+				 num++, e6 = ip6tc_next_rule(e6, h->handle))
+			{
+				id = get_rule_id(e6, sizeof(*e6), e6->target_offset);
+
+				if (id >= 0)
+				{
+					if (fw3_pr_debug)
+						debug(h, "-D %s %u\n", chain, num + 1);
+
+					ip6tc_delete_num_entry(chain, num, h->handle);
+					found = true;
+					break;
+				}
+			}
+		} while (found);
+	}
+	else
+#endif
+	{
+		if (!iptc_is_chain(chain, h->handle))
+			return;
+
+		do {
+			found = false;
+
+			for (num = 0, e = iptc_first_rule(chain, h->handle);
+				 e != NULL;
+				 num++, e = iptc_next_rule(e, h->handle))
+			{
+				id = get_rule_id(e, sizeof(*e), e->target_offset);
+
+				if (id >= 0)
+				{
+					if (fw3_pr_debug)
+						debug(h, "-D %s %u\n", chain, num + 1);
+
+					iptc_delete_num_entry(chain, num, h->handle);
+					found = true;
+					break;
+				}
+			}
+		} while (found);
+	}
+}
+
 void
 fw3_ipt_create_chain(struct fw3_ipt_handle *h, const char *fmt, ...)
 {
@@ -290,6 +380,69 @@ fw3_ipt_flush(struct fw3_ipt_handle *h)
 	}
 }
 
+static bool
+chain_is_empty(struct fw3_ipt_handle *h, const char *chain)
+{
+#ifndef DISABLE_IPV6
+	if (h->family == FW3_FAMILY_V6)
+		return (!ip6tc_builtin(chain, h->handle) &&
+		        !ip6tc_first_rule(chain, h->handle));
+#endif
+
+	return (!iptc_builtin(chain, h->handle) &&
+	        !iptc_first_rule(chain, h->handle));
+}
+
+void
+fw3_ipt_gc(struct fw3_ipt_handle *h)
+{
+	const char *chain;
+	bool found;
+
+#ifndef DISABLE_IPV6
+	if (h->family == FW3_FAMILY_V6)
+	{
+		do {
+			found = false;
+
+			for (chain = ip6tc_first_chain(h->handle);
+				 chain != NULL;
+				 chain = ip6tc_next_chain(h->handle))
+			{
+				if (!chain_is_empty(h, chain))
+					continue;
+
+				fw3_ipt_delete_chain(h, chain);
+				found = true;
+				break;
+			}
+		} while(found);
+	}
+	else
+#endif
+	{
+		do {
+			found = false;
+
+			for (chain = iptc_first_chain(h->handle);
+				 chain != NULL;
+				 chain = iptc_next_chain(h->handle))
+			{
+				warn("C=%s\n", chain);
+
+				if (!chain_is_empty(h, chain))
+					continue;
+
+				warn("D=%s\n", chain);
+
+				fw3_ipt_delete_chain(h, chain);
+				found = true;
+				break;
+			}
+		} while (found);
+	}
+}
+
 void
 fw3_ipt_commit(struct fw3_ipt_handle *h)
 {
@@ -336,6 +489,7 @@ fw3_ipt_rule_new(struct fw3_ipt_handle *h)
 	r = fw3_alloc(sizeof(*r));
 
 	r->h = h;
+	r->id = 0;
 	r->argv = fw3_alloc(sizeof(char *));
 	r->argv[r->argc++] = "fw3";
 
@@ -1315,6 +1469,7 @@ __fw3_ipt_rule_append(struct fw3_ipt_rule *r, bool repl, const char *fmt, ...)
 	struct xtables_globals *g;
 
 	int i, optc;
+	uint32_t id;
 	bool inv = false;
 	char buf[32];
 	va_list ap;
@@ -1328,6 +1483,24 @@ __fw3_ipt_rule_append(struct fw3_ipt_rule *r, bool repl, const char *fmt, ...)
 
 	optind = 0;
 	opterr = 0;
+
+	if (r->id >= 0)
+	{
+		em = find_match(r, "id");
+
+		if (!em)
+		{
+			warn("fw3_ipt_rule_append(): Can't find match '%s'", "id");
+			goto free;
+		}
+
+		init_match(r, em, true);
+
+		id = FW3_ID_MAGIC | (r->id & ~FW3_ID_MASK);
+		memcpy(em->m->data, &id, sizeof(id));
+
+		em->mflags = 1;
+	}
 
 	while ((optc = getopt_long(r->argc, r->argv, "-:m:j:", g->opts,
 	                           NULL)) != -1)

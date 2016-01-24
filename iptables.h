@@ -30,6 +30,9 @@
 
 #include "options.h"
 
+#define FW3_ID_MAGIC	0x66773300	/* 'f' 'w' '3' */
+#define FW3_ID_MASK		0xffffff00
+
 /* xtables interface */
 #if (XTABLES_VERSION_CODE == 10)
 # include "xtables-10.h"
@@ -68,6 +71,8 @@ struct fw3_ipt_rule {
 	struct xtables_rule_match *matches;
 	struct xtables_target *target;
 
+	int id;
+
 	int argc;
 	char **argv;
 
@@ -85,9 +90,13 @@ void fw3_ipt_set_policy(struct fw3_ipt_handle *h, const char *chain,
 void fw3_ipt_flush_chain(struct fw3_ipt_handle *h, const char *chain);
 void fw3_ipt_delete_chain(struct fw3_ipt_handle *h, const char *chain);
 
+void fw3_ipt_delete_id_rules(struct fw3_ipt_handle *h, const char *chain);
+
 void fw3_ipt_create_chain(struct fw3_ipt_handle *h, const char *fmt, ...);
 
 void fw3_ipt_flush(struct fw3_ipt_handle *h);
+
+void fw3_ipt_gc(struct fw3_ipt_handle *h);
 
 void fw3_ipt_commit(struct fw3_ipt_handle *h);
 

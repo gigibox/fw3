@@ -331,9 +331,9 @@ print_interface_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 	int i;
 
 	const char *chains[] = {
-		"input",
-		"output",
-		"forward",
+		"input", "INPUT",
+		"output", "OUTPUT",
+		"forward", "FORWARD",
 	};
 
 #define jump_target(t) \
@@ -362,7 +362,7 @@ print_interface_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 			}
 		}
 
-		for (i = 0; i < sizeof(chains)/sizeof(chains[0]); i++)
+		for (i = 0; i < sizeof(chains)/sizeof(chains[0]); i += 2)
 		{
 			if (*chains[i] == 'o')
 				r = fw3_ipt_rule_create(handle, NULL, NULL, dev, NULL, sub);
@@ -376,7 +376,7 @@ print_interface_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 			else
 				fw3_ipt_rule_extra(r, zone->extra_src);
 
-			fw3_ipt_rule_replace(r, "delegate_%s", chains[i]);
+			fw3_ipt_rule_replace(r, chains[i + 1]);
 		}
 	}
 	else if (handle->table == FW3_TABLE_NAT)
@@ -386,7 +386,7 @@ print_interface_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 			r = fw3_ipt_rule_create(handle, NULL, dev, NULL, sub, NULL);
 			fw3_ipt_rule_target(r, "zone_%s_prerouting", zone->name);
 			fw3_ipt_rule_extra(r, zone->extra_src);
-			fw3_ipt_rule_replace(r, "delegate_prerouting");
+			fw3_ipt_rule_replace(r, "PREROUTING");
 		}
 
 		if (has(zone->flags, handle->family, FW3_FLAG_SNAT))
@@ -394,7 +394,7 @@ print_interface_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 			r = fw3_ipt_rule_create(handle, NULL, NULL, dev, NULL, sub);
 			fw3_ipt_rule_target(r, "zone_%s_postrouting", zone->name);
 			fw3_ipt_rule_extra(r, zone->extra_dest);
-			fw3_ipt_rule_replace(r, "delegate_postrouting");
+			fw3_ipt_rule_replace(r, "POSTROUTING");
 		}
 	}
 	else if (handle->table == FW3_TABLE_MANGLE)
@@ -412,7 +412,7 @@ print_interface_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 				fw3_ipt_rule_comment(r, "%s (mtu_fix logging)", zone->name);
 				fw3_ipt_rule_target(r, "LOG");
 				fw3_ipt_rule_addarg(r, false, "--log-prefix", buf);
-				fw3_ipt_rule_replace(r, "mssfix");
+				fw3_ipt_rule_replace(r, "FORWARD");
 			}
 
 			r = fw3_ipt_rule_create(handle, &tcp, NULL, dev, NULL, sub);
@@ -421,7 +421,7 @@ print_interface_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 			fw3_ipt_rule_comment(r, "%s (mtu_fix)", zone->name);
 			fw3_ipt_rule_target(r, "TCPMSS");
 			fw3_ipt_rule_addarg(r, false, "--clamp-mss-to-pmtu", NULL);
-			fw3_ipt_rule_replace(r, "mssfix");
+			fw3_ipt_rule_replace(r, "FORWARD");
 		}
 	}
 	else if (handle->table == FW3_TABLE_RAW)
@@ -431,7 +431,7 @@ print_interface_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 			r = fw3_ipt_rule_create(handle, NULL, dev, NULL, sub, NULL);
 			fw3_ipt_rule_target(r, "zone_%s_notrack", zone->name);
 			fw3_ipt_rule_extra(r, zone->extra_src);
-			fw3_ipt_rule_replace(r, "delegate_notrack");
+			fw3_ipt_rule_replace(r, "PREROUTING");
 		}
 	}
 }

@@ -106,7 +106,7 @@ static void
 append_chain(struct fw3_ipt_rule *r, struct fw3_forward *forward)
 {
 	if (forward->src.any || !forward->src.set)
-		fw3_ipt_rule_append(r, "delegate_forward");
+		fw3_ipt_rule_append(r, "FORWARD");
 	else
 		fw3_ipt_rule_append(r, "zone_%s_forward", forward->src.name);
 }

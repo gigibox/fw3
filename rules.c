@@ -264,7 +264,7 @@ append_chain(struct fw3_ipt_rule *r, struct fw3_rule *rule)
 {
 	char chain[32];
 
-	snprintf(chain, sizeof(chain), "delegate_output");
+	snprintf(chain, sizeof(chain), "OUTPUT");
 
 	if (rule->target == FW3_FLAG_NOTRACK)
 	{
@@ -272,7 +272,7 @@ append_chain(struct fw3_ipt_rule *r, struct fw3_rule *rule)
 	}
 	else if (rule->target == FW3_FLAG_MARK)
 	{
-		snprintf(chain, sizeof(chain), "fwmark");
+		snprintf(chain, sizeof(chain), "PREROUTING");
 	}
 	else
 	{
@@ -290,16 +290,16 @@ append_chain(struct fw3_ipt_rule *r, struct fw3_rule *rule)
 			else
 			{
 				if (rule->dest.set)
-					snprintf(chain, sizeof(chain), "delegate_forward");
+					snprintf(chain, sizeof(chain), "FORWARD");
 				else
-					snprintf(chain, sizeof(chain), "delegate_input");
+					snprintf(chain, sizeof(chain), "INPUT");
 			}
 		}
 
 		if (rule->dest.set && !rule->src.set)
 		{
 			if (rule->dest.any)
-				snprintf(chain, sizeof(chain), "delegate_output");
+				snprintf(chain, sizeof(chain), "OUTPUT");
 			else
 				snprintf(chain, sizeof(chain), "zone_%s_output",
 				         rule->dest.name);

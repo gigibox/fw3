@@ -401,6 +401,35 @@ start:
 }
 
 static int
+gc(void)
+{
+	enum fw3_family family;
+	enum fw3_table table;
+	struct fw3_ipt_handle *handle;
+
+	for (family = FW3_FAMILY_V4; family <= FW3_FAMILY_V6; family++)
+	{
+		if (family == FW3_FAMILY_V6 && cfg_state->defaults.disable_ipv6)
+			continue;
+
+		for (table = FW3_TABLE_FILTER; table <= FW3_TABLE_RAW; table++)
+		{
+			if (!fw3_has_table(family == FW3_FAMILY_V6, fw3_flag_names[table]))
+				continue;
+
+			if (!(handle = fw3_ipt_open(family, table)))
+				continue;
+
+			fw3_ipt_gc(handle);
+			fw3_ipt_commit(handle);
+			fw3_ipt_close(handle);
+		}
+	}
+
+	return 0;
+}
+
+static int
 lookup_network(const char *net)
 {
 	struct fw3_zone *z;
@@ -588,6 +617,14 @@ int main(int argc, char **argv)
 		if (fw3_lock())
 		{
 			rv = reload();
+			fw3_unlock();
+		}
+	}
+	else if (!strcmp(argv[optind], "gc"))
+	{
+		if (fw3_lock())
+		{
+			rv = gc();
 			fw3_unlock();
 		}
 	}

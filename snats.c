@@ -265,7 +265,7 @@ append_chain(struct fw3_ipt_rule *r, struct fw3_snat *snat)
 	if (snat->_src)
 		fw3_ipt_rule_append(r, "zone_%s_postrouting", snat->src.name);
 	else
-		fw3_ipt_rule_append(r, "delegate_postrouting");
+		fw3_ipt_rule_append(r, "POSTROUTING");
 }
 
 static void
