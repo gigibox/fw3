@@ -1126,7 +1126,7 @@ rule_print6(struct ip6t_entry *e)
 
 	if (e->ipv6.flags & IP6T_F_PROTO)
 	{
-		if (e->ipv6.flags & XT_INV_PROTO)
+		if (e->ipv6.invflags & XT_INV_PROTO)
 			printf(" !");
 
 		pname = get_protoname(container_of(e, struct fw3_ipt_rule, e6));
@@ -1139,7 +1139,7 @@ rule_print6(struct ip6t_entry *e)
 
 	if (e->ipv6.iniface[0])
 	{
-		if (e->ipv6.flags & IP6T_INV_VIA_IN)
+		if (e->ipv6.invflags & IP6T_INV_VIA_IN)
 			printf(" !");
 
 		printf(" -i %s", e->ipv6.iniface);
@@ -1147,7 +1147,7 @@ rule_print6(struct ip6t_entry *e)
 
 	if (e->ipv6.outiface[0])
 	{
-		if (e->ipv6.flags & IP6T_INV_VIA_OUT)
+		if (e->ipv6.invflags & IP6T_INV_VIA_OUT)
 			printf(" !");
 
 		printf(" -o %s", e->ipv6.outiface);
@@ -1155,7 +1155,7 @@ rule_print6(struct ip6t_entry *e)
 
 	if (memcmp(&e->ipv6.src, &in6addr_any, sizeof(struct in6_addr)))
 	{
-		if (e->ipv6.flags & IP6T_INV_SRCIP)
+		if (e->ipv6.invflags & IP6T_INV_SRCIP)
 			printf(" !");
 
 		printf(" -s %s/%s",
@@ -1165,7 +1165,7 @@ rule_print6(struct ip6t_entry *e)
 
 	if (memcmp(&e->ipv6.dst, &in6addr_any, sizeof(struct in6_addr)))
 	{
-		if (e->ipv6.flags & IP6T_INV_DSTIP)
+		if (e->ipv6.invflags & IP6T_INV_DSTIP)
 			printf(" !");
 
 		printf(" -d %s/%s",
@@ -1184,7 +1184,7 @@ rule_print4(struct ipt_entry *e)
 
 	if (e->ip.proto)
 	{
-		if (e->ip.flags & XT_INV_PROTO)
+		if (e->ip.invflags & XT_INV_PROTO)
 			printf(" !");
 
 		pname = get_protoname(container_of(e, struct fw3_ipt_rule, e));
@@ -1197,7 +1197,7 @@ rule_print4(struct ipt_entry *e)
 
 	if (e->ip.iniface[0])
 	{
-		if (e->ip.flags & IPT_INV_VIA_IN)
+		if (e->ip.invflags & IPT_INV_VIA_IN)
 			printf(" !");
 
 		printf(" -i %s", e->ip.iniface);
@@ -1205,7 +1205,7 @@ rule_print4(struct ipt_entry *e)
 
 	if (e->ip.outiface[0])
 	{
-		if (e->ip.flags & IPT_INV_VIA_OUT)
+		if (e->ip.invflags & IPT_INV_VIA_OUT)
 			printf(" !");
 
 		printf(" -o %s", e->ip.outiface);
@@ -1213,7 +1213,7 @@ rule_print4(struct ipt_entry *e)
 
 	if (memcmp(&e->ip.src, &in_zero, sizeof(struct in_addr)))
 	{
-		if (e->ip.flags & IPT_INV_SRCIP)
+		if (e->ip.invflags & IPT_INV_SRCIP)
 			printf(" !");
 
 		printf(" -s %s/%s",
@@ -1223,7 +1223,7 @@ rule_print4(struct ipt_entry *e)
 
 	if (memcmp(&e->ip.dst, &in_zero, sizeof(struct in_addr)))
 	{
-		if (e->ip.flags & IPT_INV_DSTIP)
+		if (e->ip.invflags & IPT_INV_DSTIP)
 			printf(" !");
 
 		printf(" -d %s/%s",
