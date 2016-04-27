@@ -164,13 +164,6 @@ fw3_print_default_chains(struct fw3_ipt_handle *handle, struct fw3_state *state,
 	set(defs->flags, handle->family, handle->table);
 }
 
-
-struct toplevel_rule {
-	enum fw3_table table;
-	const char *chain;
-	const char *target;
-};
-
 void
 fw3_print_default_head_rules(struct fw3_ipt_handle *handle,
                              struct fw3_state *state, bool reload)
