@@ -270,7 +270,7 @@ append_chain(struct fw3_ipt_rule *r, struct fw3_rule *rule)
 	{
 		snprintf(chain, sizeof(chain), "zone_%s_notrack", rule->src.name);
 	}
-	else if (rule->target == FW3_FLAG_MARK)
+	else if (rule->target == FW3_FLAG_MARK && (rule->_src || rule->src.any))
 	{
 		snprintf(chain, sizeof(chain), "PREROUTING");
 	}
