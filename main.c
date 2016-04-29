@@ -546,7 +546,6 @@ int main(int argc, char **argv)
 	}
 
 	build_state(false);
-	build_state(true);
 	defs = &cfg_state->defaults;
 
 	if (optind >= argc)
@@ -577,12 +576,18 @@ int main(int argc, char **argv)
 		print_family = family;
 		fw3_pr_debug = true;
 
-		rv = start();
+		if (fw3_lock())
+		{
+			build_state(true);
+			rv = start();
+			fw3_unlock();
+		}
 	}
 	else if (!strcmp(argv[optind], "start"))
 	{
 		if (fw3_lock())
 		{
+			build_state(true);
 			rv = start();
 			fw3_unlock();
 		}
@@ -591,6 +596,7 @@ int main(int argc, char **argv)
 	{
 		if (fw3_lock())
 		{
+			build_state(true);
 			rv = stop(false);
 			fw3_unlock();
 		}
@@ -599,6 +605,7 @@ int main(int argc, char **argv)
 	{
 		if (fw3_lock())
 		{
+			build_state(true);
 			rv = stop(true);
 			fw3_unlock();
 		}
@@ -607,6 +614,7 @@ int main(int argc, char **argv)
 	{
 		if (fw3_lock())
 		{
+			build_state(true);
 			stop(true);
 			rv = start();
 			fw3_unlock();
@@ -616,6 +624,7 @@ int main(int argc, char **argv)
 	{
 		if (fw3_lock())
 		{
+			build_state(true);
 			rv = reload();
 			fw3_unlock();
 		}
