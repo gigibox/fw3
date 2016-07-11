@@ -17,6 +17,9 @@ ELSE()
   ADD_DEFINITIONS(-DDISABLE_IPV6)
 ENDIF()
 
+FIND_PATH(uci_include_dir uci.h)
+INCLUDE_DIRECTORIES(${uci_include_dir})
+
 ADD_EXECUTABLE(firewall3 main.c options.c defaults.c zones.c forwards.c rules.c redirects.c snats.c utils.c ubus.c ipsets.c includes.c iptables.c)
 TARGET_LINK_LIBRARIES(firewall3 uci ubox ubus xtables m dl ${iptc_libs} ${ext_libs})
 
