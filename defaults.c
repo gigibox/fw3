@@ -93,7 +93,6 @@ fw3_load_defaults(struct fw3_state *state, struct uci_package *p)
 	defs->tcp_syncookies       = true;
 	defs->tcp_window_scaling   = true;
 	defs->custom_chains        = true;
-	defs->drop_invalid         = true;
 
 	uci_foreach_element(&p->sections, e)
 	{
