@@ -55,9 +55,6 @@ struct fw3_ipt_handle {
 	enum fw3_family family;
 	enum fw3_table table;
 	void *handle;
-
-	int libc;
-	void **libv;
 };
 
 struct fw3_ipt_rule {
@@ -164,5 +161,8 @@ fw3_ipt_rule_target(struct fw3_ipt_rule *r, const char *fmt, ...)
 
 	fw3_ipt_rule_addarg(r, false, "-j", buf);
 }
+
+void xtables_register_match(struct xtables_match *me);
+void xtables_register_target(struct xtables_target *me);
 
 #endif

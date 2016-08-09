@@ -37,6 +37,16 @@ static struct xtables_globals xtg6 = {
 	.orig_opts = base_opts,
 };
 
+static struct {
+	bool retain;
+	int mcount, tcount;
+	struct xtables_match **matches;
+	struct xtables_target **targets;
+	void (*register_match)(struct xtables_match *);
+	void (*register_target)(struct xtables_target *);
+} xext;
+
+
 /* Required by certain extensions like SNAT and DNAT */
 int kernel_version = 0;
 
@@ -66,6 +76,7 @@ static void fw3_init_extensions(void)
 struct fw3_ipt_handle *
 fw3_ipt_open(enum fw3_family family, enum fw3_table table)
 {
+	int i;
 	struct fw3_ipt_handle *h;
 
 	h = fw3_alloc(sizeof(*h));
@@ -101,6 +112,14 @@ fw3_ipt_open(enum fw3_family family, enum fw3_table table)
 
 	fw3_xt_reset();
 	fw3_init_extensions();
+
+	if (xext.register_match)
+		for (i = 0; i < xext.mcount; i++)
+			xext.register_match(xext.matches[i]);
+
+	if (xext.register_target)
+		for (i = 0; i < xext.tcount; i++)
+			xext.register_target(xext.targets[i]);
 
 	return h;
 }
@@ -467,17 +486,6 @@ fw3_ipt_commit(struct fw3_ipt_handle *h)
 void
 fw3_ipt_close(struct fw3_ipt_handle *h)
 {
-	if (h->libv)
-	{
-		while (h->libc > 0)
-		{
-			h->libc--;
-			dlclose(h->libv[h->libc]);
-		}
-
-		free(h->libv);
-	}
-
 	free(h);
 }
 
@@ -525,8 +533,10 @@ static bool
 load_extension(struct fw3_ipt_handle *h, const char *name)
 {
 	char path[256];
-	void *lib, **tmp;
+	void *lib;
 	const char *pfx = (h->family == FW3_FAMILY_V6) ? "libip6t" : "libipt";
+
+	xext.retain = true;
 
 	snprintf(path, sizeof(path), "/usr/lib/iptables/libxt_%s.so", name);
 	if (!(lib = dlopen(path, RTLD_NOW)))
@@ -535,18 +545,9 @@ load_extension(struct fw3_ipt_handle *h, const char *name)
 		lib = dlopen(path, RTLD_NOW);
 	}
 
-	if (!lib)
-		return false;
+	xext.retain = false;
 
-	tmp = realloc(h->libv, sizeof(lib) * (h->libc + 1));
-
-	if (!tmp)
-		return false;
-
-	h->libv = tmp;
-	h->libv[h->libc++] = lib;
-
-	return true;
+	return !!lib;
 }
 
 static struct xtables_match *
@@ -1641,4 +1642,64 @@ fw3_ipt_rule_create(struct fw3_ipt_handle *handle, struct fw3_protocol *proto,
 	fw3_ipt_rule_src_dest(r, src, dest);
 
 	return r;
+}
+
+void
+xtables_register_match(struct xtables_match *me)
+{
+	int i;
+	static struct xtables_match **tmp;
+
+	if (!xext.register_match)
+		xext.register_match = dlsym(RTLD_NEXT, "xtables_register_match");
+
+	if (!xext.register_match)
+		return;
+
+	xext.register_match(me);
+
+	if (xext.retain)
+	{
+		for (i = 0; i < xext.mcount; i++)
+			if (xext.matches[i] == me)
+				return;
+
+		tmp = realloc(xext.matches, sizeof(me) * (xext.mcount + 1));
+
+		if (!tmp)
+			return;
+
+		xext.matches = tmp;
+		xext.matches[xext.mcount++] = me;
+	}
+}
+
+void
+xtables_register_target(struct xtables_target *me)
+{
+	int i;
+	static struct xtables_target **tmp;
+
+	if (!xext.register_target)
+		xext.register_target = dlsym(RTLD_NEXT, "xtables_register_target");
+
+	if (!xext.register_target)
+		return;
+
+	xext.register_target(me);
+
+	if (xext.retain)
+	{
+		for (i = 0; i < xext.tcount; i++)
+			if (xext.targets[i] == me)
+				return;
+
+		tmp = realloc(xext.targets, sizeof(me) * (xext.tcount + 1));
+
+		if (!tmp)
+			return;
+
+		xext.targets = tmp;
+		xext.targets[xext.tcount++] = me;
+	}
 }
