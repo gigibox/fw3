@@ -1030,7 +1030,7 @@ fw3_ipt_rule_time(struct fw3_ipt_rule *r, struct fw3_time *time)
 	{
 		for (i = 1, p = buf; i < 32; i++)
 		{
-			if (hasbit(time->monthdays, i))
+			if (fw3_hasbit(time->monthdays, i))
 			{
 				if (p > buf)
 					*p++ = ',';
@@ -1039,14 +1039,14 @@ fw3_ipt_rule_time(struct fw3_ipt_rule *r, struct fw3_time *time)
 			}
 		}
 
-		fw3_ipt_rule_addarg(r, hasbit(time->monthdays, 0), "--monthdays", buf);
+		fw3_ipt_rule_addarg(r, fw3_hasbit(time->monthdays, 0), "--monthdays", buf);
 	}
 
 	if (time->weekdays & 0xFE)
 	{
 		for (i = 1, p = buf; i < 8; i++)
 		{
-			if (hasbit(time->weekdays, i))
+			if (fw3_hasbit(time->weekdays, i))
 			{
 				if (p > buf)
 					*p++ = ',';
@@ -1055,7 +1055,7 @@ fw3_ipt_rule_time(struct fw3_ipt_rule *r, struct fw3_time *time)
 			}
 		}
 
-		fw3_ipt_rule_addarg(r, hasbit(time->weekdays, 0), "--weekdays", buf);
+		fw3_ipt_rule_addarg(r, fw3_hasbit(time->weekdays, 0), "--weekdays", buf);
 	}
 }
 

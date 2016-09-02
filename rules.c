@@ -247,13 +247,13 @@ fw3_load_rules(struct fw3_state *state, struct uci_package *p,
 		/* NB: rule family... */
 		if (rule->_dest)
 		{
-			setbit(rule->_dest->flags[0], rule->target);
-			setbit(rule->_dest->flags[1], rule->target);
+			fw3_setbit(rule->_dest->flags[0], rule->target);
+			fw3_setbit(rule->_dest->flags[1], rule->target);
 		}
 		else if (need_src_action_chain(rule))
 		{
-			setbit(rule->_src->flags[0], fw3_to_src_target(rule->target));
-			setbit(rule->_src->flags[1], fw3_to_src_target(rule->target));
+			fw3_setbit(rule->_src->flags[0], fw3_to_src_target(rule->target));
+			fw3_setbit(rule->_src->flags[1], fw3_to_src_target(rule->target));
 		}
 	}
 }

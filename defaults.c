@@ -154,7 +154,7 @@ fw3_print_default_chains(struct fw3_ipt_handle *handle, struct fw3_state *state,
 			continue;
 
 		if (c->flag &&
-		    !hasbit(defs->flags[handle->family == FW3_FAMILY_V6], c->flag))
+		    !fw3_hasbit(defs->flags[handle->family == FW3_FAMILY_V6], c->flag))
 			continue;
 
 		fw3_ipt_create_chain(handle, c->format);

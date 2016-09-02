@@ -46,13 +46,13 @@ void warn(const char *format, ...);
 void error(const char *format, ...);
 void info(const char *format, ...);
 
-#define setbit(field, flag) field |= (1 << (flag))
-#define delbit(field, flag) field &= ~(1 << (flag))
-#define hasbit(field, flag) (field & (1 << (flag)))
+#define fw3_setbit(field, flag) field |= (1 << (flag))
+#define fw3_delbit(field, flag) field &= ~(1 << (flag))
+#define fw3_hasbit(field, flag) (field & (1 << (flag)))
 
-#define set(field, family, flag) setbit(field[family == FW3_FAMILY_V6], flag)
-#define del(field, family, flag) delbit(field[family == FW3_FAMILY_V6], flag)
-#define has(field, family, flag) hasbit(field[family == FW3_FAMILY_V6], flag)
+#define set(field, family, flag) fw3_setbit(field[family == FW3_FAMILY_V6], flag)
+#define del(field, family, flag) fw3_delbit(field[family == FW3_FAMILY_V6], flag)
+#define has(field, family, flag) fw3_hasbit(field[family == FW3_FAMILY_V6], flag)
 
 #define fw3_foreach(p, h)                                                  \
 	for (p = list_empty(h) ? NULL : list_first_entry(h, typeof(*p), list); \

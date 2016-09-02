@@ -216,23 +216,23 @@ fw3_load_zones(struct fw3_state *state, struct uci_package *p)
 
 		if (zone->masq)
 		{
-			setbit(zone->flags[0], FW3_FLAG_SNAT);
+			fw3_setbit(zone->flags[0], FW3_FLAG_SNAT);
 			zone->conntrack = true;
 		}
 
 		if (zone->custom_chains)
 		{
-			setbit(zone->flags[0], FW3_FLAG_SNAT);
-			setbit(zone->flags[0], FW3_FLAG_DNAT);
+			fw3_setbit(zone->flags[0], FW3_FLAG_SNAT);
+			fw3_setbit(zone->flags[0], FW3_FLAG_DNAT);
 		}
 
-		setbit(zone->flags[0], fw3_to_src_target(zone->policy_input));
-		setbit(zone->flags[0], zone->policy_forward);
-		setbit(zone->flags[0], zone->policy_output);
+		fw3_setbit(zone->flags[0], fw3_to_src_target(zone->policy_input));
+		fw3_setbit(zone->flags[0], zone->policy_forward);
+		fw3_setbit(zone->flags[0], zone->policy_output);
 
-		setbit(zone->flags[1], fw3_to_src_target(zone->policy_input));
-		setbit(zone->flags[1], zone->policy_forward);
-		setbit(zone->flags[1], zone->policy_output);
+		fw3_setbit(zone->flags[1], fw3_to_src_target(zone->policy_input));
+		fw3_setbit(zone->flags[1], zone->policy_forward);
+		fw3_setbit(zone->flags[1], zone->policy_output);
 
 		list_add_tail(&zone->list, &state->zones);
 	}
@@ -284,7 +284,7 @@ print_zone_chain(struct fw3_ipt_handle *handle, struct fw3_state *state,
 			continue;
 
 		if (c->flag &&
-		    !hasbit(zone->flags[handle->family == FW3_FAMILY_V6], c->flag))
+		    !fw3_hasbit(zone->flags[handle->family == FW3_FAMILY_V6], c->flag))
 			continue;
 
 		fw3_ipt_create_chain(handle, c->format, zone->name);
@@ -655,15 +655,15 @@ fw3_hotplug_zones(struct fw3_state *state, bool add)
 
 	list_for_each_entry(z, &state->zones, list)
 	{
-		if (add != hasbit(z->flags[0], FW3_FLAG_HOTPLUG))
+		if (add != fw3_hasbit(z->flags[0], FW3_FLAG_HOTPLUG))
 		{
 			list_for_each_entry(d, &z->devices, list)
 				fw3_hotplug(add, z, d);
 
 			if (add)
-				setbit(z->flags[0], FW3_FLAG_HOTPLUG);
+				fw3_setbit(z->flags[0], FW3_FLAG_HOTPLUG);
 			else
-				delbit(z->flags[0], FW3_FLAG_HOTPLUG);
+				fw3_delbit(z->flags[0], FW3_FLAG_HOTPLUG);
 		}
 	}
 }
