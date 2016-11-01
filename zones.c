@@ -466,11 +466,30 @@ print_interface_rules(struct fw3_ipt_handle *handle, struct fw3_state *state,
 	}
 }
 
+static struct fw3_address *
+next_addr(struct fw3_address *addr, struct list_head *list,
+                enum fw3_family family, bool invert)
+{
+	struct list_head *p;
+	struct fw3_address *rv;
+
+	for (p = addr ? addr->list.next : list->next; p != list; p = p->next)
+	{
+		rv = list_entry(p, struct fw3_address, list);
+
+		if (fw3_is_family(rv, family) && rv->invert == invert)
+			return rv;
+	}
+
+	return NULL;
+}
+
 static void
 print_zone_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
                 bool reload, struct fw3_zone *zone)
 {
 	bool disable_notrack = state->defaults.drop_invalid;
+	bool first_src, first_dest;
 	struct fw3_address *msrc;
 	struct fw3_address *mdest;
 	struct fw3_ipt_rule *r;
@@ -552,17 +571,50 @@ print_zone_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 	case FW3_TABLE_NAT:
 		if (zone->masq && handle->family == FW3_FAMILY_V4)
 		{
-			fw3_foreach(msrc, &zone->masq_src)
-			fw3_foreach(mdest, &zone->masq_dest)
+			/* for any negated masq_src ip, emit -s addr -j RETURN rules */
+			for (msrc = NULL;
+			     (msrc = next_addr(msrc, &zone->masq_src,
+			                       handle->family, true)) != NULL; )
 			{
-				if (!fw3_is_family(msrc, handle->family) ||
-				    !fw3_is_family(mdest, handle->family))
-					continue;
-
+				msrc->invert = false;
 				r = fw3_ipt_rule_new(handle);
-				fw3_ipt_rule_src_dest(r, msrc, mdest);
-				fw3_ipt_rule_target(r, "MASQUERADE");
+				fw3_ipt_rule_src_dest(r, msrc, NULL);
+				fw3_ipt_rule_target(r, "RETURN");
 				fw3_ipt_rule_append(r, "zone_%s_postrouting", zone->name);
+				msrc->invert = true;
+			}
+
+			/* for any negated masq_dest ip, emit -d addr -j RETURN rules */
+			for (mdest = NULL;
+			     (mdest = next_addr(mdest, &zone->masq_dest,
+			                        handle->family, true)) != NULL; )
+			{
+				mdest->invert = false;
+				r = fw3_ipt_rule_new(handle);
+				fw3_ipt_rule_src_dest(r, NULL, mdest);
+				fw3_ipt_rule_target(r, "RETURN");
+				fw3_ipt_rule_append(r, "zone_%s_postrouting", zone->name);
+				mdest->invert = true;
+			}
+
+			/* emit masquerading entries for non-negated addresses
+			   and ensure that both src and dest loops run at least once,
+			   even if there are no relevant addresses */
+			for (first_src = true, msrc = NULL;
+			     (msrc = next_addr(msrc, &zone->masq_src,
+				                   handle->family, false)) || first_src;
+			     first_src = false)
+			{
+				for (first_dest = true, mdest = NULL;
+				     (mdest = next_addr(mdest, &zone->masq_dest,
+					                    handle->family, false)) || first_dest;
+				     first_dest = false)
+				{
+					r = fw3_ipt_rule_new(handle);
+					fw3_ipt_rule_src_dest(r, msrc, mdest);
+					fw3_ipt_rule_target(r, "MASQUERADE");
+					fw3_ipt_rule_append(r, "zone_%s_postrouting", zone->name);
+				}
 			}
 		}
 		break;
