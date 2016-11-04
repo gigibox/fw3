@@ -29,12 +29,18 @@ static struct xtables_globals xtg = {
 	.option_offset = 0,
 	.program_version = "4",
 	.orig_opts = base_opts,
+#if XTABLES_VERSION_CODE > 10
+	.compat_rev = xtables_compatible_revision,
+#endif
 };
 
 static struct xtables_globals xtg6 = {
 	.option_offset = 0,
 	.program_version = "6",
 	.orig_opts = base_opts,
+#if XTABLES_VERSION_CODE > 10
+	.compat_rev = xtables_compatible_revision,
+#endif
 };
 
 static struct {
