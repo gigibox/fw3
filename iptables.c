@@ -630,8 +630,15 @@ find_target(struct fw3_ipt_rule *r, const char *name)
 {
 	struct xtables_target *t;
 
-	if (is_chain(r->h, name))
+	if (is_chain(r->h, name)) {
+		t = xtables_find_target(XT_STANDARD_TARGET, XTF_DONT_LOAD);
+
+		if (t)
+			return t;
+
+		load_extension(r->h, "standard");
 		return xtables_find_target(XT_STANDARD_TARGET, XTF_LOAD_MUST_SUCCEED);
+	}
 
 	t = xtables_find_target(name, XTF_DONT_LOAD);
 
