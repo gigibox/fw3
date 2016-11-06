@@ -42,10 +42,16 @@
 # error "Unsupported xtables version"
 #endif
 
+#ifndef DISABLE_STATIC_EXTENSIONS
 /* libipt*ext.so interfaces */
 extern void init_extensions(void);
 extern void init_extensions4(void);
 extern void init_extensions6(void);
+#else
+static inline void init_extensions(void) { }
+static inline void init_extensions4(void) { }
+static inline void init_extensions6(void) { }
+#endif
 
 /* Required by certain extensions like SNAT and DNAT */
 extern int kernel_version;
