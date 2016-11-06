@@ -79,7 +79,7 @@ build_state(bool runtime)
 	else
 	{
 		if (!fw3_ubus_connect())
-			error("Failed to connect to ubus");
+			warn("Failed to connect to ubus");
 
 		if (uci_load(state->uci, "firewall", &p))
 		{
