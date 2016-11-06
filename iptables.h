@@ -19,6 +19,8 @@
 #ifndef __FW3_IPTABLES_H
 #define __FW3_IPTABLES_H
 
+#define _GNU_SOURCE /* RTLD_NEXT */
+
 #include <libiptc/libiptc.h>
 #include <libiptc/libip6tc.h>
 #include <xtables.h>
