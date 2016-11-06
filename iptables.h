@@ -32,9 +32,6 @@
 
 #include "options.h"
 
-#define FW3_ID_MAGIC	0x66773300	/* 'f' 'w' '3' */
-#define FW3_ID_MASK		0xffffff00
-
 /* xtables interface */
 #if (XTABLES_VERSION_CODE == 10 || XTABLES_VERSION_CODE == 11)
 # include "xtables-10.h"
@@ -75,8 +72,6 @@ struct fw3_ipt_rule {
 
 	struct xtables_rule_match *matches;
 	struct xtables_target *target;
-
-	int id;
 
 	int argc;
 	char **argv;
