@@ -32,6 +32,8 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#define _LINUX_IN_H
+#define _LINUX_IN6_H
 #include <netinet/in.h>
 #include <netinet/ether.h>
 

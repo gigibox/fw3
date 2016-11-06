@@ -21,6 +21,9 @@
 
 #define _GNU_SOURCE /* RTLD_NEXT */
 
+#define _LINUX_IF_H
+#define _LINUX_IN_H
+#define _LINUX_IN6_H
 #include <libiptc/libiptc.h>
 #include <libiptc/libip6tc.h>
 #include <xtables.h>
