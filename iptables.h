@@ -19,31 +19,6 @@
 #ifndef __FW3_IPTABLES_H
 #define __FW3_IPTABLES_H
 
-#define _GNU_SOURCE /* RTLD_NEXT */
-
-#define _LINUX_IF_H
-#define _LINUX_IN_H
-#define _LINUX_IN6_H
-#include <libiptc/libiptc.h>
-#include <libiptc/libip6tc.h>
-#include <xtables.h>
-
-#include <dlfcn.h>
-#include <unistd.h>
-#include <getopt.h>
-#include <sys/utsname.h>
-
-#include "options.h"
-
-/* xtables interface */
-#if (XTABLES_VERSION_CODE == 10 || XTABLES_VERSION_CODE == 11)
-# include "xtables-10.h"
-#elif (XTABLES_VERSION_CODE == 5)
-# include "xtables-5.h"
-#else
-# error "Unsupported xtables version"
-#endif
-
 #ifndef DISABLE_STATIC_EXTENSIONS
 /* libipt*ext.so interfaces */
 extern void init_extensions(void);
@@ -65,23 +40,7 @@ struct fw3_ipt_handle {
 	void *handle;
 };
 
-struct fw3_ipt_rule {
-	struct fw3_ipt_handle *h;
-
-	union {
-		struct ipt_entry e;
-		struct ip6t_entry e6;
-	};
-
-	struct xtables_rule_match *matches;
-	struct xtables_target *target;
-
-	int argc;
-	char **argv;
-
-	uint32_t protocol;
-	bool protocol_loaded;
-};
+struct fw3_ipt_rule;
 
 struct fw3_ipt_handle *fw3_ipt_open(enum fw3_family family,
                                     enum fw3_table table);
@@ -167,8 +126,5 @@ fw3_ipt_rule_target(struct fw3_ipt_rule *r, const char *fmt, ...)
 
 	fw3_ipt_rule_addarg(r, false, "-j", buf);
 }
-
-void xtables_register_match(struct xtables_match *me);
-void xtables_register_target(struct xtables_target *me);
 
 #endif

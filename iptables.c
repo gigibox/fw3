@@ -16,8 +16,61 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#define _GNU_SOURCE /* RTLD_NEXT */
+
+/* include userspace headers */
+#include <dlfcn.h>
+#include <unistd.h>
+#include <getopt.h>
+#include <net/if.h>
+#include <netinet/in.h>
+#include <sys/utsname.h>
+#include <sys/socket.h>
+
+/* prevent indirect inclusion of kernel headers */
+#define _LINUX_IF_H
+#define _LINUX_IN_H
+#define _LINUX_IN6_H
+
+/* prevent libiptc from including kernel headers */
+#define _FWCHAINS_KERNEL_HEADERS_H
+
+/* finally include libiptc and xtables */
+#include <libiptc/libiptc.h>
+#include <libiptc/libip6tc.h>
+#include <xtables.h>
+
+#include "options.h"
+
+/* xtables interface */
+#if (XTABLES_VERSION_CODE == 10 || XTABLES_VERSION_CODE == 11)
+# include "xtables-10.h"
+#elif (XTABLES_VERSION_CODE == 5)
+# include "xtables-5.h"
+#else
+# error "Unsupported xtables version"
+#endif
+
 #include "iptables.h"
 
+
+struct fw3_ipt_rule {
+	struct fw3_ipt_handle *h;
+
+	union {
+		struct ipt_entry e;
+		struct ip6t_entry e6;
+	};
+
+	struct xtables_rule_match *matches;
+	struct xtables_target *target;
+
+	int argc;
+	char **argv;
+
+	uint32_t protocol;
+	bool protocol_loaded;
+};
 
 static struct option base_opts[] = {
 	{ .name = "match",  .has_arg = 1, .val = 'm' },
