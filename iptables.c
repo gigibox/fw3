@@ -535,36 +535,14 @@ get_protoname(struct fw3_ipt_rule *r)
 	return NULL;
 }
 
-static bool
-load_extension(struct fw3_ipt_handle *h, const char *name)
-{
-	char path[256];
-	void *lib;
-	const char *pfx = (h->family == FW3_FAMILY_V6) ? "libip6t" : "libipt";
-
-	xext.retain = true;
-
-	snprintf(path, sizeof(path), "/usr/lib/iptables/libxt_%s.so", name);
-	if (!(lib = dlopen(path, RTLD_NOW)))
-	{
-		snprintf(path, sizeof(path), "/usr/lib/iptables/%s_%s.so", pfx, name);
-		lib = dlopen(path, RTLD_NOW);
-	}
-
-	xext.retain = false;
-
-	return !!lib;
-}
-
 static struct xtables_match *
 find_match(struct fw3_ipt_rule *r, const char *name)
 {
 	struct xtables_match *m;
 
-	m = xtables_find_match(name, XTF_DONT_LOAD, &r->matches);
-
-	if (!m && load_extension(r->h, name))
-		m = xtables_find_match(name, XTF_DONT_LOAD, &r->matches);
+	xext.retain = true;
+	m = xtables_find_match(name, XTF_TRY_LOAD, &r->matches);
+	xext.retain = false;
 
 	return m;
 }
@@ -630,20 +608,14 @@ find_target(struct fw3_ipt_rule *r, const char *name)
 {
 	struct xtables_target *t;
 
-	if (is_chain(r->h, name)) {
-		t = xtables_find_target(XT_STANDARD_TARGET, XTF_DONT_LOAD);
+	xext.retain = true;
 
-		if (t)
-			return t;
+	if (is_chain(r->h, name))
+		t = xtables_find_target(XT_STANDARD_TARGET, XTF_TRY_LOAD);
+	else
+		t = xtables_find_target(name, XTF_TRY_LOAD);
 
-		load_extension(r->h, "standard");
-		return xtables_find_target(XT_STANDARD_TARGET, XTF_LOAD_MUST_SUCCEED);
-	}
-
-	t = xtables_find_target(name, XTF_DONT_LOAD);
-
-	if (!t && load_extension(r->h, name))
-		t = xtables_find_target(name, XTF_DONT_LOAD);
+	xext.retain = false;
 
 	return t;
 }
