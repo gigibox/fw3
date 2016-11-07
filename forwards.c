@@ -38,6 +38,7 @@ fw3_load_forwards(struct fw3_state *state, struct uci_package *p)
 	struct uci_section *s;
 	struct uci_element *e;
 	struct fw3_forward *forward;
+	bool changed;
 
 	INIT_LIST_HEAD(&state->forwards);
 
@@ -83,22 +84,34 @@ fw3_load_forwards(struct fw3_state *state, struct uci_package *p)
 			continue;
 		}
 
-		/* NB: forward family... */
-		if (forward->_dest)
-		{
-			fw3_setbit(forward->_dest->flags[0], FW3_FLAG_ACCEPT);
-			fw3_setbit(forward->_dest->flags[1], FW3_FLAG_ACCEPT);
-
-			if (forward->_src &&
-			    (forward->_src->conntrack || forward->_dest->conntrack))
-			{
-				forward->_src->conntrack = forward->_dest->conntrack = true;
-			}
-		}
-
 		list_add_tail(&forward->list, &state->forwards);
 		continue;
 	}
+
+	/* Propagate conntrack requirement flag into all zones connected through
+	   forwarding entries and repeat until all zones are normalized */
+	do {
+		changed = false;
+
+		list_for_each_entry(forward, &state->forwards, list)
+		{
+			/* NB: forward family... */
+			if (forward->_dest)
+			{
+				fw3_setbit(forward->_dest->flags[0], FW3_FLAG_ACCEPT);
+				fw3_setbit(forward->_dest->flags[1], FW3_FLAG_ACCEPT);
+
+				if (forward->_src &&
+				    (forward->_src->conntrack != forward->_dest->conntrack))
+				{
+					forward->_src->conntrack = true;
+					forward->_dest->conntrack = true;
+					changed = true;
+				}
+			}
+		}
+	}
+	while (changed);
 }
 
 
