@@ -278,7 +278,6 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 			else
 			{
 				set(redir->_src->flags, FW3_FAMILY_V4, redir->target);
-				redir->_src->conntrack = true;
 				valid = true;
 
 				if (!check_local(e, redir, state) && !redir->dest.set &&
@@ -309,7 +308,6 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 			else
 			{
 				set(redir->_dest->flags, FW3_FAMILY_V4, redir->target);
-				redir->_dest->conntrack = true;
 				valid = true;
 			}
 		}

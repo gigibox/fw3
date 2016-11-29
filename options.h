@@ -307,7 +307,6 @@ struct fw3_zone
 	struct list_head masq_src;
 	struct list_head masq_dest;
 
-	bool conntrack;
 	bool mtu_fix;
 
 	bool log;

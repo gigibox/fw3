@@ -73,7 +73,6 @@ const struct fw3_option fw3_zone_opts[] = {
 	FW3_OPT("extra_src",           string,   zone,     extra_src),
 	FW3_OPT("extra_dest",          string,   zone,     extra_dest),
 
-	FW3_OPT("conntrack",           bool,     zone,     conntrack),
 	FW3_OPT("mtu_fix",             bool,     zone,     mtu_fix),
 	FW3_OPT("custom_chains",       bool,     zone,     custom_chains),
 
@@ -217,7 +216,6 @@ fw3_load_zones(struct fw3_state *state, struct uci_package *p)
 		if (zone->masq)
 		{
 			fw3_setbit(zone->flags[0], FW3_FLAG_SNAT);
-			zone->conntrack = true;
 		}
 
 		if (zone->custom_chains)
@@ -267,9 +265,6 @@ print_zone_chain(struct fw3_ipt_handle *handle, struct fw3_state *state,
 
 	if (zone->custom_chains)
 		set(zone->flags, handle->family, FW3_FLAG_CUSTOM_CHAINS);
-
-	if (!zone->conntrack && !state->defaults.drop_invalid)
-		set(zone->flags, handle->family, FW3_FLAG_NOTRACK);
 
 	for (c = zone_chains; c->format; c++)
 	{
@@ -488,7 +483,6 @@ static void
 print_zone_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
                 bool reload, struct fw3_zone *zone)
 {
-	bool disable_notrack = state->defaults.drop_invalid;
 	bool first_src, first_dest;
 	struct fw3_address *msrc;
 	struct fw3_address *mdest;
@@ -620,15 +614,6 @@ print_zone_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 		break;
 
 	case FW3_TABLE_RAW:
-		if (!zone->conntrack && !disable_notrack)
-		{
-			r = fw3_ipt_rule_new(handle);
-			fw3_ipt_rule_target(r, "CT");
-			fw3_ipt_rule_addarg(r, false, "--notrack", NULL);
-			fw3_ipt_rule_append(r, "zone_%s_notrack", zone->name);
-		}
-		break;
-
 	case FW3_TABLE_MANGLE:
 		break;
 	}

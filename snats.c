@@ -252,10 +252,7 @@ fw3_load_snats(struct fw3_state *state, struct uci_package *p, struct blob_attr 
 		}
 
 		if (snat->_src)
-		{
 			set(snat->_src->flags, FW3_FAMILY_V4, FW3_FLAG_SNAT);
-			snat->_src->conntrack = true;
-		}
 	}
 }
 

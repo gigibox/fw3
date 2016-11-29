@@ -463,11 +463,6 @@ write_zone_uci(struct uci_context *ctx, struct fw3_zone *z,
 	uci_set(ctx, &ptr);
 
 	ptr.o      = NULL;
-	ptr.option = "conntrack";
-	ptr.value  = z->conntrack ? "1" : "0";
-	uci_set(ctx, &ptr);
-
-	ptr.o      = NULL;
 	ptr.option = "mtu_fix";
 	ptr.value  = z->mtu_fix ? "1" : "0";
 	uci_set(ctx, &ptr);
