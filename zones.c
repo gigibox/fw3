@@ -357,11 +357,6 @@ print_interface_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 				r = fw3_ipt_rule_create(handle, NULL, NULL, dev, NULL, sub);
 				fw3_ipt_rule_target(r, jump_target(t));
 				fw3_ipt_rule_extra(r, zone->extra_dest);
-
-				if (t == FW3_FLAG_ACCEPT && !state->defaults.drop_invalid)
-					fw3_ipt_rule_extra(r,
-					                   "-m conntrack --ctstate NEW,UNTRACKED");
-
 				fw3_ipt_rule_replace(r, "zone_%s_dest_%s", zone->name,
 				                     fw3_flag_names[t]);
 			}
