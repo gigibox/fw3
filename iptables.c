@@ -43,7 +43,7 @@
 #include "options.h"
 
 /* xtables interface */
-#if (XTABLES_VERSION_CODE == 10 || XTABLES_VERSION_CODE == 11)
+#if (XTABLES_VERSION_CODE >= 10)
 # include "xtables-10.h"
 #elif (XTABLES_VERSION_CODE == 5)
 # include "xtables-5.h"
