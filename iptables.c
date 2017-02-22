@@ -1019,8 +1019,8 @@ fw3_ipt_rule_time(struct fw3_ipt_rule *r, struct fw3_time *time)
 
 	fw3_ipt_rule_addarg(r, false, "-m", "time");
 
-	if (time->utc)
-		fw3_ipt_rule_addarg(r, false, "--utc", NULL);
+	if (!time->utc)
+		fw3_ipt_rule_addarg(r, false, "--kerneltz", NULL);
 
 	if (d1)
 	{
