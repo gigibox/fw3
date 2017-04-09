@@ -66,6 +66,7 @@ const struct fw3_option fw3_zone_opts[] = {
 	FW3_OPT("output",              target,   zone,     policy_output),
 
 	FW3_OPT("masq",                bool,     zone,     masq),
+	FW3_OPT("masq_allow_invalid",  bool,     zone,     masq_allow_invalid),
 	FW3_LIST("masq_src",           network,  zone,     masq_src),
 	FW3_LIST("masq_dest",          network,  zone,     masq_dest),
 
@@ -354,6 +355,17 @@ print_interface_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 
 			if (has(zone->flags, handle->family, t))
 			{
+				if (t == FW3_FLAG_ACCEPT &&
+				    zone->masq && !zone->masq_allow_invalid)
+				{
+					r = fw3_ipt_rule_create(handle, NULL, NULL, dev, NULL, sub);
+					fw3_ipt_rule_extra(r, "-m conntrack --ctstate INVALID");
+					fw3_ipt_rule_comment(r, "Prevent NAT leakage");
+					fw3_ipt_rule_target(r, fw3_flag_names[FW3_FLAG_DROP]);
+					fw3_ipt_rule_replace(r, "zone_%s_dest_%s", zone->name,
+					                     fw3_flag_names[t]);
+				}
+
 				r = fw3_ipt_rule_create(handle, NULL, NULL, dev, NULL, sub);
 				fw3_ipt_rule_target(r, jump_target(t));
 				fw3_ipt_rule_extra(r, zone->extra_dest);

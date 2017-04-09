@@ -304,6 +304,7 @@ struct fw3_zone
 	const char *extra_dest;
 
 	bool masq;
+	bool masq_allow_invalid;
 	struct list_head masq_src;
 	struct list_head masq_dest;
 
