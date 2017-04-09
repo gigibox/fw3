@@ -96,13 +96,121 @@ alloc_rule(struct fw3_state *state)
 	return rule;
 }
 
+#define warn_rule(r, e, fmt, ...)									\
+	do {															\
+		if (e)														\
+			warn_elem(e, fmt, ##__VA_ARGS__);						\
+		else														\
+			warn("Warning: ubus rule (%s) " fmt, 					\
+			     (r && r->name) ? r->name : "?", ##__VA_ARGS__);	\
+	} while(0)
+
+static bool
+check_rule(struct fw3_state *state, struct fw3_rule *r, struct uci_element *e)
+{
+	if (!r->enabled)
+		return false;
+
+	if (r->src.invert || r->dest.invert)
+	{
+		warn_rule(r, e, "must not have inverted 'src' or 'dest' options");
+		return false;
+	}
+	else if (r->src.set && !r->src.any &&
+	         !(r->_src = fw3_lookup_zone(state, r->src.name)))
+	{
+		warn_rule(r, e, "refers to not existing zone '%s'", r->src.name);
+		return false;
+	}
+	else if (r->dest.set && !r->dest.any &&
+	         !(r->_dest = fw3_lookup_zone(state, r->dest.name)))
+	{
+		warn_rule(r, e, "refers to not existing zone '%s'", r->dest.name);
+		return false;
+	}
+	else if (r->ipset.set && state->disable_ipsets)
+	{
+		warn_rule(r, e, "skipped due to disabled ipset support");
+		return false;
+	}
+	else if (r->ipset.set &&
+	         !(r->ipset.ptr = fw3_lookup_ipset(state, r->ipset.name)))
+	{
+		warn_rule(r, e, "refers to unknown ipset '%s'", r->ipset.name);
+		return false;
+	}
+
+	if (!r->_src && r->target == FW3_FLAG_NOTRACK)
+	{
+		warn_rule(r, e, "is set to target NOTRACK but has no source assigned");
+		return false;
+	}
+
+	if (!r->set_mark.set && !r->set_xmark.set &&
+	    r->target == FW3_FLAG_MARK)
+	{
+		warn_rule(r, e, "is set to target MARK but specifies neither "
+		                "'set_mark' nor 'set_xmark' option");
+		return false;
+	}
+
+	if (r->_dest && r->target == FW3_FLAG_MARK)
+	{
+		warn_rule(r, e, "must not specify 'dest' for MARK target");
+		return false;
+	}
+
+	if (r->set_mark.invert || r->set_xmark.invert)
+	{
+		warn_rule(r, e, "must not have inverted 'set_mark' or 'set_xmark'");
+		return false;
+	}
+
+	if (!r->_src && !r->_dest && !r->src.any && !r->dest.any)
+	{
+		warn_rule(r, e, "has neither a source nor a destination zone assigned "
+		                "- assuming an output r");
+	}
+
+	if (list_empty(&r->proto))
+	{
+		warn_rule(r, e, "does not specify a protocol, assuming TCP+UDP");
+		fw3_parse_protocol(&r->proto, "tcpudp", true);
+	}
+
+	if (r->target == FW3_FLAG_UNSPEC)
+	{
+		warn_rule(r, e, "has no target specified, defaulting to REJECT");
+		r->target = FW3_FLAG_REJECT;
+	}
+	else if (r->target > FW3_FLAG_MARK)
+	{
+		warn_rule(r, e, "has invalid target specified, defaulting to REJECT");
+		r->target = FW3_FLAG_REJECT;
+	}
+
+	/* NB: r family... */
+	if (r->_dest)
+	{
+		fw3_setbit(r->_dest->flags[0], r->target);
+		fw3_setbit(r->_dest->flags[1], r->target);
+	}
+	else if (need_src_action_chain(r))
+	{
+		fw3_setbit(r->_src->flags[0], fw3_to_src_target(r->target));
+		fw3_setbit(r->_src->flags[1], fw3_to_src_target(r->target));
+	}
+
+	return true;
+}
+
 void
 fw3_load_rules(struct fw3_state *state, struct uci_package *p,
 		struct blob_attr *a)
 {
 	struct uci_section *s;
 	struct uci_element *e;
-	struct fw3_rule *rule, *n;
+	struct fw3_rule *rule;
 	struct blob_attr *entry, *opt;
 	unsigned rem, orem;
 
@@ -125,10 +233,13 @@ fw3_load_rules(struct fw3_state *state, struct uci_package *p,
 
 		if (!fw3_parse_blob_options(rule, fw3_rule_opts, entry, name))
 		{
-			fprintf(stderr, "%s skipped due to invalid options\n", name);
+			warn_rule(rule, NULL, "skipped due to invalid options\n");
 			fw3_free_rule(rule);
 			continue;
 		}
+
+		if (!check_rule(state, rule, NULL))
+			fw3_free_rule(rule);
 	}
 
 	uci_foreach_element(&p->sections, e)
@@ -147,114 +258,9 @@ fw3_load_rules(struct fw3_state *state, struct uci_package *p,
 			fw3_free_rule(rule);
 			continue;
 		}
-	}
 
-	list_for_each_entry_safe(rule, n, &state->rules, list)
-	{
-		if (!rule->enabled)
-		{
+		if (!check_rule(state, rule, e))
 			fw3_free_rule(rule);
-			continue;
-		}
-
-		if (rule->src.invert || rule->dest.invert)
-		{
-			warn_elem(e, "must not have inverted 'src' or 'dest' options");
-			fw3_free_rule(rule);
-			continue;
-		}
-		else if (rule->src.set && !rule->src.any &&
-		         !(rule->_src = fw3_lookup_zone(state, rule->src.name)))
-		{
-			warn_elem(e, "refers to not existing zone '%s'", rule->src.name);
-			fw3_free_rule(rule);
-			continue;
-		}
-		else if (rule->dest.set && !rule->dest.any &&
-		         !(rule->_dest = fw3_lookup_zone(state, rule->dest.name)))
-		{
-			warn_elem(e, "refers to not existing zone '%s'", rule->dest.name);
-			fw3_free_rule(rule);
-			continue;
-		}
-		else if (rule->ipset.set && state->disable_ipsets)
-		{
-			warn_elem(e, "skipped due to disabled ipset support");
-			fw3_free_rule(rule);
-			continue;
-		}
-		else if (rule->ipset.set &&
-		         !(rule->ipset.ptr = fw3_lookup_ipset(state, rule->ipset.name)))
-		{
-			warn_elem(e, "refers to unknown ipset '%s'", rule->ipset.name);
-			fw3_free_rule(rule);
-			continue;
-		}
-
-		if (!rule->_src && rule->target == FW3_FLAG_NOTRACK)
-		{
-			warn_elem(e, "is set to target NOTRACK but has no source assigned");
-			fw3_free_rule(rule);
-			continue;
-		}
-
-		if (!rule->set_mark.set && !rule->set_xmark.set &&
-		    rule->target == FW3_FLAG_MARK)
-		{
-			warn_elem(e, "is set to target MARK but specifies neither "
-			             "'set_mark' nor 'set_xmark' option");
-			fw3_free_rule(rule);
-			continue;
-		}
-
-		if (rule->_dest && rule->target == FW3_FLAG_MARK)
-		{
-			warn_elem(e, "must not specify 'dest' for MARK target");
-			fw3_free_rule(rule);
-			continue;
-		}
-
-		if (rule->set_mark.invert || rule->set_xmark.invert)
-		{
-			warn_elem(e, "must not have inverted 'set_mark' or 'set_xmark'");
-			fw3_free_rule(rule);
-			continue;
-		}
-
-		if (!rule->_src && !rule->_dest && !rule->src.any && !rule->dest.any)
-		{
-			warn_elem(e, "has neither a source nor a destination zone assigned "
-			             "- assuming an output rule");
-		}
-
-		if (list_empty(&rule->proto))
-		{
-			warn_elem(e, "does not specify a protocol, assuming TCP+UDP");
-			fw3_parse_protocol(&rule->proto, "tcpudp", true);
-		}
-
-		if (rule->target == FW3_FLAG_UNSPEC)
-		{
-			warn_elem(e, "has no target specified, defaulting to REJECT");
-			rule->target = FW3_FLAG_REJECT;
-		}
-		else if (rule->target > FW3_FLAG_MARK)
-		{
-			warn_elem(e, "has invalid target specified, defaulting to REJECT");
-			rule->target = FW3_FLAG_REJECT;
-		}
-
-		/* NB: rule family... */
-		if (rule->_dest)
-		{
-			fw3_setbit(rule->_dest->flags[0], rule->target);
-			fw3_setbit(rule->_dest->flags[1], rule->target);
-		}
-		else if (need_src_action_chain(rule))
-		{
-			fw3_setbit(rule->_src->flags[0], fw3_to_src_target(rule->target));
-			fw3_setbit(rule->_src->flags[1], fw3_to_src_target(rule->target));
-		}
 	}
 }
 
