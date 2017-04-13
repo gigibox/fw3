@@ -259,9 +259,9 @@ fw3_ubus_rules(struct blob_buf *b)
 			if (!strcmp(blobmsg_name(cur), "l3_device"))
 				l3_device = blobmsg_get_string(cur);
 			else if (!strcmp(blobmsg_name(cur), "interface"))
-				iface_proto = blobmsg_get_string(cur);
-			else if (!strcmp(blobmsg_name(cur), "proto"))
 				iface_name = blobmsg_get_string(cur);
+			else if (!strcmp(blobmsg_name(cur), "proto"))
+				iface_proto = blobmsg_get_string(cur);
 			else if (!strcmp(blobmsg_name(cur), "data"))
 				data = cur;
 		}
