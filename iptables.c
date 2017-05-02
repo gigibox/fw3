@@ -40,6 +40,8 @@
 #include <libiptc/libip6tc.h>
 #include <xtables.h>
 
+#include <setjmp.h>
+
 #include "options.h"
 
 /* xtables interface */
@@ -78,10 +80,29 @@ static struct option base_opts[] = {
 	{ NULL }
 };
 
+
+static jmp_buf fw3_ipt_error_jmp;
+
+static __attribute__((noreturn))
+void fw3_ipt_error_handler(enum xtables_exittype status,
+                           const char *fmt, ...)
+{
+	va_list args;
+
+	fprintf(stderr, "     ! Exception: ");
+
+	va_start(args, fmt);
+	vfprintf(stderr, fmt, args);
+	va_end(args);
+
+	longjmp(fw3_ipt_error_jmp, status);
+}
+
 static struct xtables_globals xtg = {
 	.option_offset = 0,
 	.program_version = "4",
 	.orig_opts = base_opts,
+	.exit_err = fw3_ipt_error_handler,
 #if XTABLES_VERSION_CODE > 10
 	.compat_rev = xtables_compatible_revision,
 #endif
@@ -91,6 +112,7 @@ static struct xtables_globals xtg6 = {
 	.option_offset = 0,
 	.program_version = "6",
 	.orig_opts = base_opts,
+	.exit_err = fw3_ipt_error_handler,
 #if XTABLES_VERSION_CODE > 10
 	.compat_rev = xtables_compatible_revision,
 #endif
@@ -1524,6 +1546,8 @@ __fw3_ipt_rule_append(struct fw3_ipt_rule *r, bool repl, const char *fmt, ...)
 	struct xtables_target *et;
 	struct xtables_globals *g;
 
+	enum xtables_exittype status;
+
 	int i, optc;
 	bool inv = false;
 	char buf[32];
@@ -1538,6 +1562,14 @@ __fw3_ipt_rule_append(struct fw3_ipt_rule *r, bool repl, const char *fmt, ...)
 
 	optind = 0;
 	opterr = 0;
+
+	status = setjmp(fw3_ipt_error_jmp);
+
+	if (status > 0)
+	{
+		info("     ! Skipping due to previous exception (code %u)", status);
+		goto free;
+	}
 
 	set_rule_tag(r);
 
