@@ -106,7 +106,7 @@ build_state(bool runtime)
 	fw3_load_rules(state, p, b.head);
 	fw3_load_redirects(state, p, b.head);
 	fw3_load_snats(state, p, b.head);
-	fw3_load_forwards(state, p);
+	fw3_load_forwards(state, p, b.head);
 	fw3_load_includes(state, p);
 
 	return true;

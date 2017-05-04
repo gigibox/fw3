@@ -31,15 +31,95 @@ const struct fw3_option fw3_forward_opts[] = {
 	{ }
 };
 
+static bool
+check_forward(struct fw3_state *state, struct fw3_forward *forward, struct uci_element *e)
+{
+	if (!forward->enabled)
+		return false;
+
+	if (forward->src.invert || forward->dest.invert)
+	{
+		warn_section("forward", forward, e, "must not have inverted 'src' or 'dest' options");
+		return false;
+	}
+	else if (forward->src.set && !forward->src.any &&
+		 !(forward->_src = fw3_lookup_zone(state, forward->src.name)))
+	{
+		warn_section("forward", forward, e, "refers to not existing zone '%s'",
+				forward->src.name);
+		return false;
+	}
+	else if (forward->dest.set && !forward->dest.any &&
+		 !(forward->_dest = fw3_lookup_zone(state, forward->dest.name)))
+	{
+		warn_section("forward", forward, e, "refers to not existing zone '%s'",
+				forward->dest.name);
+		return false;
+	}
+
+	/* NB: forward family... */
+	if (forward->_dest)
+	{
+		fw3_setbit(forward->_dest->flags[0], FW3_FLAG_ACCEPT);
+		fw3_setbit(forward->_dest->flags[1], FW3_FLAG_ACCEPT);
+	}
+
+	return true;
+}
+
+static struct fw3_forward *
+fw3_alloc_forward(struct fw3_state *state)
+{
+	struct fw3_forward *forward;
+
+	forward = calloc(1, sizeof(*forward));
+	if (!forward)
+		return NULL;
+
+	forward->enabled = true;
+
+	list_add_tail(&forward->list, &state->forwards);
+
+	return forward;
+}
 
 void
-fw3_load_forwards(struct fw3_state *state, struct uci_package *p)
+fw3_load_forwards(struct fw3_state *state, struct uci_package *p,
+		struct blob_attr *a)
 {
 	struct uci_section *s;
 	struct uci_element *e;
 	struct fw3_forward *forward;
+	struct blob_attr *entry;
+	unsigned rem;
 
 	INIT_LIST_HEAD(&state->forwards);
+
+	blob_for_each_attr(entry, a, rem)
+	{
+		const char *type;
+		const char *name = "ubus forward";
+
+		if (!fw3_attr_parse_name_type(entry, &name, &type))
+			continue;
+
+		if (strcmp(type, "forwarding"))
+			continue;
+
+		forward = fw3_alloc_forward(state);
+		if (!forward)
+			continue;
+
+		if (!fw3_parse_blob_options(forward, fw3_forward_opts, entry, name))
+		{
+			warn_section("forward", forward, NULL, "skipped due to invalid options");
+			fw3_free_forward(forward);
+			continue;
+		}
+
+		if (!check_forward(state, forward, NULL))
+			fw3_free_forward(forward);
+	}
 
 	uci_foreach_element(&p->sections, e)
 	{
@@ -48,54 +128,15 @@ fw3_load_forwards(struct fw3_state *state, struct uci_package *p)
 		if (strcmp(s->type, "forwarding"))
 			continue;
 
-		forward = calloc(1, sizeof(*forward));
+		forward = fw3_alloc_forward(state);
 		if (!forward)
 			continue;
-
-		forward->enabled = true;
 
 		if (!fw3_parse_options(forward, fw3_forward_opts, s))
 			warn_elem(e, "has invalid options");
 
-		if (!forward->enabled)
-		{
+		if (!check_forward(state, forward, e))
 			fw3_free_forward(forward);
-			continue;
-		}
-
-		if (forward->src.invert || forward->dest.invert)
-		{
-			warn_elem(e, "must not have inverted 'src' or 'dest' options");
-			fw3_free_forward(forward);
-			continue;
-		}
-		else if (forward->src.set && !forward->src.any &&
-		         !(forward->_src = fw3_lookup_zone(state, forward->src.name)))
-		{
-			warn_elem(e, "refers to not existing zone '%s'", forward->src.name);
-			fw3_free_forward(forward);
-			continue;
-		}
-		else if (forward->dest.set && !forward->dest.any &&
-		         !(forward->_dest = fw3_lookup_zone(state, forward->dest.name)))
-		{
-			warn_elem(e, "refers to not existing zone '%s'", forward->dest.name);
-			fw3_free_forward(forward);
-			continue;
-		}
-
-		list_add_tail(&forward->list, &state->forwards);
-		continue;
-	}
-
-	list_for_each_entry(forward, &state->forwards, list)
-	{
-		/* NB: forward family... */
-		if (forward->_dest)
-		{
-			fw3_setbit(forward->_dest->flags[0], FW3_FLAG_ACCEPT);
-			fw3_setbit(forward->_dest->flags[1], FW3_FLAG_ACCEPT);
-		}
 	}
 }
 
