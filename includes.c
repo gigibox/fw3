@@ -30,15 +30,78 @@ const struct fw3_option fw3_include_opts[] = {
 	{ }
 };
 
+static bool
+check_include(struct fw3_state *state, struct fw3_include *include, struct uci_element *e)
+{
+	if (!include->enabled)
+		return false;
+
+	if (!include->path)
+	{
+		warn_section("include", include, e, "must specify a path");
+		return false;
+	}
+
+	if (include->type == FW3_INC_TYPE_RESTORE && !include->family)
+		warn_section("include", include, e, "does not specify a family, include will get"
+				"loaded with both iptables-restore and ip6tables-restore!");
+
+	return true;
+}
+
+static struct fw3_include *
+fw3_alloc_include(struct fw3_state *state)
+{
+	struct fw3_include *include;
+
+	include = calloc(1, sizeof(*include));
+	if (!include)
+		return NULL;
+
+	include->enabled = true;
+
+	list_add_tail(&include->list, &state->includes);
+
+	return include;
+}
 
 void
-fw3_load_includes(struct fw3_state *state, struct uci_package *p)
+fw3_load_includes(struct fw3_state *state, struct uci_package *p,
+		struct blob_attr *a)
 {
 	struct uci_section *s;
 	struct uci_element *e;
 	struct fw3_include *include;
+	struct blob_attr *entry;
+	unsigned rem;
 
 	INIT_LIST_HEAD(&state->includes);
+
+	blob_for_each_attr(entry, a, rem)
+	{
+		const char *type;
+		const char *name = "ubus include";
+
+		if (!fw3_attr_parse_name_type(entry, &name, &type))
+			continue;
+
+		if (strcmp(type, "script") && strcmp(type, "restore"))
+			continue;
+
+		include = fw3_alloc_include(state);
+		if (!include)
+			continue;
+
+		if (!fw3_parse_blob_options(include, fw3_include_opts, entry, name))
+		{
+			warn_section("include", include, NULL, "skipped due to invalid options");
+			fw3_free_include(include);
+			continue;
+		}
+
+		if (!check_include(state, include, NULL))
+			fw3_free_include(include);
+	}
 
 	uci_foreach_element(&p->sections, e)
 	{
@@ -47,35 +110,17 @@ fw3_load_includes(struct fw3_state *state, struct uci_package *p)
 		if (strcmp(s->type, "include"))
 			continue;
 
-		include = calloc(1, sizeof(*include));
+		include = fw3_alloc_include(state);
 		if (!include)
 			continue;
 
 		include->name = e->name;
-		include->enabled = true;
 
 		if (!fw3_parse_options(include, fw3_include_opts, s))
 			warn_elem(e, "has invalid options");
 
-		if (!include->enabled)
-		{
+		if (!check_include(state, include, e))
 			fw3_free_include(include);
-			continue;
-		}
-
-		if (!include->path)
-		{
-			warn_elem(e, "must specify a path");
-			fw3_free_include(include);
-			continue;
-		}
-
-		if (include->type == FW3_INC_TYPE_RESTORE && !include->family)
-			warn_elem(e, "does not specify a family, include will get loaded "
-			             "with both iptables-restore and ip6tables-restore!");
-
-		list_add_tail(&include->list, &state->includes);
-		continue;
 	}
 }
 

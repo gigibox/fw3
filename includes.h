@@ -24,14 +24,17 @@
 
 extern const struct fw3_option fw3_include_opts[];
 
-void fw3_load_includes(struct fw3_state *state, struct uci_package *p);
+void fw3_load_includes(struct fw3_state *state, struct uci_package *p, struct blob_attr *a);
 
 void fw3_print_includes(struct fw3_state *state, enum fw3_family family,
                         bool reload);
 
 void fw3_run_includes(struct fw3_state *state, bool reload);
 
-#define fw3_free_include(include) \
-	fw3_free_object(include, fw3_include_opts)
+static inline void fw3_free_include(struct fw3_include *include)
+{
+	list_del(&include->list);
+	fw3_free_object(include, fw3_include_opts);
+}
 
 #endif
