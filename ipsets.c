@@ -95,7 +95,7 @@ check_types(struct uci_element *e, struct fw3_ipset *ipset)
 	{
 		if (i >= 3)
 		{
-			warn_elem(e, "must not have more than 3 datatypes assigned");
+			warn_section("ipset", ipset, e, "must not have more than 3 datatypes assigned");
 			return false;
 		}
 
@@ -116,8 +116,8 @@ check_types(struct uci_element *e, struct fw3_ipset *ipset)
 			{
 				ipset->method = ipset_types[i].method;
 
-				warn_elem(e, "defines no storage method, assuming '%s'",
-				          fw3_ipset_method_names[ipset->method]);
+				warn_section("ipset", ipset, e, "defines no storage method, assuming '%s'",
+					fw3_ipset_method_names[ipset->method]);
 
 				break;
 			}
@@ -136,56 +136,56 @@ check_types(struct uci_element *e, struct fw3_ipset *ipset)
 				if ((ipset_types[i].required & OPT_IPRANGE) &&
 					!ipset->iprange.set)
 				{
-					warn_elem(e, "requires an ip range");
+					warn_section("ipset", ipset, e, "requires an ip range");
 					return false;
 				}
 
 				if ((ipset_types[i].required & OPT_PORTRANGE) &&
 				    !ipset->portrange.set)
 				{
-					warn_elem(e, "requires a port range");
+					warn_section("ipset", ipset, e, "requires a port range");
 					return false;
 				}
 
 				if (!(ipset_types[i].required & OPT_IPRANGE) &&
 				    ipset->iprange.set)
 				{
-					warn_elem(e, "iprange ignored");
+					warn_section("ipset", ipset, e, "iprange ignored");
 					ipset->iprange.set = false;
 				}
 
 				if (!(ipset_types[i].required & OPT_PORTRANGE) &&
 				    ipset->portrange.set)
 				{
-					warn_elem(e, "portrange ignored");
+					warn_section("ipset", ipset, e, "portrange ignored");
 					ipset->portrange.set = false;
 				}
 
 				if (!(ipset_types[i].optional & OPT_NETMASK) &&
 				    ipset->netmask > 0)
 				{
-					warn_elem(e, "netmask ignored");
+					warn_section("ipset", ipset, e, "netmask ignored");
 					ipset->netmask = 0;
 				}
 
 				if (!(ipset_types[i].optional & OPT_HASHSIZE) &&
 				    ipset->hashsize > 0)
 				{
-					warn_elem(e, "hashsize ignored");
+					warn_section("ipset", ipset, e, "hashsize ignored");
 					ipset->hashsize = 0;
 				}
 
 				if (!(ipset_types[i].optional & OPT_MAXELEM) &&
 				    ipset->maxelem > 0)
 				{
-					warn_elem(e, "maxelem ignored");
+					warn_section("ipset", ipset, e, "maxelem ignored");
 					ipset->maxelem = 0;
 				}
 
 				if (!(ipset_types[i].optional & OPT_FAMILY) &&
 				    ipset->family != FW3_FAMILY_V4)
 				{
-					warn_elem(e, "family ignored");
+					warn_section("ipset", ipset, e, "family ignored");
 					ipset->family = FW3_FAMILY_V4;
 				}
 			}
@@ -194,12 +194,51 @@ check_types(struct uci_element *e, struct fw3_ipset *ipset)
 		}
 	}
 
-	warn_elem(e, "has an invalid combination of storage method and matches");
+	warn_section("ipset", ipset, e, "has an invalid combination of storage method and matches");
 	return false;
 }
 
-struct fw3_ipset *
-fw3_alloc_ipset(void)
+static bool
+check_ipset(struct fw3_state *state, struct fw3_ipset *ipset, struct uci_element *e)
+{
+	if (ipset->external)
+	{
+		if (!*ipset->external)
+			ipset->external = NULL;
+		else if (!ipset->name)
+			ipset->name = ipset->external;
+	}
+
+	if (!ipset->name || !*ipset->name)
+	{
+		warn_section("ipset", ipset, e, "ipset must have a name assigned");
+	}
+	//else if (fw3_lookup_ipset(state, ipset->name) != NULL)
+	//{
+	//	warn_section("ipset", ipset, e, "has duplicated set name", ipset->name);
+	//}
+	else if (ipset->family == FW3_FAMILY_ANY)
+	{
+		warn_section("ipset", ipset, e, "must not have family 'any'");
+	}
+	else if (ipset->iprange.set && ipset->family != ipset->iprange.family)
+	{
+		warn_section("ipset", ipset, e, "has iprange of wrong address family");
+	}
+	else if (list_empty(&ipset->datatypes))
+	{
+		warn_section("ipset", ipset, e, "has no datatypes assigned");
+	}
+	else if (check_types(e, ipset))
+	{
+		return true;
+	}
+
+	return false;
+}
+
+static struct fw3_ipset *
+fw3_alloc_ipset(struct fw3_state *state)
 {
 	struct fw3_ipset *ipset;
 
@@ -212,20 +251,51 @@ fw3_alloc_ipset(void)
 	ipset->enabled = true;
 	ipset->family  = FW3_FAMILY_V4;
 
+	list_add_tail(&ipset->list, &state->ipsets);
+
 	return ipset;
 }
 
 void
-fw3_load_ipsets(struct fw3_state *state, struct uci_package *p)
+fw3_load_ipsets(struct fw3_state *state, struct uci_package *p,
+		struct blob_attr *a)
 {
 	struct uci_section *s;
 	struct uci_element *e;
 	struct fw3_ipset *ipset;
+	struct blob_attr *entry;
+	unsigned rem;
 
 	INIT_LIST_HEAD(&state->ipsets);
 
 	if (state->disable_ipsets)
 		return;
+
+	blob_for_each_attr(entry, a, rem)
+	{
+		const char *type;
+		const char *name = "ubus ipset";
+
+		if (!fw3_attr_parse_name_type(entry, &name, &type))
+			continue;
+
+		if (strcmp(type, "ipset"))
+			continue;
+
+		ipset = fw3_alloc_ipset(state);
+		if (!ipset)
+			continue;
+
+		if (!fw3_parse_blob_options(ipset, fw3_ipset_opts, entry, name))
+		{
+			warn_section("ipset", ipset, NULL, "skipped due to invalid options");
+			fw3_free_ipset(ipset);
+			continue;
+		}
+
+		if (!check_ipset(state, ipset, NULL))
+			fw3_free_ipset(ipset);
+	}
 
 	uci_foreach_element(&p->sections, e)
 	{
@@ -234,7 +304,7 @@ fw3_load_ipsets(struct fw3_state *state, struct uci_package *p)
 		if (strcmp(s->type, "ipset"))
 			continue;
 
-		ipset = fw3_alloc_ipset();
+		ipset = fw3_alloc_ipset(state);
 
 		if (!ipset)
 			continue;
@@ -242,41 +312,8 @@ fw3_load_ipsets(struct fw3_state *state, struct uci_package *p)
 		if (!fw3_parse_options(ipset, fw3_ipset_opts, s))
 			warn_elem(e, "has invalid options");
 
-		if (ipset->external)
-		{
-			if (!*ipset->external)
-				ipset->external = NULL;
-			else if (!ipset->name)
-				ipset->name = ipset->external;
-		}
-
-		if (!ipset->name || !*ipset->name)
-		{
-			warn_elem(e, "must have a name assigned");
-		}
-		//else if (fw3_lookup_ipset(state, ipset->name) != NULL)
-		//{
-		//	warn_elem(e, "has duplicated set name '%s'", ipset->name);
-		//}
-		else if (ipset->family == FW3_FAMILY_ANY)
-		{
-			warn_elem(e, "must not have family 'any'");
-		}
-		else if (ipset->iprange.set && ipset->family != ipset->iprange.family)
-		{
-			warn_elem(e, "has iprange of wrong address family");
-		}
-		else if (list_empty(&ipset->datatypes))
-		{
-			warn_elem(e, "has no datatypes assigned");
-		}
-		else if (check_types(e, ipset))
-		{
-			list_add_tail(&ipset->list, &state->ipsets);
-			continue;
-		}
-
-		fw3_free_ipset(ipset);
+		if (!check_ipset(state, ipset, e))
+			fw3_free_ipset(ipset);
 	}
 }
 

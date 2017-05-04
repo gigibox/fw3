@@ -101,7 +101,7 @@ build_state(bool runtime)
 	fw3_ubus_rules(&b);
 
 	fw3_load_defaults(state, p);
-	fw3_load_ipsets(state, p);
+	fw3_load_ipsets(state, p, b.head);
 	fw3_load_zones(state, p);
 	fw3_load_rules(state, p, b.head);
 	fw3_load_redirects(state, p, b.head);
