@@ -175,16 +175,180 @@ check_local(struct uci_element *e, struct fw3_redirect *redir,
 	return redir->local;
 }
 
+static bool
+check_redirect(struct fw3_state *state, struct fw3_redirect *redir, struct uci_element *e)
+{
+	bool valid;
+
+	if (!redir->enabled)
+		return false;
+
+	if (redir->src.invert)
+	{
+		warn_section("redirect", redir, e, "must not have an inverted source");
+		return false;
+	}
+	else if (redir->src.set && !redir->src.any &&
+			!(redir->_src = fw3_lookup_zone(state, redir->src.name)))
+	{
+		warn_section("redirect", redir, e, "refers to not existing zone '%s'",
+				redir->src.name);
+		return false;
+	}
+	else if (redir->dest.set && !redir->dest.any &&
+			!(redir->_dest = fw3_lookup_zone(state, redir->dest.name)))
+	{
+		warn_section("redirect", redir, e, "refers to not existing zone '%s'",
+				redir->dest.name);
+		return false;
+	}
+	else if (redir->ipset.set && state->disable_ipsets)
+	{
+		warn_section("redirect", redir, e, "skipped due to disabled ipset support",
+				redir->name);
+		return false;
+	}
+	else if (redir->ipset.set &&
+			!(redir->ipset.ptr = fw3_lookup_ipset(state, redir->ipset.name)))
+	{
+		warn_section("redirect", redir, e, "refers to unknown ipset '%s'", redir->name,
+				redir->ipset.name);
+		return false;
+	}
+
+	if (!check_families(e, redir))
+		return false;
+
+	if (redir->target == FW3_FLAG_UNSPEC)
+	{
+		warn_section("redirect", redir, e, "has no target specified, defaulting to DNAT");
+		redir->target = FW3_FLAG_DNAT;
+	}
+	else if (redir->target < FW3_FLAG_DNAT || redir->target > FW3_FLAG_SNAT)
+	{
+		warn_section("redirect", redir, e, "has invalid target specified, defaulting to DNAT");
+		redir->target = FW3_FLAG_DNAT;
+	}
+
+	valid = false;
+
+	if (redir->target == FW3_FLAG_DNAT)
+	{
+		if (redir->src.any)
+			warn_section("redirect", redir, e, "must not have source '*' for DNAT target");
+		else if (!redir->_src)
+			warn_section("redirect", redir, e, "has no source specified");
+		else
+		{
+			set(redir->_src->flags, FW3_FAMILY_V4, redir->target);
+			valid = true;
+
+			if (!check_local(e, redir, state) && !redir->dest.set &&
+					resolve_dest(e, redir, state))
+			{
+				warn_section("redirect", redir, e,
+						"does not specify a destination, assuming '%s'",
+						redir->dest.name);
+			}
+
+			if (redir->reflection && redir->_dest && redir->_src->masq)
+			{
+				set(redir->_dest->flags, FW3_FAMILY_V4, FW3_FLAG_ACCEPT);
+				set(redir->_dest->flags, FW3_FAMILY_V4, FW3_FLAG_DNAT);
+				set(redir->_dest->flags, FW3_FAMILY_V4, FW3_FLAG_SNAT);
+			}
+		}
+	}
+	else
+	{
+		if (redir->dest.any)
+			warn_section("redirect", redir, e,
+					"must not have destination '*' for SNAT target");
+		else if (!redir->_dest)
+			warn_section("redirect", redir, e, "has no destination specified");
+		else if (!redir->ip_dest.set)
+			warn_section("redirect", redir, e, "has no src_dip option specified");
+		else if (!list_empty(&redir->mac_src))
+			warn_section("redirect", redir, e, "must not use 'src_mac' option for SNAT target");
+		else
+		{
+			set(redir->_dest->flags, FW3_FAMILY_V4, redir->target);
+			valid = true;
+		}
+	}
+
+	if (list_empty(&redir->proto))
+	{
+		warn_section("redirect", redir, e, "does not specify a protocol, assuming TCP+UDP");
+		fw3_parse_protocol(&redir->proto, "tcpudp", true);
+	}
+
+	if (!valid)
+		return false;
+
+	if (!redir->port_redir.set)
+		redir->port_redir = redir->port_dest;
+
+	return true;
+}
+
+static struct fw3_redirect *
+fw3_alloc_redirect(struct fw3_state *state)
+{
+	struct fw3_redirect *redir;
+
+	redir = calloc(1, sizeof(*redir));
+	if (!redir)
+		return NULL;
+
+	INIT_LIST_HEAD(&redir->proto);
+	INIT_LIST_HEAD(&redir->mac_src);
+
+	redir->enabled = true;
+	redir->reflection = true;
+
+	list_add_tail(&redir->list, &state->redirects);
+
+	return redir;
+}
+
 void
-fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
+fw3_load_redirects(struct fw3_state *state, struct uci_package *p,
+		struct blob_attr *a)
 {
 	struct uci_section *s;
 	struct uci_element *e;
 	struct fw3_redirect *redir;
-
-	bool valid;
+	struct blob_attr *entry;
+	unsigned rem;
 
 	INIT_LIST_HEAD(&state->redirects);
+
+	blob_for_each_attr(entry, a, rem)
+	{
+		const char *type;
+		const char *name = "ubus redirect";
+
+		if (!fw3_attr_parse_name_type(entry, &name, &type))
+			continue;
+
+		if (strcmp(type, "redirect"))
+			continue;
+
+		redir = fw3_alloc_redirect(state);
+		if (!redir)
+			continue;
+
+		if (!fw3_parse_blob_options(redir, fw3_redirect_opts, entry, name))
+		{
+			warn_section("redirect", redir, NULL, "skipped due to invalid options");
+			fw3_free_redirect(redir);
+			continue;
+		}
+
+		if (!check_redirect(state, redir, NULL))
+			fw3_free_redirect(redir);
+	}
 
 	uci_foreach_element(&p->sections, e)
 	{
@@ -193,17 +357,9 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 		if (strcmp(s->type, "redirect"))
 			continue;
 
-		redir = calloc(1, sizeof(*redir));
+		redir = fw3_alloc_redirect(state);
 		if (!redir)
 			continue;
-
-		INIT_LIST_HEAD(&redir->proto);
-		INIT_LIST_HEAD(&redir->mac_src);
-
-		redir->enabled = true;
-		redir->reflection = true;
-
-		valid = false;
 
 		if (!fw3_parse_options(redir, fw3_redirect_opts, s))
 		{
@@ -212,122 +368,8 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p)
 			continue;
 		}
 
-		if (!redir->enabled)
-		{
+		if (!check_redirect(state, redir, e))
 			fw3_free_redirect(redir);
-			continue;
-		}
-
-		if (redir->src.invert)
-		{
-			warn_elem(e, "must not have an inverted source");
-			fw3_free_redirect(redir);
-			continue;
-		}
-		else if (redir->src.set && !redir->src.any &&
-		         !(redir->_src = fw3_lookup_zone(state, redir->src.name)))
-		{
-			warn_elem(e, "refers to not existing zone '%s'", redir->src.name);
-			fw3_free_redirect(redir);
-			continue;
-		}
-		else if (redir->dest.set && !redir->dest.any &&
-		         !(redir->_dest = fw3_lookup_zone(state, redir->dest.name)))
-		{
-			warn_elem(e, "refers to not existing zone '%s'", redir->dest.name);
-			fw3_free_redirect(redir);
-			continue;
-		}
-		else if (redir->ipset.set && state->disable_ipsets)
-		{
-			warn_elem(e, "skipped due to disabled ipset support");
-			fw3_free_redirect(redir);
-			continue;
-		}
-		else if (redir->ipset.set &&
-		         !(redir->ipset.ptr = fw3_lookup_ipset(state, redir->ipset.name)))
-		{
-			warn_elem(e, "refers to unknown ipset '%s'", redir->ipset.name);
-			fw3_free_redirect(redir);
-			continue;
-		}
-
-		if (!check_families(e, redir))
-		{
-			fw3_free_redirect(redir);
-			continue;
-		}
-
-		if (redir->target == FW3_FLAG_UNSPEC)
-		{
-			warn_elem(e, "has no target specified, defaulting to DNAT");
-			redir->target = FW3_FLAG_DNAT;
-		}
-		else if (redir->target < FW3_FLAG_DNAT || redir->target > FW3_FLAG_SNAT)
-		{
-			warn_elem(e, "has invalid target specified, defaulting to DNAT");
-			redir->target = FW3_FLAG_DNAT;
-		}
-
-		if (redir->target == FW3_FLAG_DNAT)
-		{
-			if (redir->src.any)
-				warn_elem(e, "must not have source '*' for DNAT target");
-			else if (!redir->_src)
-				warn_elem(e, "has no source specified");
-			else
-			{
-				set(redir->_src->flags, FW3_FAMILY_V4, redir->target);
-				valid = true;
-
-				if (!check_local(e, redir, state) && !redir->dest.set &&
-				    resolve_dest(e, redir, state))
-				{
-					warn_elem(e, "does not specify a destination, assuming '%s'",
-					          redir->dest.name);
-				}
-
-				if (redir->reflection && redir->_dest && redir->_src->masq)
-				{
-					set(redir->_dest->flags, FW3_FAMILY_V4, FW3_FLAG_ACCEPT);
-					set(redir->_dest->flags, FW3_FAMILY_V4, FW3_FLAG_DNAT);
-					set(redir->_dest->flags, FW3_FAMILY_V4, FW3_FLAG_SNAT);
-				}
-			}
-		}
-		else
-		{
-			if (redir->dest.any)
-				warn_elem(e, "must not have destination '*' for SNAT target");
-			else if (!redir->_dest)
-				warn_elem(e, "has no destination specified");
-			else if (!redir->ip_dest.set)
-				warn_elem(e, "has no src_dip option specified");
-			else if (!list_empty(&redir->mac_src))
-				warn_elem(e, "must not use 'src_mac' option for SNAT target");
-			else
-			{
-				set(redir->_dest->flags, FW3_FAMILY_V4, redir->target);
-				valid = true;
-			}
-		}
-
-		if (list_empty(&redir->proto))
-		{
-			warn_elem(e, "does not specify a protocol, assuming TCP+UDP");
-			fw3_parse_protocol(&redir->proto, "tcpudp", true);
-		}
-
-		if (!valid)
-		{
-			fw3_free_redirect(redir);
-			continue;
-		}
-
-		if (!redir->port_redir.set)
-			redir->port_redir = redir->port_dest;
-
-		list_add_tail(&redir->list, &state->redirects);
 	}
 }
 

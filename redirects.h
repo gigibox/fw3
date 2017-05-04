@@ -27,11 +27,15 @@
 
 extern const struct fw3_option fw3_redirect_opts[];
 
-void fw3_load_redirects(struct fw3_state *state, struct uci_package *p);
+void fw3_load_redirects(struct fw3_state *state, struct uci_package *p,
+			struct blob_attr *a);
 void fw3_print_redirects(struct fw3_ipt_handle *handle,
                          struct fw3_state *state);
 
-#define fw3_free_redirect(redir) \
-	fw3_free_object(redir, fw3_redirect_opts)
+static inline void fw3_free_redirect(struct fw3_redirect *redir)
+{
+	list_del(&redir->list);
+	fw3_free_object(redir, fw3_redirect_opts);
+}
 
 #endif
