@@ -96,15 +96,6 @@ alloc_rule(struct fw3_state *state)
 	return rule;
 }
 
-#define warn_rule(r, e, fmt, ...)									\
-	do {															\
-		if (e)														\
-			warn_elem(e, fmt, ##__VA_ARGS__);						\
-		else														\
-			warn("Warning: ubus rule (%s) " fmt, 					\
-			     (r && r->name) ? r->name : "?", ##__VA_ARGS__);	\
-	} while(0)
-
 static bool
 check_rule(struct fw3_state *state, struct fw3_rule *r, struct uci_element *e)
 {
@@ -113,79 +104,79 @@ check_rule(struct fw3_state *state, struct fw3_rule *r, struct uci_element *e)
 
 	if (r->src.invert || r->dest.invert)
 	{
-		warn_rule(r, e, "must not have inverted 'src' or 'dest' options");
+		warn_section("rule", r, e, "must not have inverted 'src' or 'dest' options");
 		return false;
 	}
 	else if (r->src.set && !r->src.any &&
 	         !(r->_src = fw3_lookup_zone(state, r->src.name)))
 	{
-		warn_rule(r, e, "refers to not existing zone '%s'", r->src.name);
+		warn_section("rule", r, e, "refers to not existing zone '%s'", r->src.name);
 		return false;
 	}
 	else if (r->dest.set && !r->dest.any &&
 	         !(r->_dest = fw3_lookup_zone(state, r->dest.name)))
 	{
-		warn_rule(r, e, "refers to not existing zone '%s'", r->dest.name);
+		warn_section("rule", r, e, "refers to not existing zone '%s'", r->dest.name);
 		return false;
 	}
 	else if (r->ipset.set && state->disable_ipsets)
 	{
-		warn_rule(r, e, "skipped due to disabled ipset support");
+		warn_section("rule", r, e, "skipped due to disabled ipset support");
 		return false;
 	}
 	else if (r->ipset.set &&
 	         !(r->ipset.ptr = fw3_lookup_ipset(state, r->ipset.name)))
 	{
-		warn_rule(r, e, "refers to unknown ipset '%s'", r->ipset.name);
+		warn_section("rule", r, e, "refers to unknown ipset '%s'", r->ipset.name);
 		return false;
 	}
 
 	if (!r->_src && r->target == FW3_FLAG_NOTRACK)
 	{
-		warn_rule(r, e, "is set to target NOTRACK but has no source assigned");
+		warn_section("rule", r, e, "is set to target NOTRACK but has no source assigned");
 		return false;
 	}
 
 	if (!r->set_mark.set && !r->set_xmark.set &&
 	    r->target == FW3_FLAG_MARK)
 	{
-		warn_rule(r, e, "is set to target MARK but specifies neither "
+		warn_section("rule", r, e, "is set to target MARK but specifies neither "
 		                "'set_mark' nor 'set_xmark' option");
 		return false;
 	}
 
 	if (r->_dest && r->target == FW3_FLAG_MARK)
 	{
-		warn_rule(r, e, "must not specify 'dest' for MARK target");
+		warn_section("rule", r, e, "must not specify 'dest' for MARK target");
 		return false;
 	}
 
 	if (r->set_mark.invert || r->set_xmark.invert)
 	{
-		warn_rule(r, e, "must not have inverted 'set_mark' or 'set_xmark'");
+		warn_section("rule", r, e, "must not have inverted 'set_mark' or 'set_xmark'");
 		return false;
 	}
 
 	if (!r->_src && !r->_dest && !r->src.any && !r->dest.any)
 	{
-		warn_rule(r, e, "has neither a source nor a destination zone assigned "
+		warn_section("rule", r, e, "has neither a source nor a destination zone assigned "
 		                "- assuming an output r");
 	}
 
 	if (list_empty(&r->proto))
 	{
-		warn_rule(r, e, "does not specify a protocol, assuming TCP+UDP");
+		warn_section("rule", r, e, "does not specify a protocol, assuming TCP+UDP");
 		fw3_parse_protocol(&r->proto, "tcpudp", true);
 	}
 
 	if (r->target == FW3_FLAG_UNSPEC)
 	{
-		warn_rule(r, e, "has no target specified, defaulting to REJECT");
+		warn_section("rule", r, e, "has no target specified, defaulting to REJECT");
 		r->target = FW3_FLAG_REJECT;
 	}
 	else if (r->target > FW3_FLAG_MARK)
 	{
-		warn_rule(r, e, "has invalid target specified, defaulting to REJECT");
+		warn_section("rule", r, e, "has invalid target specified, defaulting to REJECT");
 		r->target = FW3_FLAG_REJECT;
 	}
 
@@ -233,7 +224,7 @@ fw3_load_rules(struct fw3_state *state, struct uci_package *p,
 
 		if (!fw3_parse_blob_options(rule, fw3_rule_opts, entry, name))
 		{
-			warn_rule(rule, NULL, "skipped due to invalid options\n");
+			warn_section("rule", rule, NULL, "skipped due to invalid options");
 			fw3_free_rule(rule);
 			continue;
 		}

@@ -46,6 +46,16 @@ void warn(const char *format, ...);
 void error(const char *format, ...);
 void info(const char *format, ...);
 
+
+#define warn_section(t, r, e, fmt, ...)					\
+	do {									\
+		if (e)								\
+			warn_elem(e, fmt, ##__VA_ARGS__);			\
+		else								\
+			warn("Warning: ubus " t " (%s) " fmt, 			\
+				(r && r->name) ? r->name : "?", ##__VA_ARGS__);	\
+	} while(0)
+
 #define fw3_setbit(field, flag) field |= (1 << (flag))
 #define fw3_delbit(field, flag) field &= ~(1 << (flag))
 #define fw3_hasbit(field, flag) (field & (1 << (flag)))
