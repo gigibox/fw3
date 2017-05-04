@@ -277,18 +277,23 @@ fw3_ubus_rules(struct blob_buf *b)
 
 			blobmsg_for_each_attr(rule, dcur, rrem) {
 				void *k = blobmsg_open_table(b, "");
-
-				snprintf(comment, sizeof(comment), "ubus:%s[%s] rule %d",
-				         iface_name, iface_proto, n++);
+				char *type = NULL;
 
 				blobmsg_for_each_attr(ropt, rule, orem) {
+					if (!strcmp(blobmsg_name(ropt), "type"))
+						type = blobmsg_data(ropt);
 					if (!strcmp(blobmsg_name(ropt), "device"))
 						l3_device = blobmsg_get_string(ropt);
 					else if (strcmp(blobmsg_name(ropt), "name"))
 						blobmsg_add_blob(b, ropt);
 				}
 
+				snprintf(comment, sizeof(comment), "ubus:%s[%s] %s %d",
+						iface_name, iface_proto,
+						type ? type : "rule", n++);
+
 				blobmsg_add_string(b, "name", comment);
+
 				blobmsg_add_string(b, "device", l3_device);
 				blobmsg_close_table(b, k);
 			}
@@ -317,13 +322,18 @@ fw3_ubus_rules(struct blob_buf *b)
 
 				blobmsg_for_each_attr(rule, dcur, rrem) {
 					void *k = blobmsg_open_table(b, "");
+					char *type = NULL;
 
-					snprintf(comment, sizeof(comment), "ubus:%s[%s] rule %d",
-					         blobmsg_name(c), blobmsg_name(cur), n++);
-
-					blobmsg_for_each_attr(ropt, rule, orem)
+					blobmsg_for_each_attr(ropt, rule, orem) {
+						if (!strcmp(blobmsg_name(ropt), "type"))
+							type = blobmsg_data(ropt);
 						if (strcmp(blobmsg_name(ropt), "name"))
 							blobmsg_add_blob(b, ropt);
+					}
+
+					snprintf(comment, sizeof(comment), "ubus:%s[%s] %s %d",
+							blobmsg_name(c), blobmsg_name(cur),
+							type ? type : "rule", n++);
 
 					blobmsg_add_string(b, "name", comment);
 					blobmsg_close_table(b, k);
