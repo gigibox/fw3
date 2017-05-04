@@ -54,7 +54,8 @@ fw3_load_forwards(struct fw3_state *state, struct uci_package *p)
 
 		forward->enabled = true;
 
-		fw3_parse_options(forward, fw3_forward_opts, s);
+		if (!fw3_parse_options(forward, fw3_forward_opts, s))
+			warn_elem(e, "has invalid options");
 
 		if (!forward->enabled)
 		{

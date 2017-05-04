@@ -171,7 +171,8 @@ fw3_load_zones(struct fw3_state *state, struct uci_package *p)
 		if (!zone)
 			continue;
 
-		fw3_parse_options(zone, fw3_zone_opts, s);
+		if (!fw3_parse_options(zone, fw3_zone_opts, s))
+			warn_elem(e, "has invalid options");
 
 		if (!zone->enabled)
 		{

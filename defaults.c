@@ -107,7 +107,8 @@ fw3_load_defaults(struct fw3_state *state, struct uci_package *p)
 			continue;
 		}
 
-		fw3_parse_options(&state->defaults, fw3_flag_opts, s);
+		if(!fw3_parse_options(&state->defaults, fw3_flag_opts, s))
+			warn_elem(e, "has invalid options");
 
 		check_policy(e, &defs->policy_input, "input");
 		check_policy(e, &defs->policy_output, "output");

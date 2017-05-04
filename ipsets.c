@@ -239,7 +239,8 @@ fw3_load_ipsets(struct fw3_state *state, struct uci_package *p)
 		if (!ipset)
 			continue;
 
-		fw3_parse_options(ipset, fw3_ipset_opts, s);
+		if (!fw3_parse_options(ipset, fw3_ipset_opts, s))
+			warn_elem(e, "has invalid options");
 
 		if (ipset->external)
 		{

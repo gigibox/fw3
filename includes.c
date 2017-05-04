@@ -54,7 +54,8 @@ fw3_load_includes(struct fw3_state *state, struct uci_package *p)
 		include->name = e->name;
 		include->enabled = true;
 
-		fw3_parse_options(include, fw3_include_opts, s);
+		if (!fw3_parse_options(include, fw3_include_opts, s))
+			warn_elem(e, "has invalid options");
 
 		if (!include->enabled)
 		{
