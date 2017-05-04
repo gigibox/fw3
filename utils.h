@@ -32,6 +32,7 @@
 #include <ifaddrs.h>
 
 #include <libubox/list.h>
+#include <libubox/blob.h>
 #include <uci.h>
 
 
@@ -112,5 +113,7 @@ int fw3_netmask2bitlen(int family, void *mask);
 bool fw3_bitlen2netmask(int family, int bits, void *mask);
 
 void fw3_flush_conntrack(void *zone);
+
+bool fw3_attr_parse_name_type(struct blob_attr *entry, const char **name, const char **type);
 
 #endif

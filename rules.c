@@ -202,21 +202,19 @@ fw3_load_rules(struct fw3_state *state, struct uci_package *p,
 	struct uci_section *s;
 	struct uci_element *e;
 	struct fw3_rule *rule;
-	struct blob_attr *entry, *opt;
-	unsigned rem, orem;
+	struct blob_attr *entry;
+	unsigned rem;
 
 	INIT_LIST_HEAD(&state->rules);
 
 	blob_for_each_attr(entry, a, rem) {
-		const char *type = NULL;
+		const char *type;
 		const char *name = "ubus rule";
-		blobmsg_for_each_attr(opt, entry, orem)
-			if (!strcmp(blobmsg_name(opt), "type"))
-				type = blobmsg_get_string(opt);
-			else if (!strcmp(blobmsg_name(opt), "name"))
-				name = blobmsg_get_string(opt);
 
-		if (!type || strcmp(type, "rule"))
+		if (!fw3_attr_parse_name_type(entry, &name, &type))
+			continue;
+
+		if (strcmp(type, "rule"))
 			continue;
 
 		if (!(rule = alloc_rule(state)))

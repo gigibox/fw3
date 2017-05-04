@@ -126,21 +126,19 @@ fw3_load_snats(struct fw3_state *state, struct uci_package *p, struct blob_attr 
 	struct uci_section *s;
 	struct uci_element *e;
 	struct fw3_snat *snat, *n;
-	struct blob_attr *rule, *opt;
+	struct blob_attr *entry, *opt;
 	unsigned rem, orem;
 
 	INIT_LIST_HEAD(&state->snats);
 
-	blob_for_each_attr(rule, a, rem) {
+	blob_for_each_attr(entry, a, rem) {
 		const char *type = NULL;
 		const char *name = "ubus rule";
-		blobmsg_for_each_attr(opt, rule, orem)
-			if (!strcmp(blobmsg_name(opt), "type"))
-				type = blobmsg_get_string(opt);
-			else if (!strcmp(blobmsg_name(opt), "name"))
-				name = blobmsg_get_string(opt);
 
-		if (!type || strcmp(type, "nat"))
+		if (!fw3_attr_parse_name_type(entry, &name, &type))
+			continue;
+
+		if (strcmp(type, "nat"))
 			continue;
 
 		if (!(snat = alloc_snat(state)))
@@ -148,7 +146,7 @@ fw3_load_snats(struct fw3_state *state, struct uci_package *p, struct blob_attr 
 
 		if (!fw3_parse_blob_options(snat, fw3_snat_opts, rule, name))
 		{
-			fprintf(stderr, "%s skipped due to invalid options\n", name);
+			warn_section("nat", snat, NULL, "skipped due to invalid options");
 			fw3_free_snat(snat);
 			continue;
 		}

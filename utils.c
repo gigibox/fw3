@@ -893,3 +893,22 @@ fw3_flush_conntrack(void *state)
 
 	freeifaddrs(ifaddr);
 }
+
+bool fw3_attr_parse_name_type(struct blob_attr *entry, const char **name, const char **type)
+{
+	struct blob_attr *opt;
+	unsigned orem;
+
+	if (!type || !name)
+		return false;
+
+	*type = NULL;
+
+	blobmsg_for_each_attr(opt, entry, orem)
+		if (!strcmp(blobmsg_name(opt), "type"))
+			*type = blobmsg_get_string(opt);
+		else if (!strcmp(blobmsg_name(opt), "name"))
+			*name = blobmsg_get_string(opt);
+
+	return *type != NULL ? true : false;
+}
