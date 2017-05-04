@@ -485,18 +485,21 @@ write_zone_uci(struct uci_context *ctx, struct fw3_zone *z,
 
 	fw3_foreach(dev, &z->devices)
 	{
+		char *ep;
+
 		if (!dev)
 			continue;
 
 		p = buf;
+		ep = buf + sizeof(buf);
 
 		if (dev->invert)
-			p += sprintf(p, "!");
+			p += snprintf(p, ep - p, "!");
 
 		if (*dev->network)
-			p += sprintf(p, "%s@%s", dev->name, dev->network);
+			p += snprintf(p, ep - p, "%s@%s", dev->name, dev->network);
 		else
-			p += sprintf(p, "%s", dev->name);
+			p += snprintf(p, ep - p, "%s", dev->name);
 
 		ptr.value = buf;
 		uci_add_list(ctx, &ptr);
