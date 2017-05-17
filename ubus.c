@@ -51,7 +51,7 @@ fw3_ubus_connect(void)
 	if (ubus_lookup_id(ctx, "network.interface", &id))
 		goto out;
 
-	if (ubus_invoke(ctx, id, "dump", NULL, dump_cb, NULL, 500))
+	if (ubus_invoke(ctx, id, "dump", NULL, dump_cb, NULL, 2000))
 		goto out;
 
 	status = true;
