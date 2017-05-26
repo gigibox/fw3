@@ -75,8 +75,12 @@ struct fw3_ipt_rule {
 };
 
 static struct option base_opts[] = {
-	{ .name = "match",  .has_arg = 1, .val = 'm' },
-	{ .name = "jump",   .has_arg = 1, .val = 'j' },
+	{ .name = "match",         .has_arg = 1, .val = 'm' },
+	{ .name = "jump",          .has_arg = 1, .val = 'j' },
+	{ .name = "in-interface",  .has_arg = 1, .val = 'i' },
+	{ .name = "out-interface", .has_arg = 1, .val = 'o' },
+	{ .name = "source",        .has_arg = 1, .val = 's' },
+	{ .name = "destination",   .has_arg = 1, .val = 'd' },
 	{ NULL }
 };
 
@@ -1546,6 +1550,9 @@ __fw3_ipt_rule_append(struct fw3_ipt_rule *r, bool repl, const char *fmt, ...)
 	struct xtables_target *et;
 	struct xtables_globals *g;
 
+	struct fw3_device dev;
+	struct fw3_address addr;
+
 	enum xtables_exittype status;
 
 	int i, optc;
@@ -1573,7 +1580,7 @@ __fw3_ipt_rule_append(struct fw3_ipt_rule *r, bool repl, const char *fmt, ...)
 
 	set_rule_tag(r);
 
-	while ((optc = getopt_long(r->argc, r->argv, "-:m:j:", g->opts,
+	while ((optc = getopt_long(r->argc, r->argv, "-:m:j:i:o:s:d:", g->opts,
 	                           NULL)) != -1)
 	{
 		switch (optc)
@@ -1599,6 +1606,34 @@ __fw3_ipt_rule_append(struct fw3_ipt_rule *r, bool repl, const char *fmt, ...)
 				goto free;
 			}
 
+			break;
+
+		case 'i':
+		case 'o':
+			if (!fw3_parse_device(&dev, optarg, false) ||
+			    dev.any || dev.invert || *dev.network)
+			{
+				warn("fw3_ipt_rule_append(): Bad argument '%s'", optarg);
+				goto free;
+			}
+
+			dev.invert = inv;
+			fw3_ipt_rule_in_out(r, (optc == 'i') ? &dev : NULL,
+			                       (optc == 'o') ? &dev : NULL);
+			break;
+
+		case 's':
+		case 'd':
+			if (!fw3_parse_address(&addr, optarg, false) ||
+			    addr.range || addr.invert)
+			{
+				warn("fw3_ipt_rule_append(): Bad argument '%s'", optarg);
+				goto free;
+			}
+
+			addr.invert = inv;
+			fw3_ipt_rule_src_dest(r, (optc == 's') ? &addr : NULL,
+			                         (optc == 'd') ? &addr : NULL);
 			break;
 
 		case 1:
