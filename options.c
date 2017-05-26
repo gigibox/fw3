@@ -891,7 +891,7 @@ fw3_parse_options(void *s, const struct fw3_option *opts,
                   struct uci_section *section)
 {
 	char *p, *v;
-	bool known;
+	bool known, inv;
 	struct uci_element *e, *l;
 	struct uci_option *o;
 	const struct fw3_option *opt;
@@ -953,16 +953,45 @@ fw3_parse_options(void *s, const struct fw3_option *opts,
 				}
 				else
 				{
+					inv = false;
 					dest = (struct list_head *)((char *)s + opt->offset);
 
 					for (p = strtok(v, " \t"); p != NULL; p = strtok(NULL, " \t"))
 					{
+						/* If we encounter a sole "!" token, assume that it
+						 * is meant to be part of the next token, so silently
+						 * skip it and remember the state... */
+						if (!strcmp(p, "!"))
+						{
+							inv = true;
+							continue;
+						}
+
+						/* The previous token was a sole "!", rewind pointer
+						 * back by one byte to precede the value with an
+						 * exclamation mark which effectively turns
+						 * ("!", "foo") into ("!foo") */
+						if (inv)
+						{
+							*--p = '!';
+							inv = false;
+						}
+
 						if (!opt->parse(dest, p, true))
 						{
 							warn_elem(e, "has invalid value '%s'", p);
 							valid = false;
 							continue;
 						}
+					}
+
+					/* The last token was a sole "!" without any subsequent
+					 * text, so pass it to the option parser as-is. */
+					if (inv && !opt->parse(dest, "!", true))
+					{
+						warn_elem(e, "has invalid value '%s'", p);
+						valid = false;
+						continue;
 					}
 				}
 			}
