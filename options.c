@@ -991,7 +991,6 @@ fw3_parse_options(void *s, const struct fw3_option *opts,
 					{
 						warn_elem(e, "has invalid value '%s'", p);
 						valid = false;
-						continue;
 					}
 				}
 			}
